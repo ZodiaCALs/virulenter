@@ -1,0 +1,20 @@
+.DS_Store
+# build output
+apk/app/build/
+apk/build/
+apk/.gradle/
+apk/local.properties
+
+# Provisioned toolchain and its caches (JDK, Gradle, Android SDK).
+# Fully regenerable: node tools/build-apk.mjs --provision
+# Reclaim space with:  node tools/clean.mjs
+.toolchain/
+
+# local signing overrides: never commit a real keystore or its password.
+# apk/keystore.properties and apk/virulenter-release.jks ARE committed on
+# purpose: the key is a public-password demo key, so a fresh clone can build a
+# signed, installable release with no setup. Replace both before publishing.
+apk/keystore.local.properties
+
+# scratch
+verify/shots/checks/

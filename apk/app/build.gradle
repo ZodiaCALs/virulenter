@@ -1,0 +1,89 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.virulenter.app'
+    compileSdk 35
+    /* Pinned so the build uses the revision the local SDK actually has,
+       instead of AGP's default (34.0.0) and an on-the-fly download. */
+    buildToolsVersion '35.0.0'
+
+    defaultConfig {
+        applicationId 'com.virulenter.app'
+        minSdk 24
+        targetSdk 35
+        /* Bumped for the session-persistence fix: Android only installs an
+           update whose versionCode is higher than what is already there, so an
+           APK built before the fix must be superseded rather than reissued. */
+        versionCode 2
+        versionName '1.0.1'
+    }
+
+    /* The web assets are synced in from app/ by tools/sync-android.mjs.
+       It already leaves sw.js out — the assets are local, so a service worker
+       would only duplicate them inside the WebView cache. */
+    sourceSets {
+        main {
+            assets.srcDirs = ['src/main/assets']
+        }
+    }
+
+    buildTypes {
+        debug {
+            applicationIdSuffix ''
+            minifyEnabled false
+        }
+        release {
+            minifyEnabled false
+            /* Signing is configured in apk/keystore.properties when present,
+               so a plain `gradle assembleRelease` still works without it. */
+            def propsFile = rootProject.file('keystore.properties')
+            if (propsFile.exists()) {
+                def props = new java.util.Properties()
+                propsFile.withInputStream { props.load(it) }
+                signingConfigs {
+                    release {
+                        storeFile rootProject.file(props.storeFile)
+                        storePassword props.storePassword
+                        keyAlias props.keyAlias
+                        keyPassword props.keyPassword
+                    }
+                }
+                signingConfig signingConfigs.release
+            }
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    packaging {
+        resources.excludes += ['META-INF/*.kotlin_module']
+    }
+
+    lint {
+        abortOnError false
+    }
+}
+
+dependencies {
+    implementation 'androidx.appcompat:appcompat:1.7.0'
+    implementation 'androidx.webkit:webkit:1.11.0'
+    implementation 'androidx.activity:activity:1.9.2'
+}
+
+/* Kotlin 1.8 merged the jdk7/jdk8 artifacts into kotlin-stdlib. AndroidX pulls
+   a mix of versions, and AGP treats the resulting overlap as duplicate classes,
+   so pin the three artifacts together. */
+configurations.configureEach {
+    resolutionStrategy.eachDependency { details ->
+        if (details.requested.group == 'org.jetbrains.kotlin' &&
+            details.requested.name.startsWith('kotlin-stdlib')) {
+            details.useVersion '1.8.22'
+            details.because 'align kotlin-stdlib with the merged jdk7/jdk8 artifacts'
+        }
+    }
+}

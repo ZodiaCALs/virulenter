@@ -1,0 +1,3894 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#ffffff">
+<meta name="description" content="Virulenter — tap to count, timestamped on a calendar. No account, no server, no browser storage: your whole log lives in the link.">
+<meta name="color-scheme" content="light">
+<title>Virulenter</title>
+<!-- Single-file build of tools/build.mjs. Source: app/ -->
+
+<!-- installable app -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Virulenter">
+<meta name="mobile-web-app-capable" content="yes">
+<style>
+/* ============================================================
+   Virulenter · base.css
+   Flat design tokens, app shell, typography, controls.
+   No blur, no gradients on surfaces, no animation loops.
+   ============================================================ */
+
+:root {
+  /* --font is replaced at runtime from the chosen typeface (js/app.js) */
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
+          Arial, "Noto Sans", sans-serif;
+  --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 16px;
+  --r-xl: 22px;
+
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --surface-2: #f1f3f6;
+  --surface-3: #e7eaef;
+  --border: #e3e6ec;
+  --border-strong: #d2d7e0;
+
+  --text: #11151c;
+  --text-2: #5b6472;
+  --text-3: #8b94a3;
+
+  /* --accent / --accent-ink / --accent-soft are replaced at runtime from the
+     chosen colour (js/app.js). The heat ramp below is derived from the accent
+     at runtime too, so a custom colour re-tints the whole app. */
+  --accent: #2f6bff;
+  --accent-ink: #ffffff;
+  --accent-soft: #eaf0ff;
+  --accent-hover: #2559e0;
+  --danger: #d92d4b;
+  --danger-soft: #fdecef;
+
+  --shadow-sm: 0 1px 2px rgba(16, 22, 34, .05);
+  --shadow-md: 0 2px 8px rgba(16, 22, 34, .07);
+
+  --topbar-h: 60px;
+  --tabbar-h: 64px;
+  --maxw: 680px;
+
+  /* activity heat levels — flat, single hue ramp */
+  --lv0: #eef0f4;
+  --lv1: #cfdcff;
+  --lv2: #9db9ff;
+  --lv3: #5f8bff;
+  --lv4: #2f6bff;
+
+  color-scheme: light;
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+html, body { height: 100%; }
+
+body {
+  margin: 0;
+  font-family: var(--font);
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--text);
+  background: var(--bg);
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, p, ul { margin: 0; }
+ul { padding: 0; list-style: none; }
+button, input, textarea, select { font: inherit; color: inherit; }
+button { border: 0; background: none; cursor: pointer; }
+a { color: var(--accent); }
+[hidden] { display: none !important; }
+
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+
+/* ── shell ─────────────────────────────────────────────── */
+.app {
+  min-height: 100%;
+  max-width: var(--maxw);
+  margin: 0 auto;
+  padding: calc(var(--topbar-h) + env(safe-area-inset-top, 0px) + 16px) 16px
+           calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px) + 32px);
+}
+
+.topbar {
+  position: fixed;
+  inset: calc(env(safe-area-inset-top, 0px) + 0px) 0 auto 0;
+  z-index: 40;
+  height: calc(var(--topbar-h) + env(safe-area-inset-top, 0px));
+  padding: env(safe-area-inset-top, 0px) 16px 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.brand-mark {
+  width: 30px; height: 30px; flex: none;
+  border-radius: 9px;
+  overflow: hidden;
+  box-shadow: 0 2px 6px rgba(76, 47, 214, .28);
+}
+.brand-mark svg { width: 100%; height: 100%; display: block; }
+.brand-text { display: flex; flex-direction: column; line-height: 1.15; min-width: 0; }
+.brand-text b { font-size: 16px; font-weight: 650; letter-spacing: -.2px; }
+.brand-text i { font-style: normal; font-size: 11px; color: var(--text-3); letter-spacing: .3px; }
+
+.top-actions { display: flex; gap: 8px; flex: none; }
+
+.tabbar {
+  position: fixed;
+  inset: auto 0 0 0;
+  z-index: 40;
+  height: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px));
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+}
+.tab {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  color: var(--text-3); font-size: 11px; font-weight: 500;
+  transition: color .15s;
+}
+.tab svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.tab.is-on { color: var(--accent); }
+.tab:active { background: var(--surface-2); }
+
+.fab {
+  position: fixed;
+  z-index: 41;
+  right: max(16px, calc(50% - var(--maxw) / 2 + 16px));
+  bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px) + 18px);
+  width: 52px; height: 52px;
+  border-radius: 14px;
+  display: grid; place-items: center;
+  color: var(--accent-ink);
+  background: var(--accent);
+  box-shadow: var(--shadow-md);
+  transition: transform .12s;
+}
+.fab svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; }
+.fab:active { transform: scale(.94); }
+.fab[hidden] { display: none; }
+
+/* ── notice bar ────────────────────────────────────────── */
+.notice {
+  display: flex; align-items: flex-start; gap: 8px;
+  margin: 0 0 16px;
+  padding: 11px 13px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: #7a4a00;
+  background: #fff6e5;
+  border: 1px solid #ffe1ad;
+  border-radius: var(--r-md);
+}
+.notice button { margin-left: auto; flex: none; color: #7a4a00; font-size: 12px; text-decoration: underline; }
+
+/* ── typography helpers ───────────────────────────────── */
+.prose { font-size: 13px; line-height: 1.6; color: var(--text-2); }
+.mono { font-family: var(--mono); font-size: 12.5px; }
+.section-title { font-size: 13px; font-weight: 600; color: var(--text-2); letter-spacing: .2px; }
+
+/* ── buttons ───────────────────────────────────────────── */
+.icon-btn {
+  width: 36px; height: 36px; flex: none;
+  border-radius: 10px;
+  display: grid; place-items: center;
+  color: var(--text-2);
+  background: var(--surface-2);
+  transition: background .15s, color .15s, transform .1s;
+}
+.icon-btn svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.icon-btn:hover { background: var(--surface-3); }
+.icon-btn:active { transform: scale(.93); }
+.icon-btn:disabled { opacity: .35; cursor: default; }
+.icon-btn.primary { color: var(--accent-ink); background: var(--accent); }
+.icon-btn.primary:hover { background: var(--accent-hover); }
+
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  min-height: 40px; padding: 0 15px;
+  border-radius: 10px;
+  font-size: 14px; font-weight: 550;
+  color: var(--text);
+  background: var(--surface-2);
+  transition: background .15s, transform .1s, box-shadow .15s;
+}
+.btn:hover { background: var(--surface-3); }
+.btn:active { transform: scale(.98); }
+.btn:disabled { opacity: .4; cursor: default; }
+.btn.primary { color: var(--accent-ink); background: var(--accent); box-shadow: var(--shadow-sm); }
+.btn.primary:hover { background: var(--accent-hover); }
+.btn.danger { color: #fff; background: var(--danger); }
+.btn.danger:hover { background: #bf2540; }
+.btn.danger-ghost { color: var(--danger); background: var(--danger-soft); }
+.btn.danger-ghost:hover { background: #fbdde2; }
+.btn.block { width: 100%; }
+.btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.btn-row .btn { flex: 1 1 auto; }
+
+.txt-btn {
+  font-size: 14px; font-weight: 500; padding: 8px 6px; border-radius: 8px; color: var(--text-2);
+}
+.txt-btn:hover { color: var(--text); }
+.txt-btn.accent { color: var(--accent); font-weight: 600; }
+
+/* ── inputs ────────────────────────────────────────────── */
+.input {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  font-size: 15px;
+  background: var(--surface);
+  outline: none;
+  resize: vertical;
+  transition: border-color .15s, box-shadow .15s;
+}
+.input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.input::placeholder { color: var(--text-3); }
+textarea.input { line-height: 1.5; }
+input[type="date"].input { min-height: 44px; }
+
+.search {
+  display: flex; align-items: center; gap: 8px;
+  flex: 1; min-width: 0;
+  height: 42px; padding: 0 12px;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+}
+.search svg { width: 17px; height: 17px; flex: none; fill: none; stroke: var(--text-3); stroke-width: 1.9; stroke-linecap: round; }
+.search input { flex: 1; min-width: 0; height: 100%; border: 0; background: none; outline: none; font-size: 14px; }
+.search input::-webkit-search-cancel-button { display: none; }
+.clear-btn { color: var(--text-3); font-size: 12px; padding: 4px; }
+
+.sort-btn {
+  display: inline-flex; align-items: center; gap: 2px;
+  flex: none; height: 42px; padding: 0 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  font-size: 13px; color: var(--text-2);
+  background: var(--surface);
+  transition: background .15s;
+}
+.sort-btn:hover { background: var(--surface-2); }
+.sort-btn svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+.switch-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 12px 13px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  font-size: 14px; cursor: pointer;
+}
+.switch-row input { position: absolute; opacity: 0; pointer-events: none; }
+.switch {
+  position: relative; width: 42px; height: 25px; flex: none;
+  border-radius: 999px; background: var(--surface-3);
+  transition: background .18s;
+}
+.switch::after {
+  content: ""; position: absolute; top: 3px; left: 3px;
+  width: 19px; height: 19px; border-radius: 50%;
+  background: #fff; box-shadow: var(--shadow-sm);
+  transition: transform .18s;
+}
+.switch-row input:checked + .switch { background: var(--accent); }
+.switch-row input:checked + .switch::after { transform: translateX(17px); }
+
+/* ── sheets ────────────────────────────────────────────── */
+.overlay { position: fixed; inset: 0; z-index: 90; display: flex; align-items: flex-end; justify-content: center; }
+.overlay-scrim { position: absolute; inset: 0; background: rgba(14, 19, 28, .38); }
+.sheet {
+  position: relative; z-index: 1;
+  width: min(100%, var(--maxw));
+  max-height: 92svh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--surface);
+  border-radius: var(--r-xl) var(--r-xl) 0 0;
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+  animation: sheetUp .24s cubic-bezier(.2, .8, .3, 1) both;
+}
+@keyframes sheetUp { from { transform: translateY(14px); opacity: 0; } to { transform: none; opacity: 1; } }
+.overlay.closing .sheet { animation: sheetDown .18s ease both; }
+@keyframes sheetDown { to { transform: translateY(14px); opacity: 0; } }
+
+.sheet-grab { width: 36px; height: 4px; border-radius: 2px; margin: 8px auto 0; background: var(--surface-3); }
+.sheet-head {
+  position: sticky; top: 0; z-index: 3;
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 8px 8px 10px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+.sheet-head b { font-size: 15px; font-weight: 620; }
+.sheet-pad { height: 12px; }
+
+.form-body { display: flex; flex-direction: column; gap: 18px; padding: 18px 18px 6px; }
+.form-row { display: flex; flex-direction: column; gap: 7px; }
+.form-label { font-size: 12.5px; font-weight: 550; color: var(--text-2); }
+.form-label b { color: var(--text); }
+.form-hint { font-size: 12px; color: var(--text-3); line-height: 1.5; }
+
+.swatch-row { display: flex; flex-wrap: wrap; gap: 10px; }
+.swatch {
+  width: 30px; height: 30px; border-radius: 50%;
+  background: var(--c);
+  transition: transform .12s, box-shadow .12s;
+}
+.swatch:hover { transform: scale(1.06); }
+.swatch.is-on { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--c); }
+
+/* ── toast ─────────────────────────────────────────────── */
+.toast-wrap {
+  position: fixed; z-index: 120;
+  left: 50%; transform: translateX(-50%);
+  bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px) + 24px);
+  display: flex; flex-direction: column; gap: 8px; align-items: center;
+  pointer-events: none;
+  width: max-content; max-width: calc(100% - 32px);
+}
+.toast {
+  padding: 10px 15px;
+  border-radius: 10px;
+  font-size: 13.5px; font-weight: 500;
+  color: #fff;
+  background: #1d2430;
+  box-shadow: var(--shadow-md);
+  animation: toastIn .2s ease both;
+}
+.toast.out { animation: toastOut .18s ease both; }
+@keyframes toastIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes toastOut { to { opacity: 0; transform: translateY(6px); } }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; }
+}
+
+/* ============================================================
+   Virulenter · views.css — event cards, calendar, day panel, stats
+   ============================================================ */
+
+/* ══════════ stats strip ══════════ */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  margin-bottom: 16px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+}
+.stats .st {
+  padding: 12px 10px;
+  background: var(--surface);
+  text-align: center;
+}
+.stats .st b {
+  display: block;
+  font-family: var(--mono);
+  font-size: 19px; font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -.4px;
+}
+.stats .st span { display: block; margin-top: 2px; font-size: 11px; color: var(--text-3); }
+
+/* ══════════ toolbar ══════════ */
+.toolbar { display: flex; gap: 8px; margin-bottom: 14px; }
+
+/* ══════════ event card ══════════ */
+.cards { display: flex; flex-direction: column; gap: 12px; }
+
+.ev {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  animation: cardIn .22s ease both;
+  animation-delay: calc(var(--i, 0) * 26ms);
+}
+@keyframes cardIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+.ev-top {
+  display: flex; align-items: center; gap: 10px;
+  padding: 13px 14px 11px;
+  border-bottom: 1px solid var(--border);
+}
+.ev-dot { width: 10px; height: 10px; flex: none; border-radius: 3px; background: var(--c); }
+.ev-name {
+  flex: 1; min-width: 0;
+  font-size: 15px; font-weight: 600; letter-spacing: -.1px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ev-menu {
+  width: 30px; height: 30px; flex: none; border-radius: 8px;
+  display: grid; place-items: center;
+  color: var(--text-3);
+  transition: background .15s, color .15s;
+}
+.ev-menu:hover { background: var(--surface-2); color: var(--text); }
+.ev-menu svg { width: 17px; height: 17px; fill: currentColor; }
+
+.ev-mid { display: flex; align-items: center; gap: 14px; padding: 16px 14px; }
+.ev-count { display: flex; align-items: baseline; gap: 7px; flex: none; }
+.ev-count b {
+  font-family: var(--mono);
+  font-size: 42px; font-weight: 700; line-height: .95;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -2px;
+  color: var(--text);
+}
+.ev-count span { font-size: 12.5px; color: var(--text-3); }
+.ev-facts { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.ev-fact { display: flex; align-items: baseline; gap: 6px; font-size: 12.5px; color: var(--text-2); }
+.ev-fact b { font-family: var(--mono); font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
+.ev-fact.is-muted { color: var(--text-3); }
+
+.ev-foot { padding: 0 14px 14px; }
+.tap-btn {
+  width: 100%;
+  min-height: 54px;
+  border-radius: var(--r-md);
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  font-size: 15.5px; font-weight: 650; letter-spacing: .2px;
+  color: var(--accent-ink);
+  background: var(--accent);
+  box-shadow: var(--shadow-sm);
+  transition: transform .08s, background .15s;
+  touch-action: manipulation;
+  user-select: none;
+}
+.tap-btn:hover { background: #2559e0; }
+.tap-btn:active { transform: scale(.975); background: #1f4fcc; }
+.tap-btn svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; }
+.tap-btn.pop { animation: pop .26s ease; }
+@keyframes pop {
+  0% { transform: scale(1); }
+  35% { transform: scale(.955); }
+  70% { transform: scale(1.012); }
+  100% { transform: scale(1); }
+}
+
+.ev-last {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  margin-top: 9px;
+  font-size: 12px; color: var(--text-3);
+  min-height: 17px;
+}
+.ev-last b { color: var(--text-2); font-weight: 550; }
+
+/* ══════════ empty state ══════════ */
+.empty {
+  display: flex; flex-direction: column; align-items: center; text-align: center;
+  gap: 10px;
+  padding: 46px 20px 24px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+}
+.empty-mark {
+  width: 46px; height: 46px; border-radius: 14px;
+  display: grid; place-items: center;
+  background: var(--accent-soft); color: var(--accent);
+  margin-bottom: 2px;
+}
+.empty-mark svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; }
+.empty h2 { font-size: 17px; font-weight: 620; }
+.empty p { font-size: 13.5px; color: var(--text-2); max-width: 34ch; line-height: 1.6; }
+.empty .btn { margin-top: 8px; }
+
+/* ══════════ calendar ══════════ */
+.cal-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-sm);
+  padding: 14px 12px 12px;
+  margin-bottom: 16px;
+}
+.cal-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 2px 12px; }
+.cal-title {
+  flex: 1;
+  font-size: 15px; font-weight: 620; letter-spacing: -.1px;
+  padding: 6px 8px; border-radius: 8px;
+  transition: background .15s;
+}
+.cal-title:hover { background: var(--surface-2); }
+.cal-week, .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); }
+.cal-week { margin-bottom: 4px; }
+.cal-week span { text-align: center; font-size: 11px; font-weight: 550; color: var(--text-3); padding: 4px 0; }
+.cal-grid { gap: 4px; }
+.cal-cell {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: 9px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  font-family: var(--mono); font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-2);
+  background: var(--lv0);
+  transition: transform .1s, box-shadow .12s;
+}
+.cal-cell:hover { transform: scale(1.04); }
+.cal-cell.v1 { background: var(--lv1); color: #10224d; }
+.cal-cell.v2 { background: var(--lv2); color: #0b1c42; }
+.cal-cell.v3 { background: var(--lv3); color: #fff; }
+.cal-cell.v4 { background: var(--lv4); color: #fff; }
+.cal-cell.out { background: transparent; color: var(--text-3); opacity: .45; }
+.cal-cell.today { box-shadow: inset 0 0 0 2px var(--text); }
+.cal-cell.sel { box-shadow: inset 0 0 0 2px var(--accent); }
+.cal-cell.today.sel { box-shadow: inset 0 0 0 2px var(--text), 0 0 0 2px var(--accent); }
+.cal-n {
+  position: absolute; top: 2px; right: 4px;
+  font-size: 9.5px; font-weight: 600; opacity: .85;
+}
+.cal-foot {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  margin-top: 12px; padding-top: 11px;
+  border-top: 1px solid var(--border);
+}
+.legend { display: flex; align-items: center; gap: 3px; }
+.legend .lv { width: 12px; height: 12px; border-radius: 3px; display: block; }
+.legend .lv.l0 { background: var(--lv0); }
+.legend .lv.l1 { background: var(--lv1); }
+.legend .lv.l2 { background: var(--lv2); }
+.legend .lv.l3 { background: var(--lv3); }
+.legend .lv.l4 { background: var(--lv4); }
+.legend-label { font-size: 10.5px; color: var(--text-3); margin: 0 3px; }
+.cal-range { font-size: 11px; color: var(--text-3); text-align: right; }
+
+/* ══════════ day panel ══════════ */
+.day-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+.day-head {
+  display: flex; align-items: center; gap: 10px;
+  padding: 13px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.day-head h3 { font-size: 14.5px; font-weight: 620; flex: 1; }
+.day-head .day-total {
+  font-family: var(--mono); font-size: 12.5px; color: var(--text-2);
+  background: var(--surface-2); border-radius: 999px; padding: 3px 10px;
+}
+.day-list { padding: 4px 0; }
+.day-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 14px;
+  font-size: 13.5px;
+}
+.day-row + .day-row { border-top: 1px solid var(--border); }
+.day-row .dot { width: 9px; height: 9px; flex: none; border-radius: 3px; background: var(--c); }
+.day-row .name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.day-row time { font-family: var(--mono); font-size: 12.5px; color: var(--text-2); font-variant-numeric: tabular-nums; }
+.del-btn {
+  width: 26px; height: 26px; flex: none; border-radius: 7px;
+  display: grid; place-items: center;
+  color: var(--text-3);
+  transition: background .15s, color .15s;
+}
+.del-btn:hover { background: var(--danger-soft); color: var(--danger); }
+.del-btn svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; }
+.day-empty { padding: 20px 14px; text-align: center; font-size: 13px; color: var(--text-3); }
+.day-add { padding: 12px 14px; border-top: 1px solid var(--border); }
+.day-add .btn { width: 100%; }
+
+@media (min-width: 640px) {
+  .cards { display: grid; grid-template-columns: 1fr 1fr; align-items: start; gap: 12px; }
+  .ev { height: 100%; display: flex; flex-direction: column; }
+  .ev-mid { flex: 1; }
+  .cal-grid { gap: 5px; }
+  .cal-cell { font-size: 14px; }
+}
+
+/* ============================================================
+   Virulenter · stats.css — statistics view and settings components
+   ============================================================ */
+
+/* ══════════ hero totals ══════════ */
+.stat-hero {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1px;
+  margin-bottom: 16px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+}
+.stat-hero .sh {
+  padding: 15px 14px;
+  background: var(--surface);
+}
+.stat-hero .sh b {
+  display: block;
+  font-family: var(--mono);
+  font-size: 25px; font-weight: 650;
+  line-height: 1.1;
+  letter-spacing: -1px;
+  font-variant-numeric: tabular-nums;
+}
+.stat-hero .sh span { display: block; margin-top: 3px; font-size: 11.5px; color: var(--text-3); }
+.stat-hero .sh.span2 { grid-column: span 2; }
+.stat-hero .sh em { font-style: normal; font-size: 13px; color: var(--text-2); margin-left: 6px; }
+
+/* ══════════ generic panel ══════════ */
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-sm);
+  padding: 14px;
+  margin-bottom: 14px;
+}
+.panel-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  margin-bottom: 13px;
+}
+.panel-head h3 { font-size: 14px; font-weight: 620; letter-spacing: -.1px; }
+.panel-sub { font-size: 11.5px; color: var(--text-3); }
+.panel + .panel { margin-top: 0; }
+
+.mini-select {
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--surface);
+  font-size: 13px;
+  font-family: var(--mono);
+}
+
+/* ══════════ streak strip ══════════ */
+.streak-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.streak-row .sr { text-align: center; }
+.streak-row .sr b {
+  display: block;
+  font-family: var(--mono); font-size: 21px; font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+.streak-row .sr span { display: block; margin-top: 2px; font-size: 11px; color: var(--text-3); }
+.streak-note { margin-top: 12px; padding-top: 11px; border-top: 1px solid var(--border); font-size: 12px; color: var(--text-2); }
+
+/* ══════════ bar charts ══════════ */
+.bar-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  height: 96px;
+}
+.bar-chart.tall { height: 132px; }
+.bar-chart .bar {
+  flex: 1;
+  min-width: 4px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: stretch;
+  height: 100%;
+  position: relative;
+}
+.bar-chart .bar i {
+  display: block;
+  border-radius: 4px 4px 2px 2px;
+  background: var(--accent);
+  min-height: 3px;
+  height: 3%;
+  transition: height .5s cubic-bezier(.2, .8, .3, 1);
+}
+.bar-chart .bar.zero i { background: var(--lv0); }
+.bar-chart .bar.dim i { opacity: .5; }
+.bar-chart .bar:hover i { background: var(--accent-hover, var(--accent)); }
+.bar-chart .bar .cap {
+  position: absolute;
+  bottom: -17px; left: 0; right: 0;
+  text-align: center;
+  font-size: 9.5px;
+  color: var(--text-3);
+  white-space: nowrap;
+  overflow: hidden;
+}
+.bar-chart.has-caps { margin-bottom: 20px; }
+.bar-chart .bar .tip {
+  position: absolute;
+  bottom: 100%; left: 50%;
+  transform: translateX(-50%);
+  margin-bottom: 5px;
+  padding: 4px 7px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-family: var(--mono);
+  white-space: nowrap;
+  color: #fff;
+  background: #1d2430;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .12s;
+  z-index: 5;
+}
+.bar-chart .bar:hover .tip { opacity: 1; }
+
+/* ══════════ table ══════════ */
+.table-wrap { overflow-x: auto; margin: 0 -14px; padding: 0 14px; }
+.table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.table th, .table td {
+  text-align: right;
+  padding: 8px 6px;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--border);
+}
+.table th {
+  font-size: 11px; font-weight: 600; color: var(--text-3);
+  text-transform: uppercase; letter-spacing: .4px;
+}
+.table th:first-child, .table td:first-child { text-align: left; }
+.table tr:last-child td { border-bottom: 0; }
+.table td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.table .name-cell { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.table .name-cell .dot { width: 9px; height: 9px; flex: none; border-radius: 3px; background: var(--c); }
+.table .name-cell span { overflow: hidden; text-overflow: ellipsis; max-width: 15ch; }
+.share-cell { display: flex; align-items: center; justify-content: flex-end; gap: 7px; }
+.share-cell .meter { width: 46px; height: 5px; border-radius: 3px; background: var(--lv0); overflow: hidden; }
+.share-cell .meter i { display: block; height: 100%; background: var(--c); border-radius: 3px; }
+.table-empty { padding: 18px 6px; text-align: center; color: var(--text-3); font-size: 13px; }
+
+/* ══════════ activity heat grid (months × days) ══════════ */
+.heat-grid {
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-rows: repeat(7, 1fr);
+  gap: 3px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+}
+.heat-grid .hc {
+  width: 12px; height: 12px;
+  border-radius: 3px;
+  background: var(--lv0);
+  cursor: pointer;
+  transition: outline-color .12s;
+  outline: 2px solid transparent;
+  outline-offset: 1px;
+}
+.heat-grid .hc.v1 { background: var(--lv1); }
+.heat-grid .hc.v2 { background: var(--lv2); }
+.heat-grid .hc.v3 { background: var(--lv3); }
+.heat-grid .hc.v4 { background: var(--lv4); }
+.heat-grid .hc.today { outline-color: var(--text); }
+.heat-grid .hc.sel { outline-color: var(--accent); }
+.heat-grid .hc:hover { outline-color: var(--accent); }
+.heat-grid .hc.blank { background: transparent; cursor: default; }
+.heat-months {
+  display: flex;
+  gap: 3px;
+  margin-bottom: 5px;
+  font-size: 10px;
+  color: var(--text-3);
+  overflow: hidden;
+}
+.heat-months span { width: 12px; flex: none; text-align: left; }
+
+/* ══════════ calendar extras ══════════ */
+.cal-title { display: inline-flex; align-items: center; gap: 4px; }
+.cal-title svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; opacity: .55; }
+.cal-jump { display: flex; gap: 6px; justify-content: center; padding: 0 2px 10px; }
+.mini-btn {
+  padding: 5px 11px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  font-size: 12px; font-weight: 550;
+  font-family: var(--mono);
+  color: var(--text-2);
+  background: var(--surface);
+  transition: background .14s, color .14s;
+}
+.mini-btn:hover { background: var(--surface-2); color: var(--text); }
+.cal-year { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+.cal-year-head { font-size: 11.5px; color: var(--text-3); margin-bottom: 7px; }
+
+/* ══════════ jump picker ══════════ */
+.jump-body { padding: 16px 18px 6px; display: flex; flex-direction: column; gap: 18px; }
+.jump-year { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.jump-year b { font-family: var(--mono); font-size: 18px; font-weight: 650; letter-spacing: -.5px; }
+.jump-months { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.jump-month {
+  padding: 12px 6px;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  font-size: 13.5px; font-weight: 550;
+  color: var(--text);
+  background: var(--surface);
+  transition: background .14s, border-color .14s, color .14s;
+  position: relative;
+}
+.jump-month:hover { background: var(--surface-2); }
+.jump-month.is-on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.jump-month .mbadge {
+  position: absolute; top: 5px; right: 6px;
+  font-family: var(--mono); font-size: 9.5px;
+  opacity: .7;
+}
+.jump-years { display: flex; flex-direction: column; gap: 8px; }
+.jump-year-list { display: flex; flex-wrap: wrap; gap: 7px; }
+.jump-year-list button {
+  padding: 6px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  font-family: var(--mono); font-size: 12.5px;
+  color: var(--text-2);
+  background: var(--surface);
+}
+.jump-year-list button:hover { background: var(--surface-2); }
+.jump-year-list button.is-on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+
+/* ══════════ appearance sheet ══════════ */
+.custom-row { display: flex; gap: 8px; align-items: center; }
+.color-input {
+  width: 46px; height: 44px; flex: none;
+  padding: 3px;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background: var(--surface);
+  cursor: pointer;
+}
+.color-input::-webkit-color-swatch-wrapper { padding: 0; }
+.color-input::-webkit-color-swatch { border: 0; border-radius: 7px; }
+.custom-row .input { flex: 1; min-width: 0; }
+
+.font-list { display: flex; flex-direction: column; gap: 8px; }
+.font-opt {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 11px 13px;
+  border: 1px solid var(--border-strong);
+  border-radius: 11px;
+  text-align: left;
+  color: var(--text);
+  background: var(--surface);
+  transition: border-color .15s, background .15s;
+}
+.font-opt:hover { background: var(--surface-2); }
+.font-opt.is-on { border-color: var(--accent); background: var(--accent-soft); }
+.font-opt .fo-name { font-size: 15px; font-weight: 550; }
+.font-opt .fo-meta { font-size: 10.5px; color: var(--text-3); font-family: var(--mono); }
+.font-opt .fo-check { color: var(--accent); font-size: 14px; opacity: 0; }
+.font-opt.is-on .fo-check { opacity: 1; }
+
+.look-preview { padding: 14px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--bg); }
+.lp-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-md); padding: 12px; box-shadow: var(--shadow-sm); }
+.lp-top { display: flex; align-items: center; gap: 9px; }
+.lp-dot { width: 9px; height: 9px; border-radius: 3px; background: var(--accent); }
+.lp-name { flex: 1; font-size: 14.5px; font-weight: 600; }
+.lp-count { font-family: var(--mono); font-size: 19px; font-weight: 700; letter-spacing: -1px; }
+.lp-btn {
+  margin-top: 11px;
+  padding: 12px;
+  border-radius: 10px;
+  text-align: center;
+  font-size: 14.5px; font-weight: 650;
+  color: var(--accent-ink);
+  background: var(--accent);
+}
+
+@media (min-width: 640px) {
+  .stat-hero { grid-template-columns: repeat(4, 1fr); }
+  .stat-hero .sh.span2 { grid-column: span 2; }
+  .jump-months { grid-template-columns: repeat(4, 1fr); }
+  .heat-grid .hc { width: 14px; height: 14px; }
+  .heat-months span { width: 14px; }
+}
+
+</style>
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIiB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiI+CiAgPGRlZnM+CiAgICA8cmFkaWFsR3JhZGllbnQgaWQ9InZtQSIgY3g9IjMwJSIgY3k9IjE4JSIgcj0iNzIlIj4KICAgICAgPHN0b3Agb2Zmc2V0PSIwJSIgc3RvcC1jb2xvcj0iI2E3OGJmYSIvPjxzdG9wIG9mZnNldD0iNTUlIiBzdG9wLWNvbG9yPSIjN2M1Y2ZmIi8+PHN0b3Agb2Zmc2V0PSIxMDAlIiBzdG9wLWNvbG9yPSIjNGMyZmQ2Ii8+CiAgICA8L3JhZGlhbEdyYWRpZW50PgogICAgPHJhZGlhbEdyYWRpZW50IGlkPSJ2bUIiIGN4PSI4MiUiIGN5PSIyNCUiIHI9IjY2JSI+CiAgICAgIDxzdG9wIG9mZnNldD0iMCUiIHN0b3AtY29sb3I9IiM2N2U4ZjkiLz48c3RvcCBvZmZzZXQ9IjYwJSIgc3RvcC1jb2xvcj0iIzNiODJmNiIvPjxzdG9wIG9mZnNldD0iMTAwJSIgc3RvcC1jb2xvcj0iIzNiODJmNiIgc3RvcC1vcGFjaXR5PSIwIi8+CiAgICA8L3JhZGlhbEdyYWRpZW50PgogICAgPHJhZGlhbEdyYWRpZW50IGlkPSJ2bUMiIGN4PSIyNCUiIGN5PSI4NiUiIHI9IjY4JSI+CiAgICAgIDxzdG9wIG9mZnNldD0iMCUiIHN0b3AtY29sb3I9IiNmMGFiZmMiLz48c3RvcCBvZmZzZXQ9IjU1JSIgc3RvcC1jb2xvcj0iI2MwMjZkMyIvPjxzdG9wIG9mZnNldD0iMTAwJSIgc3RvcC1jb2xvcj0iI2MwMjZkMyIgc3RvcC1vcGFjaXR5PSIwIi8+CiAgICA8L3JhZGlhbEdyYWRpZW50PgogICAgPGxpbmVhckdyYWRpZW50IGlkPSJ2bUJvZHkiIHgxPSIxMiUiIHkxPSIwJSIgeDI9Ijg4JSIgeTI9IjEwMCUiPgogICAgICA8c3RvcCBvZmZzZXQ9IjAlIiBzdG9wLWNvbG9yPSIjZmZmIiBzdG9wLW9wYWNpdHk9Ii40MiIvPjxzdG9wIG9mZnNldD0iNDUlIiBzdG9wLWNvbG9yPSIjZmZmIiBzdG9wLW9wYWNpdHk9Ii4xMiIvPjxzdG9wIG9mZnNldD0iMTAwJSIgc3RvcC1jb2xvcj0iI2ZmZiIgc3RvcC1vcGFjaXR5PSIuMjgiLz4KICAgIDwvbGluZWFyR3JhZGllbnQ+CiAgICA8bGluZWFyR3JhZGllbnQgaWQ9InZtViIgeDE9IjE4JSIgeTE9IjAlIiB4Mj0iODIlIiB5Mj0iMTAwJSI+CiAgICAgIDxzdG9wIG9mZnNldD0iMCUiIHN0b3AtY29sb3I9IiNmZmYiIHN0b3Atb3BhY2l0eT0iLjk3Ii8+PHN0b3Agb2Zmc2V0PSI0MCUiIHN0b3AtY29sb3I9IiNlZWYyZmYiIHN0b3Atb3BhY2l0eT0iLjgwIi8+PHN0b3Agb2Zmc2V0PSIxMDAlIiBzdG9wLWNvbG9yPSIjZmZmIiBzdG9wLW9wYWNpdHk9Ii44OCIvPgogICAgPC9saW5lYXJHcmFkaWVudD4KICAgIDxsaW5lYXJHcmFkaWVudCBpZD0idm1TcGVjIiB4MT0iMCUiIHkxPSIwJSIgeDI9IjEwMCUiIHkyPSIxMDAlIj4KICAgICAgPHN0b3Agb2Zmc2V0PSIwJSIgc3RvcC1jb2xvcj0iI2ZmZiIgc3RvcC1vcGFjaXR5PSIuMDgiLz48c3RvcCBvZmZzZXQ9IjQyJSIgc3RvcC1jb2xvcj0iI2ZmZiIgc3RvcC1vcGFjaXR5PSIuODUiLz48c3RvcCBvZmZzZXQ9IjEwMCUiIHN0b3AtY29sb3I9IiNmZmYiIHN0b3Atb3BhY2l0eT0iMCIvPgogICAgPC9saW5lYXJHcmFkaWVudD4KICAgIDxsaW5lYXJHcmFkaWVudCBpZD0idm1HbG9zcyIgeDE9IjAlIiB5MT0iMCUiIHgyPSI0MiUiIHkyPSIxMDAlIj4KICAgICAgPHN0b3Agb2Zmc2V0PSIwJSIgc3RvcC1jb2xvcj0iI2ZmZiIgc3RvcC1vcGFjaXR5PSIuNTUiLz48c3RvcCBvZmZzZXQ9IjM2JSIgc3RvcC1jb2xvcj0iI2ZmZiIgc3RvcC1vcGFjaXR5PSIuMTAiLz48c3RvcCBvZmZzZXQ9IjYyJSIgc3RvcC1jb2xvcj0iI2ZmZiIgc3RvcC1vcGFjaXR5PSIwIi8+CiAgICA8L2xpbmVhckdyYWRpZW50PgogICAgPGxpbmVhckdyYWRpZW50IGlkPSJ2bVJpbSIgeDE9IjAlIiB5MT0iMCUiIHgyPSI2MCUiIHkyPSIxMDAlIj4KICAgICAgPHN0b3Agb2Zmc2V0PSIwJSIgc3RvcC1jb2xvcj0iI2ZmZiIgc3RvcC1vcGFjaXR5PSIuOSIvPjxzdG9wIG9mZnNldD0iNDAlIiBzdG9wLWNvbG9yPSIjZmZmIiBzdG9wLW9wYWNpdHk9Ii4xOCIvPjxzdG9wIG9mZnNldD0iMTAwJSIgc3RvcC1jb2xvcj0iI2ZmZiIgc3RvcC1vcGFjaXR5PSIuNDIiLz4KICAgIDwvbGluZWFyR3JhZGllbnQ+CiAgICA8ZmlsdGVyIGlkPSJ2bUJsdXIiIHg9Ii0zMCUiIHk9Ii0zMCUiIHdpZHRoPSIxNjAlIiBoZWlnaHQ9IjE2MCUiPjxmZUdhdXNzaWFuQmx1ciBzdGREZXZpYXRpb249IjM0Ii8+PC9maWx0ZXI+CiAgICA8ZmlsdGVyIGlkPSJ2bVNoYWRvdyIgeD0iLTQwJSIgeT0iLTQwJSIgd2lkdGg9IjE4MCUiIGhlaWdodD0iMTgwJSI+CiAgICAgIDxmZURyb3BTaGFkb3cgZHg9IjAiIGR5PSI5IiBzdGREZXZpYXRpb249IjEyIiBmbG9vZC1jb2xvcj0iIzFiMGI0ZCIgZmxvb2Qtb3BhY2l0eT0iLjM0Ii8+CiAgICA8L2ZpbHRlcj4KICAgIDxjbGlwUGF0aCBpZD0idm1UaWxlIj48cmVjdCB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgcng9IjExNiIvPjwvY2xpcFBhdGg+CiAgPC9kZWZzPgogIDxnIGNsaXAtcGF0aD0idXJsKCN2bVRpbGUpIj4KICAgIDxyZWN0IHdpZHRoPSI1MTIiIGhlaWdodD0iNTEyIiBmaWxsPSJ1cmwoI3ZtQSkiLz4KICAgIDxnIGZpbHRlcj0idXJsKCN2bUJsdXIpIj4KICAgICAgPGVsbGlwc2UgY3g9IjQwNCIgY3k9IjEyMCIgcng9IjE4OCIgcnk9IjE2NCIgZmlsbD0idXJsKCN2bUIpIi8+CiAgICAgIDxlbGxpcHNlIGN4PSIxMDQiIGN5PSI0MTgiIHJ4PSIxOTYiIHJ5PSIxNzIiIGZpbGw9InVybCgjdm1DKSIvPgogICAgPC9nPgogICAgPHJlY3Qgd2lkdGg9IjUxMiIgaGVpZ2h0PSI1MTIiIGZpbGw9InVybCgjdm1Cb2R5KSIvPgogICAgPGcgZmlsdGVyPSJ1cmwoI3ZtU2hhZG93KSI+CiAgICAgIDxwb2x5bGluZSBwb2ludHM9IjE1MiwxNjAgMjU2LDM2MCAzNjAsMTYwIiBmaWxsPSJub25lIiBzdHJva2U9InVybCgjdm1WKSIgc3Ryb2tlLXdpZHRoPSI2MiIKICAgICAgICAgICAgICAgIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgogICAgPC9nPgogICAgPHBvbHlsaW5lIHBvaW50cz0iMTUyLDE2MCAyNTYsMzYwIiBmaWxsPSJub25lIiBzdHJva2U9InVybCgjdm1TcGVjKSIgc3Ryb2tlLXdpZHRoPSIyMSIKICAgICAgICAgICAgICBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz4KICAgIDxyZWN0IHdpZHRoPSI1MTIiIGhlaWdodD0iNTEyIiBmaWxsPSJ1cmwoI3ZtR2xvc3MpIi8+CiAgICA8cmVjdCB4PSIzIiB5PSIzIiB3aWR0aD0iNTA2IiBoZWlnaHQ9IjUwNiIgcng9IjExMyIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJ1cmwoI3ZtUmltKSIgc3Ryb2tlLXdpZHRoPSI2Ii8+CiAgPC9nPgo8L3N2Zz4=" type="image/svg+xml">
+</head>
+<body>
+
+<div class="app" id="app">
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 512 512"><use href="#vmark"/></svg>
+      </span>
+      <span class="brand-text">
+        <b>Virulenter</b>
+        <i id="brandSub">tap to count</i>
+      </span>
+    </div>
+    <div class="top-actions">
+      <button class="icon-btn" id="btnInstall" type="button" title="Install app" aria-label="Install app" hidden>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5V15M8 11l4 4 4-4M4.5 19.5h15"/></svg>
+      </button>
+      <button class="icon-btn" id="btnData" type="button" title="Settings and data" aria-label="Settings and data">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M12 3v2.2M12 18.8V21M4.2 7.5l1.9 1.1M17.9 15.4l1.9 1.1M4.2 16.5l1.9-1.1M17.9 8.6l1.9-1.1"/></svg>
+      </button>
+      <button class="icon-btn primary" id="btnAddTop" type="button" title="New event" aria-label="New event">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <p class="notice" id="notice" hidden></p>
+
+  <main class="screen" id="screen">
+
+    <!-- ══════════ Events ══════════ -->
+    <section class="view" id="view-home">
+      <div class="stats" id="statsRow"></div>
+
+      <div class="toolbar" id="toolbar" hidden>
+        <label class="search" for="searchInput">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4.3-4.3"/></svg>
+          <input id="searchInput" type="search" placeholder="Search events" autocomplete="off">
+          <button class="clear-btn" id="searchClear" type="button" aria-label="Clear search" hidden>✕</button>
+        </label>
+        <button class="sort-btn" id="btnSort" type="button"><span id="sortLabel">Recent</span>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg>
+        </button>
+      </div>
+
+      <div class="cards" id="eventList"></div>
+
+      <div class="empty" id="listEmpty" hidden>
+        <div class="empty-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+        </div>
+        <h2>No events yet</h2>
+        <p>Create an event, then tap its button every time it happens. Each tap is counted and stamped on the calendar.</p>
+        <button class="btn primary" id="btnAddEmpty" type="button">Create your first event</button>
+      </div>
+    </section>
+
+    <!-- ══════════ Calendar ══════════ -->
+    <section class="view" id="view-calendar" hidden>
+      <div class="cal-card">
+        <div class="cal-head">
+          <button class="icon-btn" id="calPrev" type="button" aria-label="Previous month">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 7-5 5 5 5"/></svg>
+          </button>
+          <button class="cal-title" id="calTitle" type="button" title="Jump to any month">
+            <span id="calTitleText">—</span>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg>
+          </button>
+          <button class="icon-btn" id="calNext" type="button" aria-label="Next month">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m10 7 5 5-5 5"/></svg>
+          </button>
+        </div>
+
+        <div class="cal-jump" id="calNavBar">
+          <button class="mini-btn" id="calPrevYear" type="button" aria-label="Previous year">−1y</button>
+          <button class="mini-btn" id="calToday" type="button">Today</button>
+          <button class="mini-btn" id="calNextYear" type="button" aria-label="Next year">+1y</button>
+        </div>
+
+        <div class="cal-week" id="calWeek"></div>
+        <div class="cal-grid" id="calGrid" role="grid" aria-label="Calendar"></div>
+        <div class="cal-foot">
+          <div class="legend">
+            <span class="legend-label">Less</span>
+            <i class="lv l0"></i><i class="lv l1"></i><i class="lv l2"></i><i class="lv l3"></i><i class="lv l4"></i>
+            <span class="legend-label">More</span>
+          </div>
+          <span class="cal-range" id="calRange"></span>
+        </div>
+        <div class="cal-year" id="calYearWrap" hidden>
+          <div class="cal-year-head"><span id="calYearLabel">—</span></div>
+          <div class="heat-grid" id="calYearGrid"></div>
+        </div>
+      </div>
+
+      <div class="day-panel" id="dayPanel"></div>
+    </section>
+
+    <!-- ══════════ Statistics ══════════ -->
+    <section class="view" id="view-stats" hidden>
+      <div class="stat-hero" id="statHero"></div>
+
+      <div class="panel">
+        <div class="panel-head"><h3>Streaks</h3><span class="panel-sub">consecutive days with a tap</span></div>
+        <div id="statStreak"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h3>Last 30 days</h3>
+          <span class="panel-sub" id="stat30Sub"></span>
+        </div>
+        <div class="bar-chart" id="stat30"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h3>By month</h3>
+          <select class="mini-select" id="statYear" aria-label="Year"></select>
+        </div>
+        <div class="bar-chart tall" id="statMonths"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h3>By weekday</h3><span class="panel-sub">when you tap</span></div>
+        <div class="bar-chart" id="statWeekday"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h3>By hour</h3><span class="panel-sub">local time</span></div>
+        <div class="bar-chart" id="statHour"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h3>Per event</h3><span class="panel-sub" id="statEventSub"></span></div>
+        <div class="table-wrap"><table class="table" id="statEvents"></table></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h3>Activity</h3><span class="panel-sub" id="statHeatSub"></span></div>
+        <div class="heat-grid" id="statHeat"></div>
+      </div>
+    </section>
+
+  </main>
+
+  <nav class="tabbar" id="tabbar">
+    <button class="tab is-on" data-view="home" type="button">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-4v-6H9v6H5a1 1 0 0 1-1-1Z"/></svg>
+      <span>Events</span>
+    </button>
+    <button class="tab" data-view="calendar" type="button">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="3"/><path d="M8 3.5v3M16 3.5v3M3.5 10h17"/></svg>
+      <span>Calendar</span>
+    </button>
+    <button class="tab" data-view="stats" type="button">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>
+      <span>Stats</span>
+    </button>
+    <button class="tab" data-view="settings" type="button">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M12 3v2.2M12 18.8V21M4.2 7.5l1.9 1.1M17.9 15.4l1.9 1.1M4.2 16.5l1.9-1.1M17.9 8.6l1.9-1.1"/></svg>
+      <span>Settings</span>
+    </button>
+  </nav>
+
+  <button class="fab" id="fab" type="button" aria-label="New event">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+  </button>
+</div>
+
+<!-- ══════════ Month / year jump picker ══════════ -->
+<div class="overlay" id="jumpOverlay" hidden>
+  <div class="overlay-scrim" data-close="1"></div>
+  <div class="sheet" id="jumpSheet" role="dialog" aria-modal="true" aria-label="Jump to a month">
+    <div class="sheet-grab" aria-hidden="true"></div>
+    <div class="sheet-head">
+      <button class="txt-btn" data-close="1" type="button">Close</button>
+      <b>Jump to</b>
+      <button class="txt-btn accent" id="jumpToday" type="button">Today</button>
+    </div>
+    <div class="jump-body">
+      <div class="jump-year">
+        <button class="icon-btn" id="jumpPrevYear" type="button" aria-label="Previous year">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 7-5 5 5 5"/></svg>
+        </button>
+        <b id="jumpYearLabel">—</b>
+        <button class="icon-btn" id="jumpNextYear" type="button" aria-label="Next year">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m10 7 5 5-5 5"/></svg>
+        </button>
+      </div>
+      <div class="jump-months" id="jumpMonths"></div>
+      <div class="jump-years">
+        <span class="form-label">Years with activity</span>
+        <div class="jump-year-list" id="jumpYearList"></div>
+      </div>
+    </div>
+    <div class="sheet-pad"></div>
+  </div>
+</div>
+
+<!-- ══════════ New / edit event ══════════ -->
+<div class="overlay" id="formOverlay" hidden>
+  <div class="overlay-scrim" data-close="1"></div>
+  <div class="sheet" id="formSheet" role="dialog" aria-modal="true" aria-label="Event">
+    <form id="eventForm" novalidate>
+      <div class="sheet-grab" aria-hidden="true"></div>
+      <div class="sheet-head">
+        <button class="txt-btn" data-close="1" type="button">Cancel</button>
+        <b id="formTitle">New event</b>
+        <button class="txt-btn accent" type="submit">Save</button>
+      </div>
+      <div class="form-body">
+        <div class="form-row">
+          <label class="form-label" for="fName">Name</label>
+          <input class="input" id="fName" type="text" maxlength="48" placeholder="e.g. Coffee, Workout, Cigarette" required>
+        </div>
+        <div class="form-row">
+          <span class="form-label">Colour</span>
+          <div class="swatch-row" id="fColor"></div>
+        </div>
+        <div class="form-row">
+          <label class="form-label" for="fStart">Count starts from</label>
+          <input class="input" id="fStart" type="date">
+          <p class="form-hint">Only used for the average rate and the calendar range. Logged taps always use the real time now.</p>
+        </div>
+        <div class="form-row" id="rowLog">
+          <span class="form-label">Recorded <b id="logCount">0</b> times</span>
+          <div class="btn-row">
+            <button class="btn" id="btnLogNow" type="button">＋ Log once now</button>
+            <button class="btn danger-ghost" id="btnClearLog" type="button">Clear all taps</button>
+          </div>
+        </div>
+        <div class="form-row" id="rowDelete" hidden>
+          <span class="form-label">Danger zone</span>
+          <button class="btn danger-ghost" id="btnDeleteEvent" type="button">Delete this event</button>
+        </div>
+      </div>
+      <div class="sheet-pad"></div>
+    </form>
+  </div>
+</div>
+
+<!-- ══════════ Appearance ══════════ -->
+<div class="overlay" id="lookOverlay" hidden>
+  <div class="overlay-scrim" data-close="1"></div>
+  <div class="sheet" id="lookSheet" role="dialog" aria-modal="true" aria-label="Appearance">
+    <div class="sheet-grab" aria-hidden="true"></div>
+    <div class="sheet-head">
+      <button class="txt-btn" data-close="1" type="button">Close</button>
+      <b>Appearance</b>
+      <button class="txt-btn" id="lookReset" type="button">Reset</button>
+    </div>
+    <div class="form-body">
+      <p class="prose">Saved inside your link, like everything else here — the colours travel with the data.</p>
+
+      <div class="form-row">
+        <span class="form-label">Accent colour</span>
+        <div class="swatch-row" id="lookAccent"></div>
+      </div>
+
+      <div class="form-row">
+        <label class="form-label" for="lookCustom">Custom colour</label>
+        <div class="custom-row">
+          <input class="color-input" id="lookCustom" type="color" value="#2f6bff" aria-label="Custom accent colour">
+          <input class="input mono" id="lookCustomHex" type="text" maxlength="7" spellcheck="false" placeholder="#2f6bff" aria-label="Custom accent hex value">
+          <button class="btn" id="lookCustomApply" type="button">Apply</button>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <span class="form-label">Typeface</span>
+        <div class="font-list" id="lookFont"></div>
+      </div>
+
+      <div class="form-row">
+        <span class="form-label">Preview</span>
+        <div class="look-preview" id="lookPreview">
+          <div class="lp-card">
+            <div class="lp-top"><span class="lp-dot"></span><span class="lp-name">Coffee</span><b class="lp-count">128</b></div>
+            <div class="lp-btn">Tap to count</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="sheet-pad"></div>
+  </div>
+</div>
+
+<!-- ══════════ Settings / data / export ══════════ -->
+<div class="overlay" id="dataOverlay" hidden>
+  <div class="overlay-scrim" data-close="1"></div>
+  <div class="sheet" id="dataSheet" role="dialog" aria-modal="true" aria-label="Settings and data">
+    <div class="sheet-grab" aria-hidden="true"></div>
+    <div class="sheet-head">
+      <button class="txt-btn" data-close="1" type="button">Close</button>
+      <b>Settings &amp; data</b>
+      <span style="width:56px"></span>
+    </div>
+    <div class="form-body">
+      <p class="prose" id="dataProse"></p>
+
+      <div class="form-row">
+        <span class="form-label">Appearance</span>
+        <button class="btn block" id="btnAppearance" type="button">Colour and typeface…</button>
+      </div>
+
+      <div class="form-row" id="installRow">
+        <span class="form-label">Install</span>
+        <button class="btn block" id="btnInstallRow" type="button">Install as an app</button>
+        <p class="form-hint" id="installHint"></p>
+      </div>
+
+      <div class="form-row">
+        <span class="form-label">Shareable link</span>
+        <textarea class="input mono" id="dataLink" rows="3" readonly spellcheck="false"></textarea>
+        <div class="btn-row">
+          <button class="btn primary" id="btnCopyLink" type="button">Copy link</button>
+          <button class="btn" id="btnOpenLink" type="button">Open link</button>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <span class="form-label">Export</span>
+        <div class="btn-row">
+          <button class="btn" id="btnExportCsv" type="button">Every tap (CSV)</button>
+          <button class="btn" id="btnExportSummary" type="button">Summary (CSV)</button>
+        </div>
+        <div class="btn-row">
+          <button class="btn" id="btnDownload" type="button">Backup (JSON)</button>
+          <button class="btn" id="btnPickFile" type="button">Load from file</button>
+          <input type="file" id="fileInput" accept="application/json,.json,text/csv" hidden>
+        </div>
+        <div class="btn-row">
+          <button class="btn" id="btnShareCsv" type="button">Share taps (CSV)</button>
+          <button class="btn" id="btnShareJson" type="button">Share backup (JSON)</button>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <span class="form-label">Paste data</span>
+        <textarea class="input mono" id="dataPaste" rows="3" placeholder="Paste a link or JSON here, then press Load" spellcheck="false"></textarea>
+        <div class="btn-row">
+          <button class="btn" id="btnLoadPaste" type="button">Load pasted data</button>
+          <button class="btn danger-ghost" id="btnWipe" type="button">Erase everything</button>
+        </div>
+      </div>
+    </div>
+    <div class="sheet-pad"></div>
+  </div>
+</div>
+
+<div class="toast-wrap" id="toastWrap" aria-live="polite"></div>
+
+<!-- Brand mark: a compact liquid-glass "V", built from gradients and a blur
+     filter so it needs no external image and stays crisp at any size. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="vmark" viewBox="0 0 512 512">
+    <defs>
+      <radialGradient id="vmA" cx="30%" cy="18%" r="72%">
+        <stop offset="0%" stop-color="#a78bfa"/><stop offset="55%" stop-color="#7c5cff"/><stop offset="100%" stop-color="#4c2fd6"/>
+      </radialGradient>
+      <radialGradient id="vmB" cx="82%" cy="24%" r="66%">
+        <stop offset="0%" stop-color="#67e8f9"/><stop offset="60%" stop-color="#3b82f6"/><stop offset="100%" stop-color="#3b82f6" stop-opacity="0"/>
+      </radialGradient>
+      <radialGradient id="vmC" cx="24%" cy="86%" r="68%">
+        <stop offset="0%" stop-color="#f0abfc"/><stop offset="55%" stop-color="#c026d3"/><stop offset="100%" stop-color="#c026d3" stop-opacity="0"/>
+      </radialGradient>
+      <linearGradient id="vmBody" x1="12%" y1="0%" x2="88%" y2="100%">
+        <stop offset="0%" stop-color="#fff" stop-opacity=".42"/><stop offset="45%" stop-color="#fff" stop-opacity=".12"/><stop offset="100%" stop-color="#fff" stop-opacity=".28"/>
+      </linearGradient>
+      <linearGradient id="vmV" x1="18%" y1="0%" x2="82%" y2="100%">
+        <stop offset="0%" stop-color="#fff" stop-opacity=".97"/><stop offset="40%" stop-color="#eef2ff" stop-opacity=".80"/><stop offset="100%" stop-color="#fff" stop-opacity=".88"/>
+      </linearGradient>
+      <linearGradient id="vmSpec" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#fff" stop-opacity=".08"/><stop offset="42%" stop-color="#fff" stop-opacity=".85"/><stop offset="100%" stop-color="#fff" stop-opacity="0"/>
+      </linearGradient>
+      <linearGradient id="vmGloss" x1="0%" y1="0%" x2="42%" y2="100%">
+        <stop offset="0%" stop-color="#fff" stop-opacity=".55"/><stop offset="36%" stop-color="#fff" stop-opacity=".10"/><stop offset="62%" stop-color="#fff" stop-opacity="0"/>
+      </linearGradient>
+      <linearGradient id="vmRim" x1="0%" y1="0%" x2="60%" y2="100%">
+        <stop offset="0%" stop-color="#fff" stop-opacity=".9"/><stop offset="40%" stop-color="#fff" stop-opacity=".18"/><stop offset="100%" stop-color="#fff" stop-opacity=".42"/>
+      </linearGradient>
+      <filter id="vmBlur" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="34"/></filter>
+      <filter id="vmShadow" x="-40%" y="-40%" width="180%" height="180%">
+        <feDropShadow dx="0" dy="9" stdDeviation="12" flood-color="#1b0b4d" flood-opacity=".34"/>
+      </filter>
+      <clipPath id="vmTile"><rect width="512" height="512" rx="116"/></clipPath>
+    </defs>
+    <g clip-path="url(#vmTile)">
+      <rect width="512" height="512" fill="url(#vmA)"/>
+      <g filter="url(#vmBlur)">
+        <ellipse cx="404" cy="120" rx="188" ry="164" fill="url(#vmB)"/>
+        <ellipse cx="104" cy="418" rx="196" ry="172" fill="url(#vmC)"/>
+      </g>
+      <rect width="512" height="512" fill="url(#vmBody)"/>
+      <g filter="url(#vmShadow)">
+        <polyline points="152,160 256,360 360,160" fill="none" stroke="url(#vmV)" stroke-width="62"
+                  stroke-linecap="round" stroke-linejoin="round"/>
+      </g>
+      <polyline points="152,160 256,360" fill="none" stroke="url(#vmSpec)" stroke-width="21"
+                stroke-linecap="round" stroke-linejoin="round"/>
+      <rect width="512" height="512" fill="url(#vmGloss)"/>
+      <rect x="3" y="3" width="506" height="506" rx="113" fill="none" stroke="url(#vmRim)" stroke-width="6"/>
+    </g>
+  </symbol>
+</svg>
+<script type="module">
+/* ==== app/js/core.js ==== */
+/* ============================================================
+   Virulenter · core.js — helpers and date arithmetic.
+   No dependencies. Everything is local-timezone based.
+   ============================================================ */
+window.V = window.V || {};
+(function (V) {
+  'use strict';
+
+  V.APP_NAME = 'Virulenter';
+  V.FORMAT = 2;   // bumped when the appearance settings joined the payload
+
+  var U = V.util = {
+    MS_DAY: 86400000,
+
+    qs: function (sel, root) { return (root || document).querySelector(sel); },
+    qsa: function (sel, root) {
+      return Array.prototype.slice.call((root || document).querySelectorAll(sel));
+    },
+
+    el: function (tag, cls, html) {
+      var n = document.createElement(tag);
+      if (cls) n.className = cls;
+      if (html != null) n.innerHTML = html;
+      return n;
+    },
+
+    uid: function () {
+      return 'e' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    },
+
+    clamp: function (v, a, b) { return v < a ? a : (v > b ? b : v); },
+    pad2: function (n) { return n < 10 ? '0' + n : '' + n; },
+
+    esc: function (s) {
+      return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    },
+
+    /* English pluralisation for the handful of words the UI counts */
+    plural: function (n, one, many) { return n === 1 ? one : (many || one + 's'); },
+
+    throttle: function (fn, wait) {
+      var last = 0, timer = null, args = null;
+      return function () {
+        var now = Date.now(), ctx = this;
+        args = arguments;
+        if (now - last >= wait) { last = now; fn.apply(ctx, args); }
+        else if (!timer) {
+          timer = setTimeout(function () {
+            timer = null; last = Date.now(); fn.apply(ctx, args);
+          }, wait - (now - last));
+        }
+      };
+    },
+
+    toast: function (msg) {
+      var wrap = U.qs('#toastWrap');
+      if (!wrap) return;
+      var t = U.el('div', 'toast', U.esc(msg));
+      wrap.appendChild(t);
+      setTimeout(function () {
+        t.classList.add('out');
+        setTimeout(function () { t.remove(); }, 220);
+      }, 1700);
+    },
+
+    copy: function (text) {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        return navigator.clipboard.writeText(text).then(function () { return true; },
+                                                        function () { return fallback(); });
+      }
+      return Promise.resolve(fallback());
+      function fallback() {
+        try {
+          var ta = document.createElement('textarea');
+          ta.value = text;
+          ta.setAttribute('readonly', '');
+          ta.style.position = 'fixed';
+          ta.style.opacity = '0';
+          document.body.appendChild(ta);
+          ta.select();
+          var ok = document.execCommand('copy');
+          ta.remove();
+          return ok;
+        } catch (e) { return false; }
+      }
+    },
+
+    /* Hand a generated file to the platform.
+       In a browser that means a Blob object URL and an <a download>. Inside the
+       Android wrapper there is no download manager listening, so an injected
+       bridge object receives the bytes and writes them to the Downloads folder
+       or a share sheet.
+
+       The bridge has to be looked up per call: Android injects it asynchronously,
+       so it may not exist yet while this module is evaluating.
+       Detect it by capability rather than by user agent. */
+    nativeSave: function () {
+      var b = (typeof window !== 'undefined') ? window.VirulenterNative : null;
+      return (b && typeof b.saveBase64 === 'function') ? b : null;
+    },
+
+    canShareFiles: function () {
+      var b = U.nativeSave();
+      return !!(b && typeof b.canShare === 'function' && b.canShare());
+    },
+
+    download: function (filename, text, mime) {
+      var type = (mime || 'application/json') + ';charset=utf-8';
+      var bridge = U.nativeSave();
+
+      if (bridge) {
+        try {
+          bridge.saveBase64(filename, type, U.base64Utf8(text), false);
+          return;
+        } catch (e) { /* fall through to the browser path */ }
+      }
+
+      var blob = new Blob([text], { type: type });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+    },
+
+    /* same file, but offered to other apps instead of saved */
+    share: function (filename, text, mime) {
+      var type = (mime || 'application/json') + ';charset=utf-8';
+      var bridge = U.nativeSave();
+      if (!bridge) return false;
+      try {
+        bridge.saveBase64(filename, type, U.base64Utf8(text), true);
+        return true;
+      } catch (e) { return false; }
+    },
+
+    /* UTF-8 safe base64, so non-ASCII event names survive the bridge */
+    base64Utf8: function (text) {
+      var bytes = new TextEncoder().encode(String(text));
+      var bin = '';
+      for (var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+      return btoa(bin);
+    }
+  };
+
+  /* ── dates ────────────────────────────────────────────── */
+  var D = V.date = {
+    stripTime: function (d) {
+      return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+    },
+
+    diffDays: function (a, b) {
+      return Math.round((D.stripTime(b) - D.stripTime(a)) / U.MS_DAY);
+    },
+
+    addDays: function (d, n) {
+      var x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+      x.setDate(x.getDate() + n);
+      return x;
+    },
+
+    addMonths: function (d, n) {
+      var day = d.getDate();
+      var x = new Date(d.getFullYear(), d.getMonth() + n, 1);
+      var last = new Date(x.getFullYear(), x.getMonth() + 1, 0).getDate();
+      x.setDate(Math.min(day, last));
+      return x;
+    },
+
+    daysInMonth: function (y, m) { return new Date(y, m + 1, 0).getDate(); },
+
+    /* Absolute day number for a local calendar date. Deliberately NOT
+       Date.UTC(...)/86400000: that mixes a UTC epoch with a local midnight,
+       so the division does not land on a whole day and every date drifts by
+       one outside UTC. Counting ordinal days keeps local dates exact. */
+    toEpochDay: function (d) {
+      var y = d.getFullYear(), m = d.getMonth(), day = d.getDate();
+      var a = Math.floor((14 - (m + 1)) / 12);
+      var yy = y + 4800 - a;
+      var mm = (m + 1) + 12 * a - 3;
+      return day + Math.floor((153 * mm + 2) / 5) + 365 * yy +
+             Math.floor(yy / 4) - Math.floor(yy / 100) + Math.floor(yy / 400) - 32045;
+    },
+
+    fromEpochDay: function (n) {
+      var a = n + 32044;
+      var b = Math.floor((4 * a + 3) / 146097);
+      var c = a - Math.floor(146097 * b / 4);
+      var dd = Math.floor((4 * c + 3) / 1461);
+      var e = c - Math.floor(1461 * dd / 4);
+      var mm = Math.floor((5 * e + 2) / 153);
+      var day = e - Math.floor((153 * mm + 2) / 5) + 1;
+      var month = mm + 3 - 12 * Math.floor(mm / 10);
+      var year = 100 * b + dd - 4800 + Math.floor(mm / 10);
+      return new Date(year, month - 1, day);
+    },
+
+    today: function () {
+      var n = new Date();
+      return new Date(n.getFullYear(), n.getMonth(), n.getDate());
+    },
+
+    /* local YYYY-MM-DD — never toISOString, which would shift the day across timezones */
+    toISO: function (d) {
+      return d.getFullYear() + '-' + U.pad2(d.getMonth() + 1) + '-' + U.pad2(d.getDate());
+    },
+
+    /* strict parse: JS would silently roll 2026-02-30 into 03-02, so read it back */
+    parseISO: function (iso) {
+      if (!iso) return null;
+      var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso).trim());
+      if (!m) return null;
+      var y = +m[1], mo = +m[2], d = +m[3];
+      if (mo < 1 || mo > 12 || d < 1 || d > 31) return null;
+      var date = new Date(y, mo - 1, d);
+      if (isNaN(date.getTime())) return null;
+      if (date.getFullYear() !== y || date.getMonth() !== mo - 1 || date.getDate() !== d) return null;
+      return date;
+    },
+
+    dayKey: function (ts) { return D.toISO(dFromTs(ts)); },
+
+    /* 2026-03-04 → Wed 4 Mar */
+    fmtDay: function (iso) {
+      var d = D.parseISO(iso);
+      if (!d) return '—';
+      return D.WEEKDAYS[d.getDay()] + ' ' + d.getDate() + ' ' + D.MONTHS[d.getMonth()];
+    },
+
+    fmtDayLong: function (iso) {
+      var d = D.parseISO(iso);
+      if (!d) return '—';
+      return D.WEEKDAYS_LONG[d.getDay()] + ', ' + d.getDate() + ' ' + D.MONTHS_LONG[d.getMonth()] + ' ' + d.getFullYear();
+    },
+
+    fmtMonth: function (y, m) { return D.MONTHS_LONG[m] + ' ' + y; },
+
+    /* 14:05 */
+    fmtTime: function (ts) {
+      var d = new Date(ts);
+      return U.pad2(d.getHours()) + ':' + U.pad2(d.getMinutes());
+    },
+
+    /* relative, human: "3 min ago" / "Yesterday 14:05" */
+    fmtRelative: function (ts) {
+      if (!ts) return '';
+      var now = Date.now(), diff = now - ts;
+      if (diff < 0) return D.fmtTime(ts);
+      var min = Math.floor(diff / 60000);
+      if (min < 1) return 'just now';
+      if (min < 60) return min + (min === 1 ? ' min ago' : ' mins ago');
+      var hrs = Math.floor(min / 60);
+      if (hrs < 24) return hrs + (hrs === 1 ? ' hour ago' : ' hours ago');
+      var days = Math.floor(hrs / 24);
+      if (days === 1) return 'yesterday ' + D.fmtTime(ts);
+      if (days < 7) return days + ' days ago';
+      return D.fmtDay(D.dayKey(ts));
+    },
+
+    WEEKDAYS: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+    WEEKDAYS_LONG: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
+    MONTHS: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+    MONTHS_LONG: ['January', 'February', 'March', 'April', 'May', 'June',
+                  'July', 'August', 'September', 'October', 'November', 'December']
+  };
+
+  function dFromTs(ts) {
+    var d = new Date(ts);
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  }
+  V.date.fromTs = dFromTs;
+
+  /* ── colours for new events ───────────────────────────── */
+  V.COLORS = ['#2f6bff', '#0ea5a0', '#f0872b', '#d92d4b',
+              '#7c4dff', '#0f9d58', '#c2185b', '#5b6472'];
+
+})(window.V);
+
+;
+/* ==== app/js/codec.js ==== */
+/* ============================================================
+   Virulenter · codec.js
+   The whole session — events, taps and appearance — is carried in the
+   URL. Nothing is written to localStorage / cookies / IndexedDB, so the
+   same link opens identically in any browser on any machine.
+
+   Wire format, base64url over a packed binary payload:
+
+     byte 0     version (2)
+     varint     event count
+     per event:
+       varint   name byte length, then UTF-8 name
+       1 byte   colour index into V.COLORS
+       varint   start day, ordinal days since EPOCH_DAY
+       varint   tap count
+       per tap:
+         varint minute of day (0..1439)
+         varint day offset from the event start, biased by DAY_BIAS
+     1 byte     settings flags:
+                  bit 0  a non-default accent or font is set
+                  bit 1  the accent is a custom RGB colour
+     [1 byte]   accent index (high nibble) and font index (low nibble)
+                (only when bit 0)
+     [3 bytes]  custom accent, R G B          (only when bit 1)
+
+   Taps store (day offset, minute of day) rather than a raw epoch value:
+   logged taps sit within a few hours of local midnight, so the minute part
+   stays under 1440 and costs two bytes. That is ~6.6 base64 characters per
+   tap instead of ~17 for a JSON timestamp.
+   ============================================================ */
+window.V = window.V || {};
+(function (V) {
+  'use strict';
+
+  var U = V.util, D = V.date;
+
+  var EPOCH_DAY = 2458850;      // ordinal day number of 2020-01-01
+  var DAY_BIAS = 30000;         // keeps the day offset positive for the varint
+  var MINUTES_MAX = 1439;
+
+  /* font stacks. Only families that ship with, or are very likely present on,
+     the viewer's device — a missing font silently falls back, so offering
+     arbitrary names would produce unpredictable results. */
+  V.FONTS = [
+    { id: 'system', label: 'System', stack: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif' },
+    { id: 'humanist', label: 'Humanist', stack: 'Optima, Candara, "Gill Sans", "Segoe UI", "Trebuchet MS", sans-serif' },
+    { id: 'serif', label: 'Serif', stack: 'Georgia, "Iowan Old Style", "Times New Roman", "Songti SC", serif' },
+    { id: 'rounded', label: 'Rounded', stack: '"SF Pro Rounded", "Hiragino Maru Gothic ProN", Nunito, "Segoe UI", ui-rounded, system-ui, sans-serif' },
+    { id: 'mono', label: 'Mono', stack: 'ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, "Liberation Mono", monospace' }
+  ];
+
+  /* accent presets — value, plus the two derived tints the stylesheet needs */
+  V.ACCENTS = [
+    { id: 'blue', label: 'Blue', value: '#2f6bff' },
+    { id: 'indigo', label: 'Indigo', value: '#4f46e5' },
+    { id: 'violet', label: 'Violet', value: '#7c3aed' },
+    { id: 'magenta', label: 'Magenta', value: '#c026d3' },
+    { id: 'rose', label: 'Rose', value: '#e11d48' },
+    { id: 'orange', label: 'Orange', value: '#ea580c' },
+    { id: 'green', label: 'Green', value: '#0f9d58' },
+    { id: 'teal', label: 'Teal', value: '#0d9488' },
+    { id: 'slate', label: 'Slate', value: '#475569' },
+    { id: 'ink', label: 'Ink', value: '#111827' }
+  ];
+
+  V.DEFAULTS = { accent: 'blue', font: 'system', custom: null };
+
+  var Codec = V.codec = {
+    MAX_URL: 2000,        // conservative: chat apps and mail clients truncate beyond this
+    WARN_URL: 1500,
+
+    /* ── base64url over bytes ───────────────────────────── */
+    bytesToB64: function (bytes) {
+      var bin = '';
+      for (var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+      return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    },
+
+    b64ToBytes: function (str) {
+      var s = String(str).replace(/-/g, '+').replace(/_/g, '/').replace(/\s/g, '');
+      while (s.length % 4) s += '=';
+      var bin = atob(s);
+      var bytes = new Uint8Array(bin.length);
+      for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      return bytes;
+    },
+
+    encodeBytes: function (json) {
+      return Codec.bytesToB64(new TextEncoder().encode(json));
+    },
+
+    decodeBytes: function (str) {
+      return new TextDecoder().decode(Codec.b64ToBytes(str));
+    },
+
+    /* ── varints ────────────────────────────────────────── */
+    writeVarint: function (out, value) {
+      var v = Math.max(0, Math.round(value) || 0);
+      while (v >= 128) {
+        out.push((v & 127) | 128);
+        v = Math.floor(v / 128);
+      }
+      out.push(v);
+    },
+
+    readVarint: function (bytes, pos) {
+      var result = 0, shift = 0, b;
+      do {
+        if (pos.i >= bytes.length) throw new Error('truncated payload');
+        b = bytes[pos.i++];
+        result += (b & 127) * Math.pow(2, shift);
+        shift += 7;
+      } while (b & 128);
+      return result;
+    },
+
+    /* ── hex ↔ bytes ────────────────────────────────────── */
+    hexToRgb: function (hex) {
+      var m = /^#?([0-9a-f]{6})$/i.exec(String(hex || ''));
+      if (!m) return null;
+      var n = parseInt(m[1], 16);
+      return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+    },
+
+    rgbToHex: function (rgb) {
+      return '#' + rgb.map(function (v) {
+        var s = Math.max(0, Math.min(255, Math.round(v))).toString(16);
+        return s.length === 1 ? '0' + s : s;
+      }).join('');
+    },
+
+    /* ── state → binary ─────────────────────────────────── */
+    packBytes: function (state) {
+      var out = [V.FORMAT];
+      var events = state.events || [];
+      Codec.writeVarint(out, events.length);
+
+      events.forEach(function (e) {
+        var nameBytes = new TextEncoder().encode(String(e.name || 'Untitled').slice(0, 48));
+        Codec.writeVarint(out, nameBytes.length);
+        for (var i = 0; i < nameBytes.length; i++) out.push(nameBytes[i]);
+
+        var ci = -1;
+        for (var c = 0; c < V.COLORS.length; c++) {
+          if (V.COLORS[c].toLowerCase() === String(e.color || '').toLowerCase()) { ci = c; break; }
+        }
+        out.push(ci < 0 ? 0 : ci);
+
+        var startDate = D.parseISO(e.start) || D.today();
+        var startDay = D.toEpochDay(startDate) - EPOCH_DAY;
+        Codec.writeVarint(out, startDay);
+
+        var taps = (e.log || []).slice().sort(function (a, b) { return a - b; });
+        Codec.writeVarint(out, taps.length);
+        taps.forEach(function (ts) {
+          var d = new Date(ts);
+          var dayOff = D.toEpochDay(d) - (startDay + EPOCH_DAY);
+          /* floor, not round: rounding 12:03:41 up to 12:04 would decode to a
+             time later than the tap that was actually recorded */
+          var mins = Math.floor((ts - D.stripTime(d)) / 60000);
+          if (mins < 0) mins = 0;
+          if (mins > MINUTES_MAX) mins = MINUTES_MAX;
+          if (dayOff < -DAY_BIAS) dayOff = -DAY_BIAS;
+          if (dayOff > 32767) dayOff = 32767;
+          Codec.writeVarint(out, mins);
+          Codec.writeVarint(out, dayOff + DAY_BIAS);
+        });
+      });
+
+      /* appearance. The accent index and the font index share one byte so a
+         non-default look costs two bytes, and a default look costs one. */
+      var look = state.look || V.DEFAULTS;
+      var custom = look.custom ? Codec.hexToRgb(look.custom) : null;
+      var accentIdx = 0;
+      for (var a = 0; a < V.ACCENTS.length; a++) if (V.ACCENTS[a].id === look.accent) accentIdx = a;
+      var fontIdx = 0;
+      for (var f = 0; f < V.FONTS.length; f++) if (V.FONTS[f].id === look.font) fontIdx = f;
+
+      var nonDefault = accentIdx > 0 || fontIdx > 0;
+      var flags = (nonDefault ? 1 : 0) | (custom ? 2 : 0);
+      out.push(flags);
+      if (nonDefault) out.push(((accentIdx & 15) << 4) | (fontIdx & 15));
+      if (custom) out.push(custom[0], custom[1], custom[2]);
+
+      return new Uint8Array(out);
+    },
+
+    unpackBytes: function (bytes) {
+      if (!bytes || bytes.length < 3) return null;
+      var pos = { i: 0 };
+      var version = bytes[pos.i++];
+      if (version !== V.FORMAT) return null;
+
+      var count = Codec.readVarint(bytes, pos);
+      if (count > 2000) return null;
+
+      var events = [];
+      for (var n = 0; n < count; n++) {
+        var nameLen = Codec.readVarint(bytes, pos);
+        if (nameLen > 400 || pos.i + nameLen > bytes.length) return null;
+        var name = new TextDecoder().decode(bytes.subarray(pos.i, pos.i + nameLen));
+        pos.i += nameLen;
+
+        var colorIdx = bytes[pos.i++];
+        var startDay = Codec.readVarint(bytes, pos);
+        var tapCount = Codec.readVarint(bytes, pos);
+        if (tapCount > 200000) return null;
+
+        var log = [];
+        for (var t = 0; t < tapCount; t++) {
+          var mins = Codec.readVarint(bytes, pos);
+          var dayOff = Codec.readVarint(bytes, pos) - DAY_BIAS;
+          var day = D.fromEpochDay(EPOCH_DAY + startDay + dayOff);
+          log.push(day.getTime() + mins * 60000);
+        }
+        log.sort(function (a, b) { return a - b; });
+
+        events.push({
+          id: U.uid(),
+          name: (name || 'Untitled').slice(0, 48),
+          color: V.COLORS[colorIdx] || V.COLORS[0],
+          start: D.toISO(D.fromEpochDay(EPOCH_DAY + startDay)),
+          log: log
+        });
+      }
+
+      /* appearance is optional: a payload that ends here still loads */
+      var look = { accent: V.DEFAULTS.accent, font: V.DEFAULTS.font, custom: null };
+      if (pos.i < bytes.length) {
+        var flags = bytes[pos.i++];
+        if ((flags & 1) && pos.i < bytes.length) {
+          var packed = bytes[pos.i++];
+          look.accent = (V.ACCENTS[packed >> 4] || V.ACCENTS[0]).id;
+          look.font = (V.FONTS[packed & 15] || V.FONTS[0]).id;
+        }
+        if ((flags & 2) && pos.i + 3 <= bytes.length) {
+          look.custom = Codec.rgbToHex([bytes[pos.i], bytes[pos.i + 1], bytes[pos.i + 2]]);
+          pos.i += 3;
+        }
+      }
+
+      return { v: V.FORMAT, events: events, look: look };
+    },
+
+    /* ── state ↔ string ─────────────────────────────────── */
+    encode: function (state) {
+      return Codec.bytesToB64(Codec.packBytes(state));
+    },
+
+    decode: function (str) {
+      if (!str) return null;
+      var text = String(str).trim();
+
+      var hash = text.indexOf('#') >= 0 ? text.slice(text.indexOf('#') + 1) : text;
+      if (/^[?&]/.test(hash)) hash = hash.slice(1);
+      var m = /(?:^|[?&])d=([A-Za-z0-9\-_]+)/.exec(hash);
+      if (m) {
+        try { return Codec.unpackBytes(Codec.b64ToBytes(m[1])); } catch (e) { /* fall through */ }
+      }
+      if (/^[A-Za-z0-9\-_]+$/.test(hash) && hash.length > 4) {
+        try { return Codec.unpackBytes(Codec.b64ToBytes(hash)); } catch (e) { /* fall through */ }
+      }
+
+      try {
+        var parsed = JSON.parse(text);
+        if (Array.isArray(parsed)) return Codec.unpackBytes(Codec.packBytes({ events: parsed }));
+        if (parsed && Array.isArray(parsed.events)) return Codec.unpackBytes(Codec.packBytes(parsed));
+      } catch (e) { /* not JSON either */ }
+      return null;
+    },
+
+    /* ── URL helpers ────────────────────────────────────── */
+    baseUrl: function () {
+      return location.origin && location.origin !== 'null'
+        ? location.origin + location.pathname
+        : location.href.split('#')[0].split('?')[0];
+    },
+
+    /* Short sessions ride in the fragment. Longer ones go in ?d=, which
+       browsers accept far more of, and which can be repeated to merge links. */
+    urlFor: function (state) {
+      var payload;
+      try { payload = Codec.encode(state); } catch (e) { return Codec.baseUrl(); }
+      var short = Codec.baseUrl() + '#d=' + payload;
+      if (short.length <= Codec.MAX_URL) return short;
+      return Codec.baseUrl() + '?d=' + payload;
+    },
+
+    payloadsFromQuery: function () {
+      var q = location.search || '';
+      if (!q) return [];
+      var out = [];
+      q.replace(/^\?/, '').split('&').forEach(function (pair) {
+        if (!pair) return;
+        var eq = pair.indexOf('=');
+        var key = eq < 0 ? pair : pair.slice(0, eq);
+        if (key !== 'd') return;
+        var val = eq < 0 ? '' : pair.slice(eq + 1);
+        try { out.push(decodeURIComponent(val)); } catch (e) { out.push(val); }
+      });
+      return out;
+    },
+
+    payloadFromHash: function () {
+      var h = (location.hash || '').replace(/^#/, '');
+      if (!h) return null;
+      var m = /(?:^|[?&])d=([A-Za-z0-9\-_]+)/.exec(h);
+      if (m) return m[1];
+      if (/^d=/.test(h)) return h.slice(2);
+      return null;
+    },
+
+    /* ── appearance helpers ─────────────────────────────── */
+    accentValue: function (look) {
+      if (look && look.custom) return look.custom;
+      var id = (look && look.accent) || V.DEFAULTS.accent;
+      for (var i = 0; i < V.ACCENTS.length; i++) if (V.ACCENTS[i].id === id) return V.ACCENTS[i].value;
+      return V.ACCENTS[0].value;
+    },
+
+    /* derive the tints the stylesheet needs from any accent colour, so a
+       custom pick gets the same treatment as a preset */
+    accentTints: function (hex) {
+      var rgb = Codec.hexToRgb(hex) || Codec.hexToRgb(V.ACCENTS[0].value);
+      /* soft: the accent washed onto white at ~11% */
+      var soft = rgb.map(function (v) { return Math.round(255 - (255 - v) * 0.11); });
+      /* ink: readable text on top of the accent */
+      var lum = (0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2]) / 255;
+      return {
+        value: Codec.rgbToHex(rgb),
+        soft: Codec.rgbToHex(soft),
+        ink: lum > 0.62 ? '#111827' : '#ffffff'
+      };
+    },
+
+    fontStack: function (id) {
+      for (var i = 0; i < V.FONTS.length; i++) if (V.FONTS[i].id === id) return V.FONTS[i].stack;
+      return V.FONTS[0].stack;
+    }
+  };
+
+})(window.V);
+
+;
+/* ==== app/js/store.js ==== */
+/* ============================================================
+   Virulenter · store.js
+   In-memory state. Nothing is persisted to browser storage —
+   persistence is the URL (see codec.js).
+   ============================================================ */
+window.V = window.V || {};
+(function (V) {
+  'use strict';
+
+  var U = V.util, D = V.date, Codec = V.codec;
+
+  var Store = V.store = {
+    events: [],
+    look: { accent: V.DEFAULTS.accent, font: V.DEFAULTS.font, custom: null },
+    dirty: false,          // true once the user has changed something
+    sort: 'recent',        // recent | name | count | oldest
+    query: '',
+    urlOk: true,           // false when the link got too long to keep in sync
+
+    /* ── load ───────────────────────────────────────────── */
+    load: function () {
+      var hashPayload = Codec.payloadFromHash();
+      var queryPayloads = Codec.payloadsFromQuery();
+      var failed = false;
+
+      function decodeOne(payload) {
+        try { return Codec.unpackBytes(Codec.b64ToBytes(payload)); } catch (e) { return null; }
+      }
+
+      /* Collect every payload on the URL: repeated ?d= parameters and a #d=
+         fragment all merge together, so a shared link can be combined with a
+         bookmarked one instead of one silently shadowing the other. */
+      var payloads = queryPayloads.slice();
+      if (hashPayload && payloads.indexOf(hashPayload) < 0) payloads.push(hashPayload);
+
+      var parts = [];
+      payloads.forEach(function (p) {
+        var one = decodeOne(p);
+        if (one) parts.push(one);
+        else failed = true;
+      });
+
+      var loaded = parts.length ? parts[0] : null;
+      var merged = 0;
+      if (parts.length > 1) {
+        Store.mergeInto(loaded, parts.slice(1));
+        merged = payloads.length;
+      }
+
+      Store.events = loaded ? loaded.events : [];
+      Store.look = (loaded && loaded.look) || { accent: V.DEFAULTS.accent, font: V.DEFAULTS.font, custom: null };
+      Store.mergeNotice = merged;
+      Store.decodeFailed = failed && !loaded;
+      return Store.events;
+    },
+
+    /* combine additional link payloads into the primary state, by event id */
+    mergeInto: function (target, others) {
+      var byId = {};
+      target.events.forEach(function (e) { byId[e.id] = e; });
+      others.forEach(function (other) {
+        other.events.forEach(function (incoming) {
+          var cur = byId[incoming.id];
+          if (!cur) {
+            target.events.push(incoming);
+            byId[incoming.id] = incoming;
+            return;
+          }
+          /* same event: union of timestamps, deduplicated */
+          var seen = {};
+          cur.log.forEach(function (t) { seen[t] = true; });
+          incoming.log.forEach(function (t) { if (!seen[t]) cur.log.push(t); });
+          cur.log.sort(function (a, b) { return a - b; });
+          if (!cur.name && incoming.name) cur.name = incoming.name;
+        });
+        /* the first payload's appearance wins; later ones only fill gaps */
+        if (other.look && target.look) {
+          if (other.look.custom && !target.look.custom) target.look = other.look;
+          else if (other.look.accent !== V.DEFAULTS.accent && target.look.accent === V.DEFAULTS.accent) {
+            target.look.accent = other.look.accent;
+          }
+        }
+      });
+      return target;
+    },
+
+    snapshot: function () {
+      return { v: V.FORMAT, events: Store.events, look: Store.look };
+    },
+
+    serialize: function () {
+      return JSON.stringify({
+        app: V.APP_NAME,
+        v: V.FORMAT,
+        exportedAt: new Date().toISOString(),
+        look: Store.look,
+        events: Store.events
+      }, null, 2);
+    },
+
+    importJSON: function (text, mode) {
+      var parsed;
+      try { parsed = JSON.parse(text); } catch (e) { return { ok: false, error: 'That is not valid JSON.' }; }
+      var list = Array.isArray(parsed) ? parsed : (parsed && Array.isArray(parsed.events) ? parsed.events : null);
+      if (!list) return { ok: false, error: 'No events found in that data.' };
+      var state = Codec.unpackBytes(Codec.packBytes({ events: list, look: parsed && parsed.look }));
+      if (!state) return { ok: false, error: 'No events found in that data.' };
+      /* keep the original ids so repeated merge-imports stay idempotent */
+      list.forEach(function (raw, i) {
+        if (state.events[i] && raw && raw.id) state.events[i].id = String(raw.id);
+      });
+      if (mode === 'replace') {
+        Store.events = state.events;
+        if (parsed && parsed.look) Store.look = state.look;
+      } else {
+        var target = { events: Store.events, look: Store.look };
+        Store.mergeInto(target, [state]);
+        Store.events = target.events;
+      }
+      Store.dirty = true;
+      return { ok: true, count: state.events.length };
+    },
+
+    /* ── appearance ─────────────────────────────────────── */
+    setAccent: function (id) {
+      Store.look = { accent: id, font: Store.look.font, custom: null };
+      Store.dirty = true;
+      return Store.look;
+    },
+
+    setCustomAccent: function (hex) {
+      if (!Codec.hexToRgb(hex)) return null;
+      Store.look = { accent: Store.look.accent, font: Store.look.font, custom: Codec.rgbToHex(Codec.hexToRgb(hex)) };
+      Store.dirty = true;
+      return Store.look;
+    },
+
+    setFont: function (id) {
+      var known = V.FONTS.some(function (f) { return f.id === id; });
+      if (!known) return null;
+      Store.look = { accent: Store.look.accent, font: id, custom: Store.look.custom };
+      Store.dirty = true;
+      return Store.look;
+    },
+
+    /* ── mutate ─────────────────────────────────────────── */
+    get: function (id) {
+      for (var i = 0; i < Store.events.length; i++) if (Store.events[i].id === id) return Store.events[i];
+      return null;
+    },
+
+    create: function (data) {
+      var e = {
+        id: U.uid(),
+        name: String(data.name || 'Untitled').trim().slice(0, 48) || 'Untitled',
+        color: /^#[0-9a-f]{6}$/i.test(data.color || '') ? data.color : V.COLORS[0],
+        start: D.toISO(D.parseISO(data.start) || D.today()),
+        log: []
+      };
+      Store.events.push(e);
+      Store.dirty = true;
+      return e;
+    },
+
+    update: function (id, data) {
+      var e = Store.get(id);
+      if (!e) return null;
+      if (typeof data.name === 'string' && data.name.trim()) e.name = data.name.trim().slice(0, 48);
+      if (/^#[0-9a-f]{6}$/i.test(data.color || '')) e.color = data.color;
+      var sd = D.parseISO(data.start);
+      if (sd) e.start = D.toISO(sd);
+      Store.dirty = true;
+      return e;
+    },
+
+    remove: function (id) {
+      var i = Store.events.findIndex(function (e) { return e.id === id; });
+      if (i < 0) return false;
+      Store.events.splice(i, 1);
+      Store.dirty = true;
+      return true;
+    },
+
+    /* the core action: +1 and a timestamped log entry */
+    logTap: function (id, ts) {
+      var e = Store.get(id);
+      if (!e) return null;
+      var t = ts || Date.now();
+      e.log.push(t);
+      e.log.sort(function (a, b) { return a - b; });
+      Store.dirty = true;
+      return t;
+    },
+
+    removeEntry: function (id, ts) {
+      var e = Store.get(id);
+      if (!e) return false;
+      var i = e.log.indexOf(ts);
+      if (i < 0) return false;
+      e.log.splice(i, 1);
+      Store.dirty = true;
+      return true;
+    },
+
+    clearLog: function (id) {
+      var e = Store.get(id);
+      if (!e) return false;
+      e.log = [];
+      Store.dirty = true;
+      return true;
+    },
+
+    /* ── derived ────────────────────────────────────────── */
+    count: function (e) { return e.log.length; },
+
+    last: function (e) { return e.log.length ? e.log[e.log.length - 1] : null; },
+
+    first: function (e) { return e.log.length ? e.log[0] : null; },
+
+    /* per-day totals across every event: { 'YYYY-MM-DD': n } */
+    dayTotals: function () {
+      var out = {};
+      Store.events.forEach(function (e) {
+        e.log.forEach(function (ts) {
+          var k = D.dayKey(ts);
+          out[k] = (out[k] || 0) + 1;
+        });
+      });
+      return out;
+    },
+
+    dayTotalsFor: function (e) {
+      var out = {};
+      e.log.forEach(function (ts) {
+        var k = D.dayKey(ts);
+        out[k] = (out[k] || 0) + 1;
+      });
+      return out;
+    },
+
+    entriesOnDay: function (iso) {
+      var out = [];
+      Store.events.forEach(function (e) {
+        e.log.forEach(function (ts) {
+          if (D.dayKey(ts) === iso) out.push({ event: e, ts: ts });
+        });
+      });
+      out.sort(function (a, b) { return b.ts - a.ts; });
+      return out;
+    },
+
+    perDay: function (e) {
+      if (!e.log.length) return 0;
+      var from = D.parseISO(e.start) || D.fromTs(e.log[0]);
+      var days = D.diffDays(from, D.today()) + 1;
+      if (days < 1) days = 1;
+      return e.log.length / days;
+    },
+
+    stats: function () {
+      var total = 0, today = 0, thisWeek = 0, active = 0;
+      var todayKey = D.toISO(D.today());
+      var weekAgo = D.stripTime(D.addDays(D.today(), -6));
+      Store.events.forEach(function (e) {
+        total += e.log.length;
+        if (e.log.length) active++;
+        e.log.forEach(function (ts) {
+          if (D.dayKey(ts) === todayKey) today++;
+          if (D.stripTime(D.fromTs(ts)) >= weekAgo) thisWeek++;
+        });
+      });
+      return { events: Store.events.length, total: total, today: today, week: thisWeek, active: active };
+    },
+
+    /* ── statistics ─────────────────────────────────────── */
+
+    /* per-event summary rows, sorted by volume */
+    perEvent: function () {
+      var total = Store.stats().total;
+      return Store.events.map(function (e) {
+        var first = Store.first(e), last = Store.last(e);
+        return {
+          event: e,
+          count: e.log.length,
+          first: first,
+          last: last,
+          rate: Store.perDay(e),
+          activeDays: Object.keys(Store.dayTotalsFor(e)).length,
+          share: total ? e.log.length / total : 0
+        };
+      }).sort(function (a, b) { return b.count - a.count || a.event.name.localeCompare(b.event.name, 'en'); });
+    },
+
+    /* longest run of consecutive days with at least one tap, plus current run */
+    streaks: function () {
+      var totals = Store.dayTotals();
+      var keys = Object.keys(totals).sort();
+      if (!keys.length) return { longest: 0, longestEnd: null, current: 0, activeDays: 0 };
+
+      var best = 1, bestEnd = keys[0], run = 1;
+      for (var i = 1; i < keys.length; i++) {
+        var prev = D.parseISO(keys[i - 1]);
+        var cur = D.parseISO(keys[i]);
+        if (prev && cur && D.diffDays(prev, cur) === 1) run++;
+        else run = 1;
+        if (run > best) { best = run; bestEnd = keys[i]; }
+      }
+
+      /* a run that reaches today or yesterday is still alive */
+      var todayKey = D.toISO(D.today());
+      var yesterdayKey = D.toISO(D.addDays(D.today(), -1));
+      var current = 0;
+      if (totals[todayKey] || totals[yesterdayKey]) {
+        var cursor = totals[todayKey] ? D.today() : D.addDays(D.today(), -1);
+        while (totals[D.toISO(cursor)]) {
+          current++;
+          cursor = D.addDays(cursor, -1);
+        }
+      }
+      return { longest: best, longestEnd: bestEnd, current: current, activeDays: keys.length };
+    },
+
+    /* taps grouped by weekday, Monday first */
+    byWeekday: function () {
+      var out = [0, 0, 0, 0, 0, 0, 0];   // index 0 = Monday
+      Store.events.forEach(function (e) {
+        e.log.forEach(function (ts) {
+          var d = new Date(ts).getDay();      // 0 = Sunday
+          out[(d + 6) % 7]++;
+        });
+      });
+      return out;
+    },
+
+    /* taps grouped by hour of day, 0..23 */
+    byHour: function () {
+      var out = new Array(24).fill(0);
+      Store.events.forEach(function (e) {
+        e.log.forEach(function (ts) { out[new Date(ts).getHours()]++; });
+      });
+      return out;
+    },
+
+    /* taps per month for a given year: [12] */
+    byMonth: function (year) {
+      var out = new Array(12).fill(0);
+      Store.events.forEach(function (e) {
+        e.log.forEach(function (ts) {
+          var d = new Date(ts);
+          if (d.getFullYear() === year) out[d.getMonth()]++;
+        });
+      });
+      return out;
+    },
+
+    /* every year that has any tap */
+    years: function () {
+      var seen = {};
+      Store.events.forEach(function (e) {
+        e.log.forEach(function (ts) { seen[new Date(ts).getFullYear()] = true; });
+      });
+      var list = Object.keys(seen).map(Number).sort(function (a, b) { return b - a; });
+      var thisYear = new Date().getFullYear();
+      if (list.indexOf(thisYear) < 0) list.unshift(thisYear);
+      return list;
+    },
+
+    /* the most recent n days, oldest first: [{ iso, weekday, n }] */
+    lastDays: function (n) {
+      var totals = Store.dayTotals();
+      var out = [];
+      for (var i = n - 1; i >= 0; i--) {
+        var d = D.addDays(D.today(), -i);
+        var iso = D.toISO(d);
+        out.push({ iso: iso, weekday: D.WEEKDAYS[d.getDay()], n: totals[iso] || 0 });
+      }
+      return out;
+    },
+
+    /* full date range covered by the data */
+    range: function () {
+      var min = null, max = null;
+      Store.events.forEach(function (e) {
+        var sd = D.parseISO(e.start);
+        if (sd) {
+          var t = D.stripTime(sd);
+          if (min === null || t < min) min = t;
+        }
+        if (e.log.length) {
+          var f = D.stripTime(D.fromTs(e.log[0]));
+          var l = D.stripTime(D.fromTs(e.log[e.log.length - 1]));
+          if (min === null || f < min) min = f;
+          if (max === null || l > max) max = l;
+        }
+      });
+      var today = D.stripTime(D.today());
+      if (min === null) min = today;
+      if (max === null) max = today;
+      if (max < today) max = today;
+      return { min: min, max: max };
+    },
+
+    /* ── list for the events view ───────────────────────── */
+    list: function () {
+      var q = Store.query.trim().toLowerCase();
+      var rows = Store.events.slice();
+      if (q) rows = rows.filter(function (e) { return e.name.toLowerCase().indexOf(q) >= 0; });
+      var s = Store.sort;
+      rows.sort(function (a, b) {
+        if (s === 'name') return a.name.localeCompare(b.name, 'en');
+        if (s === 'count') return b.log.length - a.log.length || a.name.localeCompare(b.name, 'en');
+        if (s === 'oldest') return (Store.first(a) || Infinity) - (Store.first(b) || Infinity);
+        var la = Store.last(a), lb = Store.last(b);
+        if (la === null && lb === null) return 0;
+        if (la === null) return 1;
+        if (lb === null) return -1;
+        return lb - la;
+      });
+      return rows;
+    },
+
+    /* ── export ─────────────────────────────────────────── */
+
+    /* RFC 4180 quoting: wrap in quotes and double any embedded quote */
+    csvCell: function (value) {
+      var s = value == null ? '' : String(value);
+      if (/[",\r\n]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+      return s;
+    },
+
+    csvRow: function (cells) {
+      return cells.map(Store.csvCell).join(',');
+    },
+
+    /* one row per tap, oldest first — opens straight into Excel / Sheets */
+    toCSV: function () {
+      var rows = [Store.csvRow(['Event', 'Date', 'Time', 'Year', 'Month', 'Day', 'Weekday', 'Timestamp'])];
+      var all = [];
+      Store.events.forEach(function (e) {
+        e.log.forEach(function (ts) { all.push({ e: e, ts: ts }); });
+      });
+      all.sort(function (a, b) { return a.ts - b.ts || a.e.name.localeCompare(b.e.name, 'en'); });
+      all.forEach(function (row) {
+        var d = new Date(row.ts);
+        rows.push(Store.csvRow([
+          row.e.name,
+          D.toISO(d),
+          D.fmtTime(row.ts),
+          d.getFullYear(),
+          d.getMonth() + 1,
+          d.getDate(),
+          D.WEEKDAYS_LONG[d.getDay()],
+          Math.floor(row.ts / 1000)
+        ]));
+      });
+      return rows.join('\r\n') + '\r\n';
+    },
+
+    /* per-event summary, for a spreadsheet overview */
+    toSummaryCSV: function () {
+      var rows = [Store.csvRow(['Event', 'Taps', 'Share', 'Average per day', 'Active days', 'First tap', 'Last tap', 'Start date'])];
+      Store.perEvent().forEach(function (r) {
+        rows.push(Store.csvRow([
+          r.event.name,
+          r.count,
+          (r.share * 100).toFixed(1) + '%',
+          r.rate.toFixed(3),
+          r.activeDays,
+          r.first ? D.toISO(new Date(r.first)) + ' ' + D.fmtTime(r.first) : '',
+          r.last ? D.toISO(new Date(r.last)) + ' ' + D.fmtTime(r.last) : '',
+          r.event.start
+        ]));
+      });
+      return rows.join('\r\n') + '\r\n';
+    },
+
+    /* ── URL persistence ────────────────────────────────── */
+    syncUrl: function () {
+      var url;
+      try { url = Codec.urlFor(Store.snapshot()); } catch (e) { return false; }
+      if (url.length > Codec.MAX_URL) { Store.urlOk = false; return false; }
+      Store.urlOk = true;
+      try {
+        history.replaceState(null, '', url);
+        return true;
+      } catch (e) {
+        try { location.replace(url); return true; } catch (e2) { return false; }
+      }
+    },
+
+    clearUrl: function () {
+      try { history.replaceState(null, '', Codec.baseUrl()); } catch (e) {}
+    },
+
+    urlLength: function () {
+      try { return Codec.urlFor(Store.snapshot()).length; } catch (e) { return 0; }
+    }
+  };
+
+})(window.V);
+
+;
+/* ==== app/js/ui.js ==== */
+/* ============================================================
+   Virulenter · ui.js — card rendering, sheets, small helpers.
+   ============================================================ */
+window.V = window.V || {};
+(function (V) {
+  'use strict';
+
+  var U = V.util, D = V.date, S = V.store;
+
+  var UI = V.ui = {
+
+    /* ── sheets ─────────────────────────────────────────── */
+    openSheet: function (overlay) {
+      overlay.hidden = false;
+      overlay.classList.remove('closing');
+      document.body.style.overflow = 'hidden';
+    },
+
+    closeSheet: function (overlay) {
+      if (!overlay || overlay.hidden) return;
+      overlay.classList.add('closing');
+      setTimeout(function () {
+        overlay.hidden = true;
+        overlay.classList.remove('closing');
+        var anyOpen = ['#formOverlay', '#dataOverlay'].some(function (sel) {
+          var o = U.qs(sel);
+          return o && !o.hidden;
+        });
+        if (!anyOpen) document.body.style.overflow = '';
+      }, 170);
+    },
+
+    bindSheetClose: function (overlay) {
+      overlay.addEventListener('click', function (ev) {
+        if (ev.target.dataset && ev.target.dataset.close) UI.closeSheet(overlay);
+      });
+    },
+
+    /* ── a count formatted for reading ──────────────────── */
+    countText: function (n) { return String(n); },
+
+    plural: function (n, one, many) { return U.plural(n, one, many); },
+
+    /* avg taps/day, with sensible precision */
+    rateText: function (rate) {
+      if (!rate) return '0/day';
+      if (rate >= 10) return Math.round(rate) + '/day';
+      if (rate >= 1) return rate.toFixed(1).replace(/\.0$/, '') + '/day';
+      return rate.toFixed(2) + '/day';
+    },
+
+    /* ── the event card ─────────────────────────────────── */
+    cardHTML: function (e, index) {
+      var count = S.count(e);
+      var last = S.last(e);
+      var first = S.first(e);
+      var rate = S.perDay(e);
+      var startDay = D.parseISO(e.start);
+      var runningFor = startDay ? D.diffDays(startDay, D.today()) + 1 : 0;
+
+      var facts = [];
+      facts.push('<div class="ev-fact"><b>' + UI.rateText(rate) + '</b><span>average</span></div>');
+      if (first) {
+        facts.push('<div class="ev-fact"><b>' + D.fmtDay(D.dayKey(first)) + '</b><span>first tap</span></div>');
+      } else {
+        facts.push('<div class="ev-fact is-muted"><span>No taps yet</span></div>');
+      }
+      if (runningFor > 0) {
+        facts.push('<div class="ev-fact"><b>' + runningFor + '</b><span>' +
+          UI.plural(runningFor, 'day') + ' since ' + D.fmtDay(e.start) + '</span></div>');
+      }
+
+      return [
+        '<article class="ev" data-id="', U.esc(e.id), '" style="--c:', U.esc(e.color), ';--i:', index, '">',
+          '<div class="ev-top">',
+            '<span class="ev-dot" aria-hidden="true"></span>',
+            '<span class="ev-name" title="', U.esc(e.name), '">', U.esc(e.name), '</span>',
+            '<button class="ev-menu" type="button" data-edit="', U.esc(e.id), '" aria-label="Edit ', U.esc(e.name), '">',
+              '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></svg>',
+            '</button>',
+          '</div>',
+          '<div class="ev-mid">',
+            '<div class="ev-count"><b data-count="', U.esc(e.id), '">', count, '</b><span>',
+              UI.plural(count, 'tap', 'taps'), '</span></div>',
+            '<div class="ev-facts">', facts.join(''), '</div>',
+          '</div>',
+          '<div class="ev-foot">',
+            '<button class="tap-btn" type="button" data-tap="', U.esc(e.id), '" aria-label="Log one tap for ', U.esc(e.name), '">',
+              '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>',
+              '<span>Tap to count</span>',
+            '</button>',
+            '<div class="ev-last" data-last="', U.esc(e.id), '">', UI.lastLine(last), '</div>',
+          '</div>',
+        '</article>'
+      ].join('');
+    },
+
+    lastLine: function (last) {
+      if (!last) return '<span>Nothing logged yet — tap the button to start</span>';
+      return '<span>Last: <b>' + U.esc(D.fmtRelative(last)) + '</b> · ' +
+        U.esc(D.fmtDay(D.dayKey(last))) + ' at ' + U.esc(D.fmtTime(last)) + '</span>';
+    },
+
+    renderCards: function (container, events) {
+      if (!events.length) { container.innerHTML = ''; return false; }
+      container.innerHTML = events.map(function (e, i) { return UI.cardHTML(e, i); }).join('');
+      return true;
+    },
+
+    /* ── colour picker state (the form owns the swatch markup) ── */
+    setActiveSwatch: function (color) {
+      V.app.selectedColor = color;
+      U.qsa('#fColor .swatch').forEach(function (b) {
+        b.classList.toggle('is-on', b.dataset.color === color);
+      });
+    },
+
+    /* ── one-day entry list ─────────────────────────────── */
+    dayPanelHTML: function (iso) {
+      var entries = S.entriesOnDay(iso);
+      var total = entries.length;
+      var todayISO = D.toISO(D.today());
+      var head = [
+        '<div class="day-head">',
+          '<h3>', U.esc(D.fmtDayLong(iso)), '</h3>',
+          '<span class="day-total">', total, ' ', UI.plural(total, 'tap'), '</span>',
+        '</div>'
+      ];
+
+      var body;
+      if (!total) {
+        body = '<div class="day-empty">No taps on this day.</div>';
+      } else {
+        body = '<div class="day-list">' + entries.map(function (row) {
+          var e = row.event;
+          return '<div class="day-row" style="--c:' + U.esc(e.color) + '">' +
+            '<span class="dot" aria-hidden="true"></span>' +
+            '<span class="name">' + U.esc(e.name) + '</span>' +
+            '<time datetime="' + U.esc(new Date(row.ts).toISOString()) + '">' + U.esc(D.fmtTime(row.ts)) + '</time>' +
+            '<button class="del-btn" type="button" data-untap="' + U.esc(e.id) + '" data-ts="' + row.ts + '" aria-label="Remove this tap">' +
+              '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg>' +
+            '</button>' +
+          '</div>';
+        }).join('') + '</div>';
+      }
+
+      var addRow = '';
+      if (S.events.length) {
+        addRow = '<div class="day-add"><button class="btn" type="button" data-addon="' + U.esc(iso) + '">' +
+          (iso === todayISO ? '＋ Log a tap now' : '＋ Add a tap on this day at ' + U.esc(D.fmtTime(Date.now()))) +
+          '</button></div>';
+      }
+
+      return head.join('') + body + addRow;
+    }
+  };
+
+})(window.V);
+
+;
+/* ==== app/js/views.js ==== */
+/* ============================================================
+   Virulenter · views.js — events list, calendar grid, day panel.
+   ============================================================ */
+window.V = window.V || {};
+(function (V) {
+  'use strict';
+
+  var U = V.util, D = V.date, S = V.store, UI = V.ui;
+
+  var Views = V.views = {
+    cal: { y: 0, m: 0, sel: null },
+    _els: {},
+
+    init: function () {
+      var e = Views._els = {
+        stats: U.qs('#statsRow'),
+        toolbar: U.qs('#toolbar'),
+        list: U.qs('#eventList'),
+        empty: U.qs('#listEmpty'),
+        search: U.qs('#searchInput'),
+        searchClear: U.qs('#searchClear'),
+        sortLabel: U.qs('#sortLabel'),
+        brandSub: U.qs('#brandSub'),
+        notice: U.qs('#notice'),
+        calWeek: U.qs('#calWeek'),
+        calGrid: U.qs('#calGrid'),
+        calTitle: U.qs('#calTitle'),
+        calTitleText: U.qs('#calTitleText'),
+        calRange: U.qs('#calRange'),
+        dayPanel: U.qs('#dayPanel')
+      };
+
+      Views._els.calWeek.innerHTML = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+        .map(function (d) { return '<span>' + d + '</span>'; }).join('');
+
+      var t = D.today();
+      Views.cal.y = t.getFullYear();
+      Views.cal.m = t.getMonth();
+      Views.cal.sel = D.toISO(t);
+
+      return Views;
+    },
+
+    /* ══════════ events ══════════ */
+    renderHome: function () {
+      var stats = S.stats();
+      Views.renderStats(stats);
+      Views.renderNotice();
+
+      var events = S.list();
+      var hasAny = S.events.length > 0;
+      Views._els.toolbar.hidden = !hasAny;
+
+      var shown = UI.renderCards(Views._els.list, events);
+      var nothingToShow = !shown;
+      Views._els.empty.hidden = shown;
+      if (nothingToShow && hasAny) {
+        /* events exist but the search filtered them all out */
+        Views._els.list.innerHTML = '<div class="day-empty">No events match “' + U.esc(S.query) + '”.</div>';
+        Views._els.empty.hidden = true;
+      }
+      Views.renderBrandSub();
+    },
+
+    renderBrandSub: function () {
+      var stats = S.stats();
+      Views._els.brandSub.textContent = stats.events
+        ? stats.total + ' ' + UI.plural(stats.total, 'tap') + ' · ' + stats.events + ' ' + UI.plural(stats.events, 'event')
+        : 'tap to count';
+    },
+
+    renderStats: function (stats) {
+      Views._els.stats.innerHTML = [
+        cell(stats.events, UI.plural(stats.events, 'event')),
+        cell(stats.total, UI.plural(stats.total, 'tap')),
+        cell(stats.today, 'today')
+      ].join('');
+      function cell(v, label) {
+        return '<div class="st"><b>' + v + '</b><span>' + U.esc(label) + '</span></div>';
+      }
+    },
+
+    renderNotice: function () {
+      var box = Views._els.notice;
+      var msgs = [];
+
+      if (S.decodeFailed) {
+        msgs.push('The data in this link could not be read, so the log is empty. Check that the whole link was copied, or paste it again from <b>Move your data</b>.');
+      }
+      if (S.mergeNotice) {
+        msgs.push('Merged data from ' + S.mergeNotice + ' links.');
+      }
+      if (!S.urlOk && S.events.length) {
+        msgs.push('Your log is now too large to keep in the address bar. Use <b>Move your data</b> → shareable links or a backup file to carry it to another browser.');
+      }
+      if (!S.events.length && !S.decodeFailed) { box.hidden = true; box.innerHTML = ''; return; }
+
+      if (!msgs.length) { box.hidden = true; box.innerHTML = ''; return; }
+      box.hidden = false;
+      box.innerHTML = '<span>' + msgs.join(' ') + '</span>' +
+        '<button type="button" data-notice-close="1">Dismiss</button>';
+    },
+
+    /* ══════════ calendar ══════════ */
+    renderCalendar: function () {
+      var y = Views.cal.y, m = Views.cal.m;
+      var totals = S.dayTotals();
+      var levels = Views.levels(totals);
+
+      Views._els.calTitleText.textContent = D.fmtMonth(y, m);
+
+      var first = new Date(y, m, 1);
+      var lead = (first.getDay() + 6) % 7;           // Monday-first
+      var days = D.daysInMonth(y, m);
+      var prevDays = D.daysInMonth(y, m - 1 < 0 ? 11 : m - 1);
+      var todayISO = D.toISO(D.today());
+      var cells = [];
+      var i;
+
+      for (i = lead - 1; i >= 0; i--) cells.push(cell(new Date(y, m - 1, prevDays - i), true));
+      for (i = 1; i <= days; i++) cells.push(cell(new Date(y, m, i), false));
+      var trail = (7 - ((lead + days) % 7)) % 7;
+      for (i = 1; i <= trail; i++) cells.push(cell(new Date(y, m + 1, i), true));
+      Views._els.calGrid.innerHTML = cells.join('');
+
+      var range = S.range();
+      var monthStart = D.stripTime(new Date(y, m, 1));
+      var monthEnd = D.stripTime(new Date(y, m, days));
+      var outside = monthEnd < range.min || monthStart > range.max;
+      U.qs('#calPrev').disabled = false;
+      U.qs('#calNext').disabled = false;
+      Views._els.calRange.textContent = outside
+        ? 'No data in this month'
+        : (D.fmtDay(D.toISO(new Date(range.min))) + ' → ' + D.fmtDay(D.toISO(new Date(range.max))));
+
+      /* whole-year strip: 12 columns (months) × up to 31 rows (days).
+         This is the "find a date in a large range" view — every day of the
+         year is one click away, without paging through months. */
+      var yWrap = U.qs('#calYearWrap');
+      if (totals && Object.keys(totals).length) {
+        yWrap.hidden = false;
+        U.qs('#calYearLabel').textContent = y + ' at a glance · ' +
+          Object.keys(totals).filter(function (k) { return k.slice(0, 4) === String(y); }).length +
+          ' active days';
+        U.qs('#calYearGrid').innerHTML = V.stats.yearStripHTML(y);
+      } else {
+        yWrap.hidden = true;
+      }
+
+      Views.renderDayPanel();
+
+      function cell(date, out) {
+        var iso = D.toISO(date);
+        var n = totals[iso] || 0;
+        var cls = ['cal-cell'];
+        if (out) cls.push('out');
+        if (n) cls.push('v' + Views.levelOf(n, levels));
+        if (iso === todayISO) cls.push('today');
+        if (iso === Views.cal.sel) cls.push('sel');
+        return '<button class="' + cls.join(' ') + '" type="button" data-date="' + iso + '" role="gridcell" ' +
+          'aria-label="' + iso + (n ? ', ' + n + ' ' + UI.plural(n, 'tap') : ', no taps') + '">' +
+          '<span class="cal-d">' + date.getDate() + '</span>' +
+          (n ? '<span class="cal-n">' + n + '</span>' : '') +
+          '</button>';
+      }
+    },
+
+    /* intensity scale derived from the data itself, so it stays useful
+       whether someone taps 3 times a week or 40 times a day */
+    levels: function (totals) {
+      var vals = [];
+      for (var k in totals) if (Object.prototype.hasOwnProperty.call(totals, k)) vals.push(totals[k]);
+      vals.sort(function (a, b) { return a - b; });
+      if (!vals.length) return { t1: 1, t2: 2, t3: 3, max: 0 };
+      var max = vals[vals.length - 1];
+      var p = function (q) {
+        var idx = Math.min(vals.length - 1, Math.floor(q * vals.length));
+        return vals[idx];
+      };
+      var t1 = 1;
+      var t2 = Math.max(2, p(0.6));
+      var t3 = Math.max(3, p(0.85));
+      if (t3 <= t2) t3 = t2 + 1;
+      if (t2 <= t1) t2 = t1 + 1;
+      return { t1: t1, t2: t2, t3: t3, max: max };
+    },
+
+    levelOf: function (n, levels) {
+      if (!n) return 0;
+      if (n >= levels.t3) return 4;
+      if (n >= levels.t2) return 3;
+      if (n >= levels.t1) return 2;
+      return 1;
+    },
+
+    renderDayPanel: function () {
+      Views._els.dayPanel.innerHTML = UI.dayPanelHTML(Views.cal.sel);
+    },
+
+    setSelectedDay: function (iso) {
+      Views.cal.sel = iso;
+      Views.renderCalendar();
+    },
+
+    shiftMonth: function (delta) {
+      var d = new Date(Views.cal.y, Views.cal.m + delta, 1);
+      Views.cal.y = d.getFullYear();
+      Views.cal.m = d.getMonth();
+      Views.renderCalendar();
+    },
+
+    shiftYear: function (delta) {
+      Views.cal.y += delta;
+      /* clamp the day so 29 Feb does not roll into March */
+      var maxDay = D.daysInMonth(Views.cal.y, Views.cal.m);
+      var sel = D.parseISO(Views.cal.sel);
+      if (sel && sel.getDate() > maxDay) {
+        Views.cal.sel = D.toISO(new Date(Views.cal.y, Views.cal.m, maxDay));
+      }
+      Views.renderCalendar();
+    },
+
+    goTo: function (y, m, dayISO) {
+      Views.cal.y = y;
+      Views.cal.m = m;
+      if (dayISO) Views.cal.sel = dayISO;
+      Views.renderCalendar();
+    },
+
+    goToday: function () {
+      var t = D.today();
+      Views.cal.y = t.getFullYear();
+      Views.cal.m = t.getMonth();
+      Views.cal.sel = D.toISO(t);
+      Views.renderCalendar();
+    },
+
+    /* remove the per-card timer because there is no live clock in the flat UI */
+    refreshLastLines: function () {
+      S.events.forEach(function (e) {
+        var node = U.qs('[data-last="' + e.id + '"]');
+        if (node) node.innerHTML = UI.lastLine(S.last(e));
+        var count = U.qs('[data-count="' + e.id + '"]');
+        if (count) count.textContent = S.count(e);
+      });
+    },
+
+    renderSort: function () {
+      var names = { recent: 'Recent', name: 'A–Z', count: 'Most taps', oldest: 'Oldest' };
+      Views._els.sortLabel.textContent = names[S.sort] || names.recent;
+    },
+
+    renderAll: function (activeView) {
+      Views.renderHome();
+      if (activeView === 'calendar') Views.renderCalendar();
+    },
+
+    toggleTab: function (name) {
+      U.qsa('.tab').forEach(function (t) { t.classList.toggle('is-on', t.dataset.view === name); });
+      U.qs('#view-home').hidden = name !== 'home';
+      U.qs('#view-calendar').hidden = name !== 'calendar';
+      U.qs('#view-stats').hidden = name !== 'stats';
+      /* Settings is a sheet, not a pane: the tab opens it and the Events tab
+         stays highlighted underneath, so closing it never leaves a blank view */
+      if (name === 'settings') {
+        U.qs('#view-home').hidden = false;
+        U.qs('#view-stats').hidden = true;
+        U.qsa('.tab').forEach(function (t) {
+          t.classList.toggle('is-on', t.dataset.view === (name === 'settings' ? 'settings' : name));
+        });
+        U.qs('#fab').hidden = true;
+        V.app.openDataSheet();
+        return;
+      }
+      U.qs('#fab').hidden = name !== 'home';
+      if (name === 'calendar') Views.renderCalendar();
+      if (name === 'stats') V.stats.render();
+    }
+  };
+
+})(window.V);
+
+;
+/* ==== app/js/stats.js ==== */
+/* ============================================================
+   Virulenter · stats.js
+   Statistics view: totals, streaks, distributions and heat grids.
+   Every figure is derived from the tap log on render — nothing is cached
+   in browser storage.
+   ============================================================ */
+window.V = window.V || {};
+(function (V) {
+  'use strict';
+
+  var U = V.util, D = V.date, S = V.store;
+
+  var Stats = V.stats = {
+    year: null,
+    _els: {},
+
+    init: function () {
+      var e = Stats._els = {
+        hero: U.qs('#statHero'),
+        streak: U.qs('#statStreak'),
+        d30: U.qs('#stat30'),
+        d30sub: U.qs('#stat30Sub'),
+        year: U.qs('#statYear'),
+        months: U.qs('#statMonths'),
+        weekday: U.qs('#statWeekday'),
+        hour: U.qs('#statHour'),
+        events: U.qs('#statEvents'),
+        eventSub: U.qs('#statEventSub'),
+        heat: U.qs('#statHeat'),
+        heatSub: U.qs('#statHeatSub')
+      };
+      Stats._els.year.addEventListener('change', function () {
+        Stats.year = Number(Stats._els.year.value);
+        Stats.render();
+      });
+      return Stats;
+    },
+
+    render: function () {
+      var s = S.stats();
+      var st = S.streaks();
+      var range = S.range();
+
+      /* ── hero ── */
+      var spanDays = D.diffDays(D.fromTs(range.min), D.today()) + 1;
+      var perDay = spanDays > 0 ? s.total / spanDays : 0;
+      var perActive = st.activeDays ? s.total / st.activeDays : 0;
+      var firstEvent = S.events.reduce(function (acc, e) {
+        var f = S.first(e);
+        if (f === null) return acc;
+        return acc === null || f < acc ? f : acc;
+      }, null);
+
+      Stats._els.hero.innerHTML = [
+        sh(s.total, 'taps recorded'),
+        sh(s.events, U.plural(s.events, 'event')),
+        sh(s.today, 'today'),
+        sh(s.week, 'last 7 days')
+      ].join('') +
+        '<div class="sh span2"><b>' + perDay.toFixed(2) + '<em>per day</em></b>' +
+        '<span>across ' + spanDays + ' ' + U.plural(spanDays, 'day') + ' since ' + U.esc(D.fmtDay(D.toISO(new Date(range.min)))) + '</span></div>' +
+        '<div class="sh span2"><b>' + (firstEvent ? D.fmtDay(D.dayKey(firstEvent)) : '—') + '</b>' +
+        '<span>' + (firstEvent ? 'first tap ever' : 'no taps yet') + '</span></div>';
+
+      /* ── streaks ── */
+      Stats._els.streak.innerHTML =
+        '<div class="streak-row">' +
+          sr(st.current, 'current') +
+          sr(st.longest, 'longest') +
+          sr(st.activeDays, 'active days') +
+        '</div>' +
+        '<p class="streak-note">' +
+          (st.longestEnd
+            ? 'Longest run ended ' + U.esc(D.fmtDay(st.longestEnd)) +
+              (st.current ? ' · currently on a ' + st.current + '-day run' : ' · no run active right now')
+            : 'Tap something to start a streak.') +
+          ' · average ' + perActive.toFixed(1) + ' taps on an active day.' +
+        '</p>';
+
+      /* ── last 30 days ── */
+      var days = S.lastDays(30);
+      var max30 = Math.max.apply(null, days.map(function (d) { return d.n; }).concat([1]));
+      Stats._els.d30.className = 'bar-chart has-caps';
+      Stats._els.d30.innerHTML = days.map(function (d, i) {
+        var h = Math.max(3, Math.round((d.n / max30) * 100));
+        var showCap = i % 5 === 0 || i === days.length - 1;
+        return '<div class="bar' + (d.n ? '' : ' zero') + '">' +
+          '<span class="tip">' + U.esc(D.fmtDay(d.iso)) + ' · ' + d.n + ' ' + U.plural(d.n, 'tap') + '</span>' +
+          '<i data-h="' + h + '"></i>' +
+          (showCap ? '<span class="cap">' + new Date(D.parseISO(d.iso)).getDate() + '</span>' : '') +
+        '</div>';
+      }).join('');
+      var sum30 = days.reduce(function (a, d) { return a + d.n; }, 0);
+      Stats._els.d30sub.textContent = sum30 + ' ' + U.plural(sum30, 'tap') + ' · peak ' + max30;
+
+      /* ── by month ── */
+      var years = S.years();
+      if (Stats.year === null || years.indexOf(Stats.year) < 0) Stats.year = years[0];
+      Stats._els.year.innerHTML = years.map(function (y) {
+        return '<option value="' + y + '"' + (y === Stats.year ? ' selected' : '') + '>' + y + '</option>';
+      }).join('');
+      var months = S.byMonth(Stats.year);
+      var maxM = Math.max.apply(null, months.concat([1]));
+      Stats._els.months.className = 'bar-chart tall has-caps';
+      Stats._els.months.innerHTML = months.map(function (n, i) {
+        var h = Math.max(3, Math.round((n / maxM) * 100));
+        return '<div class="bar' + (n ? '' : ' zero') + '">' +
+          '<span class="tip">' + D.MONTHS_LONG[i] + ' · ' + n + ' ' + U.plural(n, 'tap') + '</span>' +
+          '<i data-h="' + h + '"></i>' +
+          '<span class="cap">' + D.MONTHS[i][0] + '</span>' +
+        '</div>';
+      }).join('');
+
+      /* ── weekday / hour ── */
+      var wd = S.byWeekday();
+      var maxWd = Math.max.apply(null, wd.concat([1]));
+      Stats._els.weekday.className = 'bar-chart has-caps';
+      Stats._els.weekday.innerHTML = wd.map(function (n, i) {
+        var h = Math.max(3, Math.round((n / maxWd) * 100));
+        return '<div class="bar' + (n ? '' : ' zero') + '">' +
+          '<span class="tip">' + D.WEEKDAYS_LONG[(i + 1) % 7] + ' · ' + n + '</span>' +
+          '<i data-h="' + h + '"></i>' +
+          '<span class="cap">' + D.WEEKDAYS[(i + 1) % 7] + '</span>' +
+        '</div>';
+      }).join('');
+
+      var hr = S.byHour();
+      var maxHr = Math.max.apply(null, hr.concat([1]));
+      Stats._els.hour.className = 'bar-chart has-caps';
+      Stats._els.hour.innerHTML = hr.map(function (n, i) {
+        var h = Math.max(3, Math.round((n / maxHr) * 100));
+        var showCap = i % 6 === 0;
+        return '<div class="bar' + (n ? '' : ' zero') + '">' +
+          '<span class="tip">' + U.pad2(i) + ':00–' + U.pad2(i) + ':59 · ' + n + '</span>' +
+          '<i data-h="' + h + '"></i>' +
+          (showCap ? '<span class="cap">' + U.pad2(i) + '</span>' : '') +
+        '</div>';
+      }).join('');
+
+      /* ── per event table ── */
+      var rows = S.perEvent();
+      Stats._els.eventSub.textContent = rows.length ? rows.length + ' total' : '';
+      if (!rows.length) {
+        Stats._els.events.innerHTML = '<tbody><tr><td class="table-empty" colspan="6">No events yet.</td></tr></tbody>';
+      } else {
+        Stats._els.events.innerHTML =
+          '<thead><tr><th>Event</th><th>Taps</th><th>Share</th><th>Per day</th><th>Active days</th><th>Last tap</th></tr></thead>' +
+          '<tbody>' + rows.map(function (r) {
+            return '<tr>' +
+              '<td><span class="name-cell" style="--c:' + U.esc(r.event.color) + '">' +
+                '<i class="dot"></i><span title="' + U.esc(r.event.name) + '">' + U.esc(r.event.name) + '</span></span></td>' +
+              '<td class="num">' + r.count + '</td>' +
+              '<td><span class="share-cell"><span class="meter" style="--c:' + U.esc(r.event.color) + '">' +
+                '<i data-w="' + Math.round(r.share * 100) + '"></i></span>' +
+                '<span class="num">' + Math.round(r.share * 100) + '%</span></span></td>' +
+              '<td class="num">' + (r.rate >= 1 ? r.rate.toFixed(1) : r.rate.toFixed(2)) + '</td>' +
+              '<td class="num">' + r.activeDays + '</td>' +
+              '<td class="num">' + (r.last ? U.esc(D.fmtRelative(r.last)) : '—') + '</td>' +
+            '</tr>';
+          }).join('') + '</tbody>';
+      }
+
+      /* ── activity grid ── */
+      Stats._els.heatSub.textContent = st.activeDays + ' active ' + U.plural(st.activeDays, 'day');
+      Stats._els.heat.innerHTML = Stats.heatGridHTML(Stats.year);
+
+      /* animate bars in after the markup exists */
+      requestAnimationFrame(function () {
+        U.qsa('#view-stats .bar-chart .bar i').forEach(function (el) {
+          el.style.height = (el.dataset.h || 3) + '%';
+        });
+        U.qsa('.share-cell .meter i', Stats._els.events).forEach(function (el) {
+          el.style.width = (el.dataset.w || 0) + '%';
+        });
+      });
+    },
+
+    /* contribution-style grid: one column per week, Monday at the top.
+       Always drawn oldest → newest so time reads left to right. */
+    heatGridHTML: function (year) {
+      var totals = S.dayTotals();
+      var level = V.views.levelOf;
+      var levels = V.views.levels(totals);
+      var y = year || new Date().getFullYear();
+
+      var start = new Date(y, 0, 1);
+      var end = new Date(y, 11, 31);
+      /* back up to the Monday of the week containing Jan 1 */
+      start = D.addDays(start, -((start.getDay() + 6) % 7));
+
+      var todayISO = D.toISO(D.today());
+      var cells = [];
+      var cursor = start;
+      var guard = 0;
+      while (cursor <= end && guard++ < 400) {
+        for (var d = 0; d < 7; d++) {
+          var day = D.addDays(start, cells.length);
+          var iso = D.toISO(day);
+          if (day.getFullYear() !== y) {
+            cells.push('<i class="hc blank"></i>');
+          } else {
+            var n = totals[iso] || 0;
+            var cls = 'hc' + (n ? ' v' + level(n, levels) : '');
+            if (iso === todayISO) cls += ' today';
+            cells.push('<i class="' + cls + '" data-date="' + iso + '" title="' +
+              U.esc(D.fmtDay(iso)) + ' — ' + n + ' ' + U.plural(n, 'tap') + '"></i>');
+          }
+        }
+        cursor = D.addDays(start, cells.length);
+      }
+      return cells.join('');
+    },
+
+    /* compact year strip for the calendar: 12 month columns × up-to-31 day rows */
+    yearStripHTML: function (year) {
+      var totals = S.dayTotals();
+      var level = V.views.levelOf;
+      var levels = V.views.levels(totals);
+      var todayISO = D.toISO(D.today());
+      var cells = [];
+      var guard = 0;
+
+      for (var m = 0; m < 12; m++) {
+        var len = D.daysInMonth(year, m);
+        for (var d = 1; d <= len && guard++ < 400; d++) {
+          var iso = D.toISO(new Date(year, m, d));
+          var n = totals[iso] || 0;
+          var cls = 'hc' + (n ? ' v' + level(n, levels) : '');
+          if (iso === todayISO) cls += ' today';
+          cells.push('<i class="' + cls + '" data-date="' + iso + '" title="' +
+            U.esc(D.fmtDay(iso)) + ' — ' + n + ' ' + U.plural(n, 'tap') + '"></i>');
+        }
+      }
+      return cells.join('');
+    },
+
+    show: function () {
+      Stats.render();
+    }
+  };
+
+  function sh(value, label) {
+    return '<div class="sh"><b>' + value + '</b><span>' + U.esc(label) + '</span></div>';
+  }
+
+  function sr(value, label) {
+    return '<div class="sr"><b>' + value + '</b><span>' + U.esc(label) + '</span></div>';
+  }
+
+})(window.V);
+
+;
+/* ==== app/js/app.js ==== */
+/* ============================================================
+   Virulenter · app.js — bootstrap, routing, interaction wiring.
+   ============================================================ */
+window.V = window.V || {};
+(function (V) {
+  'use strict';
+
+  var U = V.util, D = V.date, S = V.store, UI = V.ui, Views = V.views,
+      Stats = V.stats, Codec = V.codec;
+
+  var App = {
+    view: 'home',
+    editingId: null,
+    sortOrder: ['recent', 'name', 'count', 'oldest'],
+    selectedColor: null,
+    installEvent: null,
+
+    /* ══════════ start ══════════ */
+    start: function () {
+      App.formOverlay = U.qs('#formOverlay');
+      App.dataOverlay = U.qs('#dataOverlay');
+      App.lookOverlay = U.qs('#lookOverlay');
+      App.jumpOverlay = U.qs('#jumpOverlay');
+
+      S.load();
+      Views.init();
+      Stats.init();
+      App.bindAll();
+
+      Views.renderSort();
+      /* the manifest shortcuts deep-link with #view=… */
+      var deep = /(?:^|[#&?])view=([a-z]+)/.exec(location.hash || '');
+      var startView = deep && ['home', 'calendar', 'stats'].indexOf(deep[1]) >= 0 ? deep[1] : 'home';
+      App.view = startView;
+      Views.toggleTab(startView);
+      Views.renderHome();
+      UI.setActiveSwatch(S.events.length ? S.events[0].color : V.COLORS[0]);
+      App.applyLook(S.look);
+
+      /* Normalise the address bar once, so the link in the bar is always the
+         canonical shareable one. Store.syncUrl() does not run again until the
+         user actually changes something. */
+      if (S.events.length) S.syncUrl();
+
+      App.initInstall();
+      App.initServiceWorker();
+
+      App.ready = true;
+      document.documentElement.classList.add('ready');
+    },
+
+    /* ══════════ routing ══════════ */
+    bindAll: function () {
+      U.qsa('.tab').forEach(function (t) {
+        t.addEventListener('click', function () {
+          App.view = t.dataset.view;
+          Views.toggleTab(App.view);
+        });
+      });
+      U.qs('#fab').addEventListener('click', function () { App.openForm(null); });
+      U.qs('#btnAddTop').addEventListener('click', function () { App.openForm(null); });
+      U.qs('#btnAddEmpty').addEventListener('click', function () { App.openForm(null); });
+      U.qs('#notice').addEventListener('click', function (ev) {
+        if (ev.target.dataset && ev.target.dataset.noticeClose) U.qs('#notice').hidden = true;
+      });
+
+      /* events list */
+      var list = U.qs('#eventList');
+      list.addEventListener('click', function (ev) {
+        var tap = ev.target.closest('[data-tap]');
+        if (tap) { App.handleTap(tap); return; }
+        var edit = ev.target.closest('[data-edit]');
+        if (edit) { App.openForm(edit.dataset.edit); return; }
+      });
+
+      var search = U.qs('#searchInput');
+      search.addEventListener('input', U.throttle(function () {
+        S.query = search.value;
+        U.qs('#searchClear').hidden = !search.value;
+        Views.renderHome();
+      }, 120));
+      U.qs('#searchClear').addEventListener('click', function () {
+        search.value = ''; S.query = ''; this.hidden = true;
+        Views.renderHome(); search.focus();
+      });
+      U.qs('#btnSort').addEventListener('click', function () {
+        var i = App.sortOrder.indexOf(S.sort);
+        S.sort = App.sortOrder[(i + 1) % App.sortOrder.length];
+        Views.renderSort();
+        Views.renderHome();
+      });
+
+      App.bindCalendar();
+      App.bindJump();
+
+      /* sheets */
+      [App.formOverlay, App.dataOverlay, App.lookOverlay, App.jumpOverlay].forEach(UI.bindSheetClose);
+      document.addEventListener('keydown', function (ev) {
+        if (ev.key !== 'Escape') return;
+        [App.jumpOverlay, App.lookOverlay, App.formOverlay, App.dataOverlay].some(function (ov) {
+          if (!ov.hidden) { UI.closeSheet(ov); return true; }
+          return false;
+        });
+      });
+
+      App.bindForm();
+      App.bindLook();
+      App.bindDataSheet();
+    },
+
+    /* ══════════ calendar ══════════ */
+    bindCalendar: function () {
+      U.qs('#calPrev').addEventListener('click', function () { Views.shiftMonth(-1); });
+      U.qs('#calNext').addEventListener('click', function () { Views.shiftMonth(1); });
+      U.qs('#calPrevYear').addEventListener('click', function () { Views.shiftYear(-1); });
+      U.qs('#calNextYear').addEventListener('click', function () { Views.shiftYear(1); });
+      U.qs('#calToday').addEventListener('click', function () { Views.goToday(); });
+      U.qs('#calTitle').addEventListener('click', function () { App.openJump(); });
+      U.qs('#calGrid').addEventListener('click', function (ev) {
+        var cell = ev.target.closest('.cal-cell');
+        if (cell) Views.setSelectedDay(cell.dataset.date);
+      });
+
+      /* both heat grids jump the calendar to the clicked day */
+      U.qs('#view-calendar').addEventListener('click', function (ev) {
+        var hc = ev.target.closest('.heat-grid .hc[data-date]');
+        if (!hc) return;
+        var d = D.parseISO(hc.dataset.date);
+        if (d) Views.goTo(d.getFullYear(), d.getMonth(), hc.dataset.date);
+      });
+
+      U.qs('#dayPanel').addEventListener('click', function (ev) {
+        var del = ev.target.closest('[data-untap]');
+        if (del) {
+          S.removeEntry(del.dataset.untap, Number(del.dataset.ts));
+          App.persist();
+          Views.renderCalendar();
+          Views.refreshLastLines();
+          Views.renderStats(S.stats());
+          U.toast('Tap removed');
+          return;
+        }
+        var add = ev.target.closest('[data-addon]');
+        if (add) App.addOnDay(add.dataset.addon);
+      });
+    },
+
+    /* ══════════ month / year jump picker ══════════ */
+    bindJump: function () {
+      U.qs('#jumpPrevYear').addEventListener('click', function () { App.jumpYear -= 1; App.renderJump(); });
+      U.qs('#jumpNextYear').addEventListener('click', function () { App.jumpYear += 1; App.renderJump(); });
+      U.qs('#jumpToday').addEventListener('click', function () {
+        UI.closeSheet(App.jumpOverlay);
+        Views.goToday();
+      });
+      U.qs('#jumpMonths').addEventListener('click', function (ev) {
+        var b = ev.target.closest('[data-month]');
+        if (!b) return;
+        UI.closeSheet(App.jumpOverlay);
+        Views.goTo(App.jumpYear, Number(b.dataset.month));
+      });
+      U.qs('#jumpYearList').addEventListener('click', function (ev) {
+        var b = ev.target.closest('[data-year]');
+        if (!b) return;
+        App.jumpYear = Number(b.dataset.year);
+        App.renderJump();
+      });
+    },
+
+    openJump: function () {
+      App.jumpYear = Views.cal.y;
+      App.renderJump();
+      UI.openSheet(App.jumpOverlay);
+    },
+
+    renderJump: function () {
+      var y = App.jumpYear;
+      U.qs('#jumpYearLabel').textContent = y;
+      var months = S.byMonth(y);
+      U.qs('#jumpMonths').innerHTML = D.MONTHS_LONG.map(function (name, i) {
+        var n = months[i];
+        var on = (y === Views.cal.y && i === Views.cal.m);
+        return '<button class="jump-month' + (on ? ' is-on' : '') + '" type="button" data-month="' + i + '">' +
+          name + (n ? '<span class="mbadge">' + n + '</span>' : '') + '</button>';
+      }).join('');
+
+      /* years that actually contain taps, newest first; falling back to a
+         window around the current year when there is no data yet */
+      var withData = S.years().filter(function (yy) {
+        return S.byMonth(yy).some(function (n) { return n > 0; });
+      });
+      if (!withData.length) {
+        withData = [new Date().getFullYear()];
+      }
+      U.qs('#jumpYearList').innerHTML = withData.map(function (yy) {
+        var total = S.byMonth(yy).reduce(function (a, b) { return a + b; }, 0);
+        return '<button type="button" data-year="' + yy + '"' + (yy === y ? ' class="is-on"' : '') + '>' +
+          yy + (total ? ' · ' + total : '') + '</button>';
+      }).join('');
+    },
+
+    /* ══════════ the core action ══════════ */
+    buzz: function () {
+      if (App._noVibrate) return;
+      var nav = navigator;
+      if (typeof nav.vibrate !== 'function') return;
+      if (nav.userActivation && nav.userActivation.isActive === false) return;
+      try {
+        var r = nav.vibrate(12);
+        if (r === false) App._noVibrate = true;
+      } catch (e) { App._noVibrate = true; }
+    },
+
+    handleTap: function (btn) {
+      var id = btn.dataset.tap;
+      var e = S.get(id);
+      if (!e) return;
+      var ts = S.logTap(id);
+      if (!ts) return;
+
+      App.buzz();
+      App.persist();
+
+      /* update in place — no full re-render, so the button keeps focus and
+         the list order does not jump under the finger */
+      var countNode = U.qs('[data-count="' + id + '"]');
+      if (countNode) {
+        countNode.textContent = S.count(e);
+        var wrap = countNode.parentElement;
+        if (wrap) {
+          var unit = wrap.querySelector('span');
+          if (unit) unit.textContent = UI.plural(S.count(e), 'tap', 'taps');
+        }
+      }
+      var lastNode = U.qs('[data-last="' + id + '"]');
+      if (lastNode) lastNode.innerHTML = UI.lastLine(ts);
+
+      btn.classList.remove('pop');
+      void btn.offsetWidth;
+      btn.classList.add('pop');
+
+      Views.renderStats(S.stats());
+      Views.renderBrandSub();
+
+      if (App.view === 'calendar') Views.renderCalendar();
+      if (App.view === 'stats') Stats.render();
+    },
+
+    addOnDay: function (iso) {
+      if (!S.events.length) { U.toast('Create an event first'); return; }
+      var e = S.list()[0] || S.events[0];
+      S.logTap(e.id, App.timestampForDay(iso));
+      App.persist();
+      Views.renderCalendar();
+      Views.renderHome();
+      U.toast('Logged on ' + D.fmtDay(iso) + ' for “' + e.name + '”');
+    },
+
+    timestampForDay: function (iso) {
+      var now = new Date();
+      if (iso === D.toISO(now)) return now.getTime();
+      var d = D.parseISO(iso);
+      if (!d) return now.getTime();
+      d.setHours(12, 0, 0, 0);
+      return d.getTime() > now.getTime() ? now.getTime() : d.getTime();
+    },
+
+    persist: function () {
+      var ok = S.syncUrl();
+      if (!ok && S.events.length) Views.renderNotice();
+      return ok;
+    },
+
+    /* ══════════ appearance ══════════ */
+    applyLook: function (look) {
+      look = look || S.look || V.DEFAULTS;
+      var tints = Codec.accentTints(Codec.accentValue(look));
+      var root = document.documentElement.style;
+      root.setProperty('--accent', tints.value);
+      root.setProperty('--accent-soft', tints.soft);
+      root.setProperty('--accent-ink', tints.ink);
+      root.setProperty('--accent-hover', shade(tints.value, -0.16));
+      root.setProperty('--font', Codec.fontStack(look.font));
+
+      /* re-tint the activity ramp from the accent so a custom colour carries
+         through the calendar and heat grids, not just the buttons */
+      var rgb = Codec.hexToRgb(tints.value);
+      var wash = function (t) { return Codec.rgbToHex(rgb.map(function (v) { return 255 - (255 - v) * t; })); };
+      root.setProperty('--lv1', wash(0.28));
+      root.setProperty('--lv2', wash(0.56));
+      root.setProperty('--lv3', wash(0.80));
+      root.setProperty('--lv4', tints.value);
+
+      if (look.custom) root.setProperty('--custom-accent', look.custom);
+      else root.removeProperty('--custom-accent');
+    },
+
+    bindLook: function () {
+      var wrap = U.qs('#lookAccent');
+      wrap.innerHTML = V.ACCENTS.map(function (a) {
+        return '<button class="swatch" type="button" data-accent="' + a.id + '" style="--c:' + a.value +
+          '" aria-label="' + U.esc(a.label) + '" title="' + U.esc(a.label) + '"></button>';
+      }).join('');
+      wrap.addEventListener('click', function (ev) {
+        var b = ev.target.closest('[data-accent]');
+        if (!b) return;
+        S.setAccent(b.dataset.accent);
+        App.applyLook(S.look);
+        App.renderLook();
+        App.persist();
+      });
+
+      var custom = U.qs('#lookCustom');
+      var hex = U.qs('#lookCustomHex');
+      custom.addEventListener('input', function () {
+        hex.value = custom.value;
+        S.setCustomAccent(custom.value);
+        App.applyLook(S.look);
+        App.renderLook();
+        App.persist();
+      });
+      U.qs('#lookCustomApply').addEventListener('click', function () {
+        var v = hex.value.trim();
+        if (!/^#?[0-9a-f]{6}$/i.test(v)) { U.toast('Enter six hex digits, e.g. #2f6bff'); return; }
+        v = v[0] === '#' ? v : '#' + v;
+        custom.value = v;
+        S.setCustomAccent(v);
+        App.applyLook(S.look);
+        App.renderLook();
+        App.persist();
+        U.toast('Accent applied');
+      });
+      hex.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Enter') { ev.preventDefault(); U.qs('#lookCustomApply').click(); }
+      });
+
+      var fonts = U.qs('#lookFont');
+      fonts.innerHTML = V.FONTS.map(function (f) {
+        return '<button class="font-opt" type="button" data-font="' + f.id + '">' +
+          '<span><span class="fo-name" style="font-family:' + f.stack.replace(/"/g, '&quot;') + '">' +
+            U.esc(f.label) + '</span><br><span class="fo-meta">' + U.esc(firstFamily(f.stack)) + '</span></span>' +
+          '<span class="fo-check">✓</span>' +
+        '</button>';
+      }).join('');
+      fonts.addEventListener('click', function (ev) {
+        var b = ev.target.closest('[data-font]');
+        if (!b) return;
+        S.setFont(b.dataset.font);
+        App.applyLook(S.look);
+        App.renderLook();
+        App.persist();
+      });
+
+      U.qs('#lookReset').addEventListener('click', function () {
+        Store_resetLook();
+        App.applyLook(S.look);
+        App.renderLook();
+        App.persist();
+        U.toast('Appearance reset');
+      });
+    },
+
+    renderLook: function () {
+      var look = S.look;
+      var active = Codec.accentValue(look);
+      U.qsa('#lookAccent .swatch').forEach(function (b) {
+        b.classList.toggle('is-on', !look.custom && b.dataset.accent === look.accent);
+      });
+      U.qs('#lookCustom').value = look.custom || active;
+      U.qs('#lookCustomHex').value = look.custom || '';
+      U.qsa('#lookFont .font-opt').forEach(function (b) {
+        b.classList.toggle('is-on', b.dataset.font === look.font);
+      });
+      /* the preview reads the live custom properties, so nothing extra to do */
+      U.qs('#lookReset').disabled = (look.accent === V.DEFAULTS.accent && look.font === V.DEFAULTS.font && !look.custom);
+    },
+
+    openLook: function () {
+      App.renderLook();
+      UI.openSheet(App.lookOverlay);
+    },
+
+    /* ══════════ new / edit event ══════════ */
+    bindForm: function () {
+      var wrap = U.qs('#fColor');
+      wrap.innerHTML = V.COLORS.map(function (c) {
+        return '<button class="swatch" type="button" data-color="' + c + '" style="--c:' + c + '" aria-label="' + c + '"></button>';
+      }).join('');
+      wrap.addEventListener('click', function (ev) {
+        var b = ev.target.closest('.swatch');
+        if (b) UI.setActiveSwatch(b.dataset.color);
+      });
+
+      U.qs('#eventForm').addEventListener('submit', function (ev) {
+        ev.preventDefault();
+        App.submitForm();
+      });
+      U.qs('#btnLogNow').addEventListener('click', function () {
+        if (!App.editingId) return;
+        S.logTap(App.editingId);
+        App.persist();
+        App.refreshFormLog();
+        Views.renderHome();
+      });
+      U.qs('#btnClearLog').addEventListener('click', function () {
+        if (!App.editingId) return;
+        var e = S.get(App.editingId);
+        if (!e || !e.log.length) { U.toast('Nothing to clear'); return; }
+        S.clearLog(App.editingId);
+        App.persist();
+        App.refreshFormLog();
+        Views.renderHome();
+        U.toast('All taps cleared');
+      });
+      U.qs('#btnDeleteEvent').addEventListener('click', function () {
+        if (!App.editingId) return;
+        var e = S.get(App.editingId);
+        if (e) App.confirmDelete(e);
+      });
+    },
+
+    refreshFormLog: function () {
+      var e = App.editingId ? S.get(App.editingId) : null;
+      U.qs('#logCount').textContent = e ? e.log.length : 0;
+    },
+
+    openForm: function (id) {
+      var e = id ? S.get(id) : null;
+      App.editingId = e ? e.id : null;
+      U.qs('#formTitle').textContent = e ? 'Edit event' : 'New event';
+      U.qs('#fName').value = e ? e.name : '';
+      U.qs('#fStart').value = e ? e.start : D.toISO(D.today());
+      UI.setActiveSwatch(e ? e.color : V.COLORS[S.events.length % V.COLORS.length]);
+      U.qs('#rowLog').hidden = !e;
+      U.qs('#rowDelete').hidden = !e;
+      App.refreshFormLog();
+      UI.openSheet(App.formOverlay);
+      if (!e) setTimeout(function () { U.qs('#fName').focus({ preventScroll: true }); }, 220);
+    },
+
+    submitForm: function () {
+      var name = U.qs('#fName').value.trim();
+      var start = U.qs('#fStart').value;
+      if (!name) { U.toast('Give the event a name'); U.qs('#fName').focus(); return; }
+      if (!D.parseISO(start)) { U.toast('Pick a valid start date'); return; }
+
+      var data = { name: name, color: App.selectedColor || V.COLORS[0], start: start };
+      var e = App.editingId ? S.update(App.editingId, data) : S.create(data);
+      if (!e) { U.toast('Could not save'); return; }
+
+      App.persist();
+      UI.closeSheet(App.formOverlay);
+      Views.renderHome();
+      if (App.view === 'calendar') Views.renderCalendar();
+      if (App.view === 'stats') Stats.render();
+      U.toast(App.editingId ? 'Saved' : '“' + e.name + '” created — tap its button to log');
+      App.editingId = null;
+    },
+
+    confirmDelete: function (e) {
+      var n = e.log.length;
+      if (window.confirm('Delete “' + e.name + '” and its ' + n + ' recorded ' +
+                         UI.plural(n, 'tap') + '? This cannot be undone.')) {
+        S.remove(e.id);
+        App.persist();
+        UI.closeSheet(App.formOverlay);
+        Views.renderHome();
+        if (App.view === 'calendar') Views.renderCalendar();
+        if (App.view === 'stats') Stats.render();
+        U.toast('Deleted');
+        App.editingId = null;
+      }
+    },
+
+    /* ══════════ install (PWA) ══════════ */
+    isInstalled: function () {
+      return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
+             window.navigator.standalone === true;
+    },
+
+    initInstall: function () {
+      var row = U.qs('#installRow');
+      var hint = U.qs('#installHint');
+      var btnRow = U.qs('#btnInstallRow');
+
+      if (App.isInstalled()) { row.hidden = true; return; }
+
+      window.addEventListener('beforeinstallprompt', function (ev) {
+        ev.preventDefault();
+        App.installEvent = ev;
+        U.qs('#btnInstall').hidden = false;
+        btnRow.textContent = 'Install as an app';
+        hint.textContent = 'Adds Virulenter to your home screen and runs it offline.';
+      });
+
+      window.addEventListener('appinstalled', function () {
+        App.installEvent = null;
+        U.qs('#btnInstall').hidden = true;
+        U.toast('Installed');
+      });
+
+      /* Phrase the hint for the context we are really in.
+
+         Adding to the home screen and getting an offline app are two different
+         things: a browser will only register a service worker (offline) on a
+         secure origin, but iOS will still create a home-screen icon from a
+         plain-http or LAN address. Claiming "install is unavailable" there
+         would be wrong, so the copy separates the two. */
+      var secure = window.isSecureContext === true;
+      var isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) ||
+                  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      var offlineNote = secure
+        ? 'Works offline once added.'
+        : 'Offline support needs https or http://localhost, so this copy will need the network.';
+
+      if (location.protocol === 'file:') {
+        btnRow.textContent = 'Not available from a local file';
+        btnRow.disabled = true;
+        hint.textContent = 'This copy was opened straight from a file, which browsers will not ' +
+          'install — everything else still works. To put it on your home screen, serve the app ' +
+          'folder over http (see “Installing as an app” in the README) and open that address.';
+      } else if (isIOS) {
+        hint.textContent = 'On iPhone or iPad: open this page in Safari, tap Share, then ' +
+          '“Add to Home Screen”. ' + offlineNote;
+      } else {
+        hint.textContent = 'Use your browser’s Install action — the icon in the address bar, or ' +
+          'the menu → “Install app”. ' + offlineNote;
+      }
+
+      var go = function () { App.promptInstall(); };
+      U.qs('#btnInstall').addEventListener('click', go);
+      btnRow.addEventListener('click', go);
+    },
+
+    promptInstall: function () {
+      if (!App.installEvent) {
+        if (location.protocol === 'file:') {
+          U.toast('Opened from a file, so it cannot be installed — serve the folder over http first');
+          return;
+        }
+        var isIOS = /iP(hone|ad|od)/.test(navigator.userAgent);
+        U.toast(isIOS ? 'Safari: Share → Add to Home Screen' : 'Use the browser’s Install action');
+        return;
+      }
+      App.installEvent.prompt();
+      App.installEvent.userChoice.then(function (choice) {
+        if (choice && choice.outcome === 'accepted') U.toast('Installing…');
+        App.installEvent = null;
+      });
+    },
+
+    initServiceWorker: function () {
+      /* only over http(s): a file:// page cannot host a service worker, and the
+         single-file build is meant to run straight off disk */
+      if (!('serviceWorker' in navigator)) return;
+      if (location.protocol !== 'http:' && location.protocol !== 'https:') return;
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.register('sw.js').catch(function () { /* offline extras are optional */ });
+      });
+    },
+
+    /* ══════════ settings, export and import ══════════ */
+    bindDataSheet: function () {
+      U.qs('#btnAppearance').addEventListener('click', function () { App.openLook(); });
+
+      U.qs('#btnCopyLink').addEventListener('click', function () {
+        var text = U.qs('#dataLink').value;
+        if (!text) { U.toast('Nothing to copy yet'); return; }
+        U.copy(text).then(function (ok) { U.toast(ok ? 'Link copied' : 'Copy failed — select the text manually'); });
+      });
+      U.qs('#btnOpenLink').addEventListener('click', function () {
+        var text = U.qs('#dataLink').value;
+        if (text) window.open(text, '_blank', 'noopener');
+      });
+
+      U.qs('#btnExportCsv').addEventListener('click', function () {
+        if (!S.stats().total) { U.toast('Nothing to export yet'); return; }
+        U.download('virulenter-taps-' + D.toISO(D.today()) + '.csv', S.toCSV(), 'text/csv');
+        U.toast('Exported every tap as CSV');
+      });
+      U.qs('#btnExportSummary').addEventListener('click', function () {
+        if (!S.events.length) { U.toast('Nothing to export yet'); return; }
+        U.download('virulenter-summary-' + D.toISO(D.today()) + '.csv', S.toSummaryCSV(), 'text/csv');
+        U.toast('Exported the summary as CSV');
+      });
+      /* Sharing needs either the Android bridge or the Web Share API with file
+         support; hide the buttons rather than offering a dead action. */
+      var canShare = U.canShareFiles() ||
+        (navigator.canShare && typeof File !== 'undefined' &&
+         navigator.canShare({ files: [new File(['x'], 'x.csv', { type: 'text/csv' })] }));
+      U.qs('#btnShareCsv').hidden = !canShare;
+      U.qs('#btnShareJson').hidden = !canShare;
+
+      U.qs('#btnShareCsv').addEventListener('click', function () {
+        if (!S.stats().total) { U.toast('Nothing to share yet'); return; }
+        App.shareFile('virulenter-taps-' + D.toISO(D.today()) + '.csv', S.toCSV(), 'text/csv');
+      });
+      U.qs('#btnShareJson').addEventListener('click', function () {
+        if (!S.events.length) { U.toast('Nothing to share yet'); return; }
+        App.shareFile('virulenter-' + D.toISO(D.today()) + '.json', S.serialize(), 'application/json');
+      });
+
+      U.qs('#btnDownload').addEventListener('click', function () {
+        var name = 'virulenter-' + D.toISO(D.today()) + '.json';
+        U.download(name, S.serialize());
+        U.toast('Downloaded ' + name);
+      });
+      U.qs('#btnPickFile').addEventListener('click', function () { U.qs('#fileInput').click(); });
+      U.qs('#fileInput').addEventListener('change', function () {
+        var file = this.files && this.files[0];
+        if (!file) return;
+        var reader = new FileReader();
+        var input = this;
+        reader.onload = function () { App.loadPayload(String(reader.result), 'file'); input.value = ''; };
+        reader.onerror = function () { U.toast('Could not read that file'); input.value = ''; };
+        reader.readAsText(file, 'utf-8');
+      });
+      U.qs('#btnLoadPaste').addEventListener('click', function () {
+        var text = U.qs('#dataPaste').value.trim();
+        if (!text) { U.toast('Paste a link or JSON first'); return; }
+        App.loadPayload(text, 'paste');
+      });
+      U.qs('#btnWipe').addEventListener('click', function () {
+        if (!S.events.length) { U.toast('Nothing to erase'); return; }
+        if (window.confirm('Erase all ' + S.events.length + ' events and every recorded tap? This cannot be undone.')) {
+          S.events = [];
+          S.dirty = true;
+          S.clearUrl();
+          Views.renderHome();
+          if (App.view === 'calendar') Views.renderCalendar();
+          if (App.view === 'stats') Stats.render();
+          UI.closeSheet(App.dataOverlay);
+          U.toast('Everything erased');
+        }
+      });
+    },
+
+    /* Hand a generated file to another app: the Android bridge where present,
+       otherwise the Web Share API, otherwise fall back to a download. */
+    shareFile: function (name, text, mime) {
+      if (U.share(name, text, mime)) return;
+      if (navigator.canShare) {
+        try {
+          var file = new File([text], name, { type: mime });
+          if (navigator.canShare({ files: [file] })) {
+            navigator.share({ files: [file], title: name }).catch(function () {});
+            return;
+          }
+        } catch (e) { /* fall through */ }
+      }
+      U.download(name, text, mime);
+      U.toast('Sharing is unavailable here — downloaded instead');
+    },
+
+    loadPayload: function (text, source) {
+      var state = Codec.decode(text);
+      if (!state) {
+        U.toast(source === 'file' ? 'That file has no Virulenter data' : 'Could not read that data');
+        return;
+      }
+      if (!state.events.length) { U.toast('That data contains no events'); return; }
+      var incoming = state.events.length;
+      var taps = state.events.reduce(function (n, e) { return n + e.log.length; }, 0);
+
+      var mode = 'replace';
+      if (S.events.length) {
+        mode = window.confirm(
+          'Found ' + incoming + ' ' + UI.plural(incoming, 'event') + ' with ' + taps + ' ' +
+          UI.plural(taps, 'tap') + '.\n\nOK = merge with what you already have\nCancel = replace everything'
+        ) ? 'merge' : 'replace';
+      }
+
+      if (mode === 'replace') {
+        S.events = state.events;
+        S.look = state.look;
+      } else {
+        var target = { events: S.events, look: S.look };
+        S.mergeInto(target, [state]);
+        S.events = target.events;
+      }
+      S.dirty = true;
+      S.decodeFailed = false;
+      App.applyLook(S.look);
+      App.persist();
+      Views.renderHome();
+      if (App.view === 'calendar') Views.renderCalendar();
+      if (App.view === 'stats') Stats.render();
+      U.toast(mode === 'merge' ? 'Merged ' + incoming + ' ' + UI.plural(incoming, 'event') : 'Data loaded');
+    },
+
+    openDataSheet: function () {
+      var url = '';
+      try { url = Codec.urlFor(S.snapshot()); } catch (e) { url = ''; }
+      var total = S.stats().total;
+      var tooLong = url.length > Codec.MAX_URL;
+
+      U.qs('#dataLink').value = url;
+      U.qs('#dataProse').innerHTML =
+        'Virulenter never writes to this browser — no cookies, no localStorage. ' +
+        'Your log lives in the link below, so opening that link on another device or browser shows exactly the same data.<br><br>' +
+        '<b>' + S.events.length + '</b> ' + UI.plural(S.events.length, 'event') + ' · <b>' + total + '</b> ' +
+        UI.plural(total, 'tap') + ' · link length <b>' + url.length + '</b> characters.' +
+        (tooLong
+          ? '<br><br><b>This link is longer than ' + Codec.MAX_URL + ' characters</b> and may not survive chat apps or email. ' +
+            'Export a CSV or the JSON backup instead, or split the log by exporting, erasing, and exporting again — then paste both links with ' +
+            '<span class="mono">?d=</span> to merge them.'
+          : '');
+
+      U.qs('#dataPaste').value = '';
+      UI.openSheet(App.dataOverlay);
+    }
+  };
+
+  /* ── helpers ─────────────────────────────────────────── */
+
+  function shade(hex, amount) {
+    var rgb = Codec.hexToRgb(hex);
+    if (!rgb) return hex;
+    return Codec.rgbToHex(rgb.map(function (v) {
+      return amount < 0 ? v * (1 + amount) : v + (255 - v) * amount;
+    }));
+  }
+
+  function firstFamily(stack) {
+    var first = String(stack).split(',')[0].trim().replace(/^["']|["']$/g, '');
+    return first || 'system';
+  }
+
+  function Store_resetLook() {
+    S.look = { accent: V.DEFAULTS.accent, font: V.DEFAULTS.font, custom: null };
+    S.dirty = true;
+  }
+
+  V.app = App;
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function () { App.start(); });
+  } else {
+    App.start();
+  }
+
+})(window.V);
+
+</script>
+</body>
+</html>

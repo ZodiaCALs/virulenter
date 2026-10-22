@@ -1,0 +1,10 @@
+/* Root build file. Versions are pinned together: AGP 8.7.x requires Gradle 8.9+
+   and JDK 17, and builds against compileSdk 35 / build-tools 35.
+   See apk/README.md for the toolchain matrix. */
+plugins {
+    id 'com.android.application' version '8.7.3' apply false
+}
+
+tasks.register('clean', Delete) {
+    delete rootProject.layout.buildDirectory
+}

@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <radialGradient id="vmA" cx="30%" cy="18%" r="72%">
+      <stop offset="0%" stop-color="#a78bfa"/><stop offset="55%" stop-color="#7c5cff"/><stop offset="100%" stop-color="#4c2fd6"/>
+    </radialGradient>
+    <radialGradient id="vmB" cx="82%" cy="24%" r="66%">
+      <stop offset="0%" stop-color="#67e8f9"/><stop offset="60%" stop-color="#3b82f6"/><stop offset="100%" stop-color="#3b82f6" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="vmC" cx="24%" cy="86%" r="68%">
+      <stop offset="0%" stop-color="#f0abfc"/><stop offset="55%" stop-color="#c026d3"/><stop offset="100%" stop-color="#c026d3" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="vmBody" x1="12%" y1="0%" x2="88%" y2="100%">
+      <stop offset="0%" stop-color="#fff" stop-opacity=".42"/><stop offset="45%" stop-color="#fff" stop-opacity=".12"/><stop offset="100%" stop-color="#fff" stop-opacity=".28"/>
+    </linearGradient>
+    <linearGradient id="vmV" x1="18%" y1="0%" x2="82%" y2="100%">
+      <stop offset="0%" stop-color="#fff" stop-opacity=".97"/><stop offset="40%" stop-color="#eef2ff" stop-opacity=".80"/><stop offset="100%" stop-color="#fff" stop-opacity=".88"/>
+    </linearGradient>
+    <linearGradient id="vmSpec" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fff" stop-opacity=".08"/><stop offset="42%" stop-color="#fff" stop-opacity=".85"/><stop offset="100%" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="vmGloss" x1="0%" y1="0%" x2="42%" y2="100%">
+      <stop offset="0%" stop-color="#fff" stop-opacity=".55"/><stop offset="36%" stop-color="#fff" stop-opacity=".10"/><stop offset="62%" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="vmRim" x1="0%" y1="0%" x2="60%" y2="100%">
+      <stop offset="0%" stop-color="#fff" stop-opacity=".9"/><stop offset="40%" stop-color="#fff" stop-opacity=".18"/><stop offset="100%" stop-color="#fff" stop-opacity=".42"/>
+    </linearGradient>
+    <filter id="vmBlur" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="34"/></filter>
+    <filter id="vmShadow" x="-40%" y="-40%" width="180%" height="180%">
+      <feDropShadow dx="0" dy="9" stdDeviation="12" flood-color="#1b0b4d" flood-opacity=".34"/>
+    </filter>
+    <clipPath id="vmTile"><rect width="512" height="512" rx="116"/></clipPath>
+  </defs>
+  <g clip-path="url(#vmTile)">
+    <rect width="512" height="512" fill="url(#vmA)"/>
+    <g filter="url(#vmBlur)">
+      <ellipse cx="404" cy="120" rx="188" ry="164" fill="url(#vmB)"/>
+      <ellipse cx="104" cy="418" rx="196" ry="172" fill="url(#vmC)"/>
+    </g>
+    <rect width="512" height="512" fill="url(#vmBody)"/>
+    <g filter="url(#vmShadow)">
+      <polyline points="152,160 256,360 360,160" fill="none" stroke="url(#vmV)" stroke-width="62"
+                stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <polyline points="152,160 256,360" fill="none" stroke="url(#vmSpec)" stroke-width="21"
+              stroke-linecap="round" stroke-linejoin="round"/>
+    <rect width="512" height="512" fill="url(#vmGloss)"/>
+    <rect x="3" y="3" width="506" height="506" rx="113" fill="none" stroke="url(#vmRim)" stroke-width="6"/>
+  </g>
+</svg>

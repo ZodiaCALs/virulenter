@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <!-- There is nothing worth backing up: the session lives in the URL, and
+         the app deliberately keeps no browser storage. -->
+    <exclude domain="root" path="." />
+</full-backup-content>

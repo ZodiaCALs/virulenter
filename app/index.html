@@ -1,0 +1,441 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#ffffff">
+<meta name="description" content="Virulenter — tap to count, timestamped on a calendar. No account, no server, no browser storage: your whole log lives in the link.">
+<meta name="color-scheme" content="light">
+<title>Virulenter</title>
+
+<!-- installable app -->
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
+<link rel="alternate icon" href="icons/icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Virulenter">
+<meta name="mobile-web-app-capable" content="yes">
+
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/views.css">
+<link rel="stylesheet" href="css/stats.css">
+</head>
+<body>
+
+<div class="app" id="app">
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 512 512"><use href="#vmark"/></svg>
+      </span>
+      <span class="brand-text">
+        <b>Virulenter</b>
+        <i id="brandSub">tap to count</i>
+      </span>
+    </div>
+    <div class="top-actions">
+      <button class="icon-btn" id="btnInstall" type="button" title="Install app" aria-label="Install app" hidden>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5V15M8 11l4 4 4-4M4.5 19.5h15"/></svg>
+      </button>
+      <button class="icon-btn" id="btnData" type="button" title="Settings and data" aria-label="Settings and data">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M12 3v2.2M12 18.8V21M4.2 7.5l1.9 1.1M17.9 15.4l1.9 1.1M4.2 16.5l1.9-1.1M17.9 8.6l1.9-1.1"/></svg>
+      </button>
+      <button class="icon-btn primary" id="btnAddTop" type="button" title="New event" aria-label="New event">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <p class="notice" id="notice" hidden></p>
+
+  <main class="screen" id="screen">
+
+    <!-- ══════════ Events ══════════ -->
+    <section class="view" id="view-home">
+      <div class="stats" id="statsRow"></div>
+
+      <div class="toolbar" id="toolbar" hidden>
+        <label class="search" for="searchInput">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4.3-4.3"/></svg>
+          <input id="searchInput" type="search" placeholder="Search events" autocomplete="off">
+          <button class="clear-btn" id="searchClear" type="button" aria-label="Clear search" hidden>✕</button>
+        </label>
+        <button class="sort-btn" id="btnSort" type="button"><span id="sortLabel">Recent</span>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg>
+        </button>
+      </div>
+
+      <div class="cards" id="eventList"></div>
+
+      <div class="empty" id="listEmpty" hidden>
+        <div class="empty-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+        </div>
+        <h2>No events yet</h2>
+        <p>Create an event, then tap its button every time it happens. Each tap is counted and stamped on the calendar.</p>
+        <button class="btn primary" id="btnAddEmpty" type="button">Create your first event</button>
+      </div>
+    </section>
+
+    <!-- ══════════ Calendar ══════════ -->
+    <section class="view" id="view-calendar" hidden>
+      <div class="cal-card">
+        <div class="cal-head">
+          <button class="icon-btn" id="calPrev" type="button" aria-label="Previous month">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 7-5 5 5 5"/></svg>
+          </button>
+          <button class="cal-title" id="calTitle" type="button" title="Jump to any month">
+            <span id="calTitleText">—</span>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg>
+          </button>
+          <button class="icon-btn" id="calNext" type="button" aria-label="Next month">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m10 7 5 5-5 5"/></svg>
+          </button>
+        </div>
+
+        <div class="cal-jump" id="calNavBar">
+          <button class="mini-btn" id="calPrevYear" type="button" aria-label="Previous year">−1y</button>
+          <button class="mini-btn" id="calToday" type="button">Today</button>
+          <button class="mini-btn" id="calNextYear" type="button" aria-label="Next year">+1y</button>
+        </div>
+
+        <div class="cal-week" id="calWeek"></div>
+        <div class="cal-grid" id="calGrid" role="grid" aria-label="Calendar"></div>
+        <div class="cal-foot">
+          <div class="legend">
+            <span class="legend-label">Less</span>
+            <i class="lv l0"></i><i class="lv l1"></i><i class="lv l2"></i><i class="lv l3"></i><i class="lv l4"></i>
+            <span class="legend-label">More</span>
+          </div>
+          <span class="cal-range" id="calRange"></span>
+        </div>
+        <div class="cal-year" id="calYearWrap" hidden>
+          <div class="cal-year-head"><span id="calYearLabel">—</span></div>
+          <div class="heat-grid" id="calYearGrid"></div>
+        </div>
+      </div>
+
+      <div class="day-panel" id="dayPanel"></div>
+    </section>
+
+    <!-- ══════════ Statistics ══════════ -->
+    <section class="view" id="view-stats" hidden>
+      <div class="stat-hero" id="statHero"></div>
+
+      <div class="panel">
+        <div class="panel-head"><h3>Streaks</h3><span class="panel-sub">consecutive days with a tap</span></div>
+        <div id="statStreak"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h3>Last 30 days</h3>
+          <span class="panel-sub" id="stat30Sub"></span>
+        </div>
+        <div class="bar-chart" id="stat30"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h3>By month</h3>
+          <select class="mini-select" id="statYear" aria-label="Year"></select>
+        </div>
+        <div class="bar-chart tall" id="statMonths"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h3>By weekday</h3><span class="panel-sub">when you tap</span></div>
+        <div class="bar-chart" id="statWeekday"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h3>By hour</h3><span class="panel-sub">local time</span></div>
+        <div class="bar-chart" id="statHour"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h3>Per event</h3><span class="panel-sub" id="statEventSub"></span></div>
+        <div class="table-wrap"><table class="table" id="statEvents"></table></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h3>Activity</h3><span class="panel-sub" id="statHeatSub"></span></div>
+        <div class="heat-grid" id="statHeat"></div>
+      </div>
+    </section>
+
+  </main>
+
+  <nav class="tabbar" id="tabbar">
+    <button class="tab is-on" data-view="home" type="button">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-4v-6H9v6H5a1 1 0 0 1-1-1Z"/></svg>
+      <span>Events</span>
+    </button>
+    <button class="tab" data-view="calendar" type="button">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="3"/><path d="M8 3.5v3M16 3.5v3M3.5 10h17"/></svg>
+      <span>Calendar</span>
+    </button>
+    <button class="tab" data-view="stats" type="button">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>
+      <span>Stats</span>
+    </button>
+    <button class="tab" data-view="settings" type="button">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M12 3v2.2M12 18.8V21M4.2 7.5l1.9 1.1M17.9 15.4l1.9 1.1M4.2 16.5l1.9-1.1M17.9 8.6l1.9-1.1"/></svg>
+      <span>Settings</span>
+    </button>
+  </nav>
+
+  <button class="fab" id="fab" type="button" aria-label="New event">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+  </button>
+</div>
+
+<!-- ══════════ Month / year jump picker ══════════ -->
+<div class="overlay" id="jumpOverlay" hidden>
+  <div class="overlay-scrim" data-close="1"></div>
+  <div class="sheet" id="jumpSheet" role="dialog" aria-modal="true" aria-label="Jump to a month">
+    <div class="sheet-grab" aria-hidden="true"></div>
+    <div class="sheet-head">
+      <button class="txt-btn" data-close="1" type="button">Close</button>
+      <b>Jump to</b>
+      <button class="txt-btn accent" id="jumpToday" type="button">Today</button>
+    </div>
+    <div class="jump-body">
+      <div class="jump-year">
+        <button class="icon-btn" id="jumpPrevYear" type="button" aria-label="Previous year">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 7-5 5 5 5"/></svg>
+        </button>
+        <b id="jumpYearLabel">—</b>
+        <button class="icon-btn" id="jumpNextYear" type="button" aria-label="Next year">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m10 7 5 5-5 5"/></svg>
+        </button>
+      </div>
+      <div class="jump-months" id="jumpMonths"></div>
+      <div class="jump-years">
+        <span class="form-label">Years with activity</span>
+        <div class="jump-year-list" id="jumpYearList"></div>
+      </div>
+    </div>
+    <div class="sheet-pad"></div>
+  </div>
+</div>
+
+<!-- ══════════ New / edit event ══════════ -->
+<div class="overlay" id="formOverlay" hidden>
+  <div class="overlay-scrim" data-close="1"></div>
+  <div class="sheet" id="formSheet" role="dialog" aria-modal="true" aria-label="Event">
+    <form id="eventForm" novalidate>
+      <div class="sheet-grab" aria-hidden="true"></div>
+      <div class="sheet-head">
+        <button class="txt-btn" data-close="1" type="button">Cancel</button>
+        <b id="formTitle">New event</b>
+        <button class="txt-btn accent" type="submit">Save</button>
+      </div>
+      <div class="form-body">
+        <div class="form-row">
+          <label class="form-label" for="fName">Name</label>
+          <input class="input" id="fName" type="text" maxlength="48" placeholder="e.g. Coffee, Workout, Cigarette" required>
+        </div>
+        <div class="form-row">
+          <span class="form-label">Colour</span>
+          <div class="swatch-row" id="fColor"></div>
+        </div>
+        <div class="form-row">
+          <label class="form-label" for="fStart">Count starts from</label>
+          <input class="input" id="fStart" type="date">
+          <p class="form-hint">Only used for the average rate and the calendar range. Logged taps always use the real time now.</p>
+        </div>
+        <div class="form-row" id="rowLog">
+          <span class="form-label">Recorded <b id="logCount">0</b> times</span>
+          <div class="btn-row">
+            <button class="btn" id="btnLogNow" type="button">＋ Log once now</button>
+            <button class="btn danger-ghost" id="btnClearLog" type="button">Clear all taps</button>
+          </div>
+        </div>
+        <div class="form-row" id="rowDelete" hidden>
+          <span class="form-label">Danger zone</span>
+          <button class="btn danger-ghost" id="btnDeleteEvent" type="button">Delete this event</button>
+        </div>
+      </div>
+      <div class="sheet-pad"></div>
+    </form>
+  </div>
+</div>
+
+<!-- ══════════ Appearance ══════════ -->
+<div class="overlay" id="lookOverlay" hidden>
+  <div class="overlay-scrim" data-close="1"></div>
+  <div class="sheet" id="lookSheet" role="dialog" aria-modal="true" aria-label="Appearance">
+    <div class="sheet-grab" aria-hidden="true"></div>
+    <div class="sheet-head">
+      <button class="txt-btn" data-close="1" type="button">Close</button>
+      <b>Appearance</b>
+      <button class="txt-btn" id="lookReset" type="button">Reset</button>
+    </div>
+    <div class="form-body">
+      <p class="prose">Saved inside your link, like everything else here — the colours travel with the data.</p>
+
+      <div class="form-row">
+        <span class="form-label">Accent colour</span>
+        <div class="swatch-row" id="lookAccent"></div>
+      </div>
+
+      <div class="form-row">
+        <label class="form-label" for="lookCustom">Custom colour</label>
+        <div class="custom-row">
+          <input class="color-input" id="lookCustom" type="color" value="#2f6bff" aria-label="Custom accent colour">
+          <input class="input mono" id="lookCustomHex" type="text" maxlength="7" spellcheck="false" placeholder="#2f6bff" aria-label="Custom accent hex value">
+          <button class="btn" id="lookCustomApply" type="button">Apply</button>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <span class="form-label">Typeface</span>
+        <div class="font-list" id="lookFont"></div>
+      </div>
+
+      <div class="form-row">
+        <span class="form-label">Preview</span>
+        <div class="look-preview" id="lookPreview">
+          <div class="lp-card">
+            <div class="lp-top"><span class="lp-dot"></span><span class="lp-name">Coffee</span><b class="lp-count">128</b></div>
+            <div class="lp-btn">Tap to count</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="sheet-pad"></div>
+  </div>
+</div>
+
+<!-- ══════════ Settings / data / export ══════════ -->
+<div class="overlay" id="dataOverlay" hidden>
+  <div class="overlay-scrim" data-close="1"></div>
+  <div class="sheet" id="dataSheet" role="dialog" aria-modal="true" aria-label="Settings and data">
+    <div class="sheet-grab" aria-hidden="true"></div>
+    <div class="sheet-head">
+      <button class="txt-btn" data-close="1" type="button">Close</button>
+      <b>Settings &amp; data</b>
+      <span style="width:56px"></span>
+    </div>
+    <div class="form-body">
+      <p class="prose" id="dataProse"></p>
+
+      <div class="form-row">
+        <span class="form-label">Appearance</span>
+        <button class="btn block" id="btnAppearance" type="button">Colour and typeface…</button>
+      </div>
+
+      <div class="form-row" id="installRow">
+        <span class="form-label">Install</span>
+        <button class="btn block" id="btnInstallRow" type="button">Install as an app</button>
+        <p class="form-hint" id="installHint"></p>
+      </div>
+
+      <div class="form-row">
+        <span class="form-label">Shareable link</span>
+        <textarea class="input mono" id="dataLink" rows="3" readonly spellcheck="false"></textarea>
+        <div class="btn-row">
+          <button class="btn primary" id="btnCopyLink" type="button">Copy link</button>
+          <button class="btn" id="btnOpenLink" type="button">Open link</button>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <span class="form-label">Export</span>
+        <div class="btn-row">
+          <button class="btn" id="btnExportCsv" type="button">Every tap (CSV)</button>
+          <button class="btn" id="btnExportSummary" type="button">Summary (CSV)</button>
+        </div>
+        <div class="btn-row">
+          <button class="btn" id="btnDownload" type="button">Backup (JSON)</button>
+          <button class="btn" id="btnPickFile" type="button">Load from file</button>
+          <input type="file" id="fileInput" accept="application/json,.json,text/csv" hidden>
+        </div>
+        <div class="btn-row">
+          <button class="btn" id="btnShareCsv" type="button">Share taps (CSV)</button>
+          <button class="btn" id="btnShareJson" type="button">Share backup (JSON)</button>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <span class="form-label">Paste data</span>
+        <textarea class="input mono" id="dataPaste" rows="3" placeholder="Paste a link or JSON here, then press Load" spellcheck="false"></textarea>
+        <div class="btn-row">
+          <button class="btn" id="btnLoadPaste" type="button">Load pasted data</button>
+          <button class="btn danger-ghost" id="btnWipe" type="button">Erase everything</button>
+        </div>
+      </div>
+    </div>
+    <div class="sheet-pad"></div>
+  </div>
+</div>
+
+<div class="toast-wrap" id="toastWrap" aria-live="polite"></div>
+
+<!-- Brand mark: a compact liquid-glass "V", built from gradients and a blur
+     filter so it needs no external image and stays crisp at any size. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="vmark" viewBox="0 0 512 512">
+    <defs>
+      <radialGradient id="vmA" cx="30%" cy="18%" r="72%">
+        <stop offset="0%" stop-color="#a78bfa"/><stop offset="55%" stop-color="#7c5cff"/><stop offset="100%" stop-color="#4c2fd6"/>
+      </radialGradient>
+      <radialGradient id="vmB" cx="82%" cy="24%" r="66%">
+        <stop offset="0%" stop-color="#67e8f9"/><stop offset="60%" stop-color="#3b82f6"/><stop offset="100%" stop-color="#3b82f6" stop-opacity="0"/>
+      </radialGradient>
+      <radialGradient id="vmC" cx="24%" cy="86%" r="68%">
+        <stop offset="0%" stop-color="#f0abfc"/><stop offset="55%" stop-color="#c026d3"/><stop offset="100%" stop-color="#c026d3" stop-opacity="0"/>
+      </radialGradient>
+      <linearGradient id="vmBody" x1="12%" y1="0%" x2="88%" y2="100%">
+        <stop offset="0%" stop-color="#fff" stop-opacity=".42"/><stop offset="45%" stop-color="#fff" stop-opacity=".12"/><stop offset="100%" stop-color="#fff" stop-opacity=".28"/>
+      </linearGradient>
+      <linearGradient id="vmV" x1="18%" y1="0%" x2="82%" y2="100%">
+        <stop offset="0%" stop-color="#fff" stop-opacity=".97"/><stop offset="40%" stop-color="#eef2ff" stop-opacity=".80"/><stop offset="100%" stop-color="#fff" stop-opacity=".88"/>
+      </linearGradient>
+      <linearGradient id="vmSpec" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#fff" stop-opacity=".08"/><stop offset="42%" stop-color="#fff" stop-opacity=".85"/><stop offset="100%" stop-color="#fff" stop-opacity="0"/>
+      </linearGradient>
+      <linearGradient id="vmGloss" x1="0%" y1="0%" x2="42%" y2="100%">
+        <stop offset="0%" stop-color="#fff" stop-opacity=".55"/><stop offset="36%" stop-color="#fff" stop-opacity=".10"/><stop offset="62%" stop-color="#fff" stop-opacity="0"/>
+      </linearGradient>
+      <linearGradient id="vmRim" x1="0%" y1="0%" x2="60%" y2="100%">
+        <stop offset="0%" stop-color="#fff" stop-opacity=".9"/><stop offset="40%" stop-color="#fff" stop-opacity=".18"/><stop offset="100%" stop-color="#fff" stop-opacity=".42"/>
+      </linearGradient>
+      <filter id="vmBlur" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="34"/></filter>
+      <filter id="vmShadow" x="-40%" y="-40%" width="180%" height="180%">
+        <feDropShadow dx="0" dy="9" stdDeviation="12" flood-color="#1b0b4d" flood-opacity=".34"/>
+      </filter>
+      <clipPath id="vmTile"><rect width="512" height="512" rx="116"/></clipPath>
+    </defs>
+    <g clip-path="url(#vmTile)">
+      <rect width="512" height="512" fill="url(#vmA)"/>
+      <g filter="url(#vmBlur)">
+        <ellipse cx="404" cy="120" rx="188" ry="164" fill="url(#vmB)"/>
+        <ellipse cx="104" cy="418" rx="196" ry="172" fill="url(#vmC)"/>
+      </g>
+      <rect width="512" height="512" fill="url(#vmBody)"/>
+      <g filter="url(#vmShadow)">
+        <polyline points="152,160 256,360 360,160" fill="none" stroke="url(#vmV)" stroke-width="62"
+                  stroke-linecap="round" stroke-linejoin="round"/>
+      </g>
+      <polyline points="152,160 256,360" fill="none" stroke="url(#vmSpec)" stroke-width="21"
+                stroke-linecap="round" stroke-linejoin="round"/>
+      <rect width="512" height="512" fill="url(#vmGloss)"/>
+      <rect x="3" y="3" width="506" height="506" rx="113" fill="none" stroke="url(#vmRim)" stroke-width="6"/>
+    </g>
+  </symbol>
+</svg>
+
+<script src="js/core.js"></script>
+<script src="js/codec.js"></script>
+<script src="js/store.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/views.js"></script>
+<script src="js/stats.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
