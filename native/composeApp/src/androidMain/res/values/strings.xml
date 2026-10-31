@@ -1,0 +1,12 @@
+<resources>
+    <string name="app_name">Virulenter</string>
+    <string name="tile_label">Count +1</string>
+    <string name="widget_label">Virulenter counter</string>
+    <string name="widget_description">Today\'s count, the time since the last tap, and a +1 button.</string>
+    <string name="channel_live">Live counter</string>
+    <string name="channel_live_detail">The ongoing notification for the event you track: today\'s count, a running clock since the last tap, +1 and Undo.</string>
+    <string name="channel_reminders">Reminders</string>
+    <string name="channel_reminders_detail">The daily reminders you set on events.</string>
+    <string name="channel_goals">Goals</string>
+    <string name="channel_goals_detail">When a daily goal is reached.</string>
+</resources>

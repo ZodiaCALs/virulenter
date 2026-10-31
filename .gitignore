@@ -18,3 +18,10 @@ apk/keystore.local.properties
 
 # scratch
 verify/shots/checks/
+
+# native app (Kotlin Multiplatform) build output
+native/.gradle/
+native/.kotlin/
+native/build/
+native/composeApp/build/
+native/local.properties
