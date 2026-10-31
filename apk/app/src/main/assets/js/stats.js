@@ -1,6 +1,20 @@
 /* ============================================================
-   Virulenter · stats.js
-   Statistics view: totals, streaks, distributions and heat grids.
+   Virulenter · stats.js — the statistics dashboard.
+
+   One filter row — the time range first, then the event — scopes every
+   figure below it, so the numbers always agree with each other:
+
+     tiles      taps, daily average and active days in the range, each
+                against the period before it; the current streak
+     trend      taps per day (7 / 30 days), per week (13 weeks) or per
+                month (12 months); a column opens that day, week or month
+                in the calendar
+     rhythm     by weekday and by hour — the peak in the accent, the rest
+                receding, since the peak is the finding
+     per event  the same range, one row per event
+     streaks    all time, for the events in view
+     activity   the last 53 weeks as a heatmap, one hue
+
    Every figure is derived from the tap log on render — nothing is cached
    in browser storage.
    ============================================================ */
@@ -8,24 +22,34 @@ window.V = window.V || {};
 (function (V) {
   'use strict';
 
-  var U = V.util, D = V.date, S = V.store;
+  var U = V.util, D = V.date, S = V.store, Charts = V.charts;
+
+  var RANGES = {
+    '7d': { title: 'last 7 days', prev: 'the 7 days before' },
+    '30d': { title: 'last 30 days', prev: 'the 30 days before' },
+    '90d': { title: 'last 13 weeks', prev: 'the 13 weeks before' },
+    '1y': { title: 'last 12 months', prev: 'the 12 months before' }
+  };
 
   var Stats = V.stats = {
-    year: null,
+    range: '30d',
+    only: null,               // an event id, or null for every event
     _els: {},
-    _tip: null,
 
     init: function () {
-      Stats._els = {
+      var els = Stats._els = {
         view: U.qs('#view-stats'),
+        range: U.qs('#statRange'),
+        only: U.qs('#statOnly'),
         hero: U.qs('#statHero'),
-        streak: U.qs('#statStreak'),
-        d30: U.qs('#stat30'),
-        d30sub: U.qs('#stat30Sub'),
-        year: U.qs('#statYear'),
-        months: U.qs('#statMonths'),
+        trend: U.qs('#statTrend'),
+        trendTitle: U.qs('#statTrendTitle'),
+        trendSub: U.qs('#statTrendSub'),
         weekday: U.qs('#statWeekday'),
+        weekdaySub: U.qs('#statWeekdaySub'),
         hour: U.qs('#statHour'),
+        hourSub: U.qs('#statHourSub'),
+        streak: U.qs('#statStreak'),
         events: U.qs('#statEvents'),
         eventSub: U.qs('#statEventSub'),
         heatScroll: U.qs('#statHeatScroll'),
@@ -33,42 +57,259 @@ window.V = window.V || {};
         heat: U.qs('#statHeat'),
         heatSub: U.qs('#statHeatSub')
       };
-      Stats._els.year.addEventListener('change', function () {
-        Stats.year = Number(Stats._els.year.value);
+
+      els.range.addEventListener('click', function (ev) {
+        var b = ev.target.closest('[data-range]');
+        if (!b || b.dataset.range === Stats.range) return;
+        Stats.range = b.dataset.range;
         Stats.render();
       });
-      Stats.initTooltip();
+      els.only.addEventListener('click', function (ev) {
+        var b = ev.target.closest('[data-only]');
+        if (!b) return;
+        var id = b.dataset.only || null;
+        Stats.only = Stats.only === id ? null : id;
+        Stats.render();
+      });
+
+      /* the table twin of each chart */
+      els.view.addEventListener('click', function (ev) {
+        var b = ev.target.closest('[data-table-for]');
+        if (!b) return;
+        var on = Charts.toggleTable(U.qs('#' + b.dataset.tableFor));
+        b.setAttribute('aria-pressed', on ? 'true' : 'false');
+        b.classList.toggle('is-on', on);
+      });
+
+      Stats.bindCells(els.heat, function (iso) { return Stats.dayRows(iso); });
       return Stats;
     },
 
+    /* the events in view, after the event filter */
+    events: function () {
+      if (Stats.only && !S.get(Stats.only)) Stats.only = null;
+      return Stats.only ? S.events.filter(function (e) { return e.id === Stats.only; }) : S.events.slice();
+    },
+
+    /* the range as concrete days, its buckets, and the period before it */
+    period: function () {
+      var today = D.today();
+      var r = Stats.range;
+      var start, buckets = [], i;
+
+      if (r === '7d' || r === '30d') {
+        var n = r === '7d' ? 7 : 30;
+        start = D.addDays(today, -(n - 1));
+        for (i = 0; i < n; i++) {
+          var d = D.addDays(start, i);
+          buckets.push({
+            from: d, to: d,
+            title: D.fmtDayLong(D.toISO(d)),
+            tick: i === n - 1 ? 'Today'
+              : r === '7d' ? D.WEEKDAYS[d.getDay()]
+              : d.getDay() === 1 ? d.getDate() + ' ' + D.MONTHS[d.getMonth()] : '',
+            today: i === n - 1,
+            kind: 'day'
+          });
+        }
+      } else if (r === '90d') {
+        var monday = D.addDays(today, -((today.getDay() + 6) % 7));
+        start = D.addDays(monday, -7 * 12);
+        for (i = 0; i < 13; i++) {
+          var from = D.addDays(start, i * 7);
+          var to = i === 12 ? today : D.addDays(from, 6);
+          buckets.push({
+            from: from, to: to,
+            title: 'Week of ' + D.fmtDay(D.toISO(from)),
+            tick: from.getDate() + ' ' + D.MONTHS[from.getMonth()],
+            today: i === 12,
+            kind: 'week'
+          });
+        }
+      } else {
+        start = new Date(today.getFullYear(), today.getMonth() - 11, 1);
+        for (i = 0; i < 12; i++) {
+          var m0 = new Date(start.getFullYear(), start.getMonth() + i, 1);
+          var m1 = i === 11 ? today : new Date(m0.getFullYear(), m0.getMonth() + 1, 0);
+          buckets.push({
+            from: m0, to: m1,
+            title: D.fmtMonth(m0.getFullYear(), m0.getMonth()),
+            tick: D.MONTHS[m0.getMonth()],
+            today: i === 11,
+            kind: 'month'
+          });
+        }
+      }
+      var days = D.diffDays(start, today) + 1;
+      return {
+        start: start, end: today, days: days, buckets: buckets,
+        prevStart: D.addDays(start, -days), prevEnd: D.addDays(start, -1)
+      };
+    },
+
     render: function () {
-      var s = S.stats();
-      var st = S.streaks();
-      var range = S.range();
+      var els = Stats._els;
+      var events = Stats.events();
+      var P = Stats.period();
+      var meta = RANGES[Stats.range];
+      var tone = function (e) { return V.ui.tone(e.color).c; };
 
-      /* ── hero ── */
-      var spanDays = D.diffDays(D.fromTs(range.min), D.today()) + 1;
-      var perDay = spanDays > 0 ? s.total / spanDays : 0;
-      var perActive = st.activeDays ? s.total / st.activeDays : 0;
-      var firstEvent = S.events.reduce(function (acc, e) {
-        var f = S.first(e);
-        if (f === null) return acc;
-        return acc === null || f < acc ? f : acc;
-      }, null);
+      /* per-day totals for the events in view, with the per-event split */
+      var byDay = {};
+      events.forEach(function (e) {
+        e.log.forEach(function (ts) {
+          var k = D.dayKey(ts);
+          var o = byDay[k] || (byDay[k] = { n: 0, per: {} });
+          o.n++;
+          o.per[e.id] = (o.per[e.id] || 0) + 1;
+        });
+      });
+      Stats._byDay = byDay;
+      var totals = {};
+      Object.keys(byDay).forEach(function (k) { totals[k] = byDay[k].n; });
 
-      Stats._els.hero.innerHTML = [
-        '<div class="sh lead span2" style="--i:0"><b>' + s.total + '</b><span>' +
-          U.plural(s.total, 'tap') + ' recorded across ' + s.events + ' ' + U.plural(s.events, 'event') + '</span></div>',
-        sh(s.today, 'today', '', 1),
-        sh(s.week, 'last 7 days', '', 2),
-        '<div class="sh w2" style="--i:3"><b>' + perDay.toFixed(2) + '<em>per day</em></b>' +
-          '<span>across ' + spanDays + ' ' + U.plural(spanDays, 'day') + ' since ' + U.esc(D.fmtDay(D.toISO(new Date(range.min)))) + '</span></div>',
-        '<div class="sh w2 date" style="--i:4"><b>' + (firstEvent ? U.esc(D.fmtDay(D.dayKey(firstEvent))) : '—') + '</b>' +
-          '<span>' + (firstEvent ? 'first tap ever' : 'no taps yet') + '</span></div>'
+      function sumDays(from, to) {
+        var out = { n: 0, active: 0, per: {} };
+        for (var d = from; d <= to; d = D.addDays(d, 1)) {
+          var o = byDay[D.toISO(d)];
+          if (!o) continue;
+          out.n += o.n;
+          out.active++;
+          for (var id in o.per) out.per[id] = (out.per[id] || 0) + o.per[id];
+        }
+        return out;
+      }
+      var cur = sumDays(P.start, P.end);
+      var prev = sumDays(P.prevStart, P.prevEnd);
+      var rowsFor = function (per) {
+        return events.map(function (e) { return { name: e.name, color: tone(e), n: per[e.id] || 0 }; })
+          .sort(function (a, b) { return b.n - a.n; });
+      };
+
+      /* ── the filter row ── */
+      U.qsa('[data-range]', els.range).forEach(function (b) {
+        var on = b.dataset.range === Stats.range;
+        b.classList.toggle('is-on', on);
+        b.setAttribute('aria-checked', on ? 'true' : 'false');
+      });
+      els.only.hidden = S.events.length < 2;
+      els.only.innerHTML = '<button class="fchip' + (Stats.only ? '' : ' is-on') + '" type="button" role="radio" aria-checked="' +
+        (Stats.only ? 'false' : 'true') + '" data-only="">All events</button>' +
+        S.events.map(function (e) {
+          var on = Stats.only === e.id;
+          return '<button class="fchip' + (on ? ' is-on' : '') + '" type="button" role="radio" aria-checked="' + on +
+            '" data-only="' + U.esc(e.id) + '"><i style="background:' + U.esc(tone(e)) + '"></i><span>' + U.esc(e.name) + '</span></button>';
+        }).join('');
+
+      /* ── tiles ── */
+      var st = S.streaks(totals);
+      var perDay = cur.n / P.days, prevPerDay = prev.n / P.days;
+      els.hero.innerHTML = [
+        tile('lead', cur.n, U.plural(cur.n, 'tap') + ' · ' + meta.title, delta(cur.n, prev.n), 0),
+        tile('', fmtRate(perDay), 'per day', delta(perDay, prevPerDay, true), 1),
+        tile('', cur.active, 'active ' + U.plural(cur.active, 'day') + ' of ' + P.days, delta(cur.active, prev.active, true), 2),
+        tile('', st.current, 'day streak · best ' + st.longest, '', 3)
       ].join('');
 
-      /* ── streaks ── */
-      Stats._els.streak.innerHTML =
+      /* ── trend ── */
+      var single = events.length === 1 ? events[0] : null;
+      var unitWord = { day: 'day', week: 'week', month: 'month' }[P.buckets[0].kind];
+      els.trendTitle.textContent = 'Taps per ' + unitWord;
+      els.trendSub.textContent = cur.n + ' ' + U.plural(cur.n, 'tap') + ' · ' + meta.title;
+      Charts.column(els.trend, {
+        label: 'Taps per ' + unitWord + ', ' + meta.title + (single ? ', ' + single.name : '') + ': ' + cur.n + ' in total.',
+        colLabel: unitWord[0].toUpperCase() + unitWord.slice(1),
+        unit: ['tap', 'taps'],
+        average: true,
+        color: single ? tone(single) : null,
+        empty: 'No taps in the ' + meta.title,
+        columns: P.buckets.map(function (b) {
+          var s = sumDays(b.from, b.to);
+          return { title: b.title, tick: b.tick, value: s.n, today: b.today, rows: single ? [] : rowsFor(s.per) };
+        }),
+        onSelect: function (i) { Stats.open(P.buckets[i]); }
+      });
+
+      /* ── rhythm: weekday and hour, within the range ── */
+      var wd = [0, 0, 0, 0, 0, 0, 0], hr = new Array(24).fill(0);
+      var t0 = D.stripTime(P.start), t1 = D.stripTime(P.end) + U.MS_DAY;
+      events.forEach(function (e) {
+        e.log.forEach(function (ts) {
+          if (ts < t0 || ts >= t1) return;
+          var dt = new Date(ts);
+          wd[(dt.getDay() + 6) % 7]++;
+          hr[dt.getHours()]++;
+        });
+      });
+      var wdPeak = peakIndex(wd), hrPeak = peakIndex(hr);
+      els.weekdaySub.textContent = wdPeak < 0 ? meta.title : 'busiest: ' + D.WEEKDAYS_LONG[(wdPeak + 1) % 7];
+      Charts.column(els.weekday, {
+        label: 'Taps by weekday, ' + meta.title + (wdPeak < 0 ? '' : '; most on ' + D.WEEKDAYS_LONG[(wdPeak + 1) % 7]) + '.',
+        colLabel: 'Weekday',
+        unit: ['tap', 'taps'],
+        emphasis: 'peak',
+        height: 168,
+        empty: 'No taps in the ' + meta.title,
+        columns: wd.map(function (n, i) {
+          return { title: D.WEEKDAYS_LONG[(i + 1) % 7], tick: D.WEEKDAYS[(i + 1) % 7], value: n, note: share(n, cur.n) };
+        })
+      });
+      els.hourSub.textContent = hrPeak < 0 ? 'local time' : 'busiest: ' + U.pad2(hrPeak) + ':00';
+      Charts.column(els.hour, {
+        label: 'Taps by hour of day, ' + meta.title + (hrPeak < 0 ? '' : '; most between ' + U.pad2(hrPeak) + ':00 and ' + U.pad2(hrPeak) + ':59') + '.',
+        colLabel: 'Hour',
+        unit: ['tap', 'taps'],
+        emphasis: 'peak',
+        height: 168,
+        empty: 'No taps in the ' + meta.title,
+        columns: hr.map(function (n, i) {
+          return { title: U.pad2(i) + ':00–' + U.pad2(i) + ':59', tick: i % 6 === 0 ? U.pad2(i) : '', value: n, note: share(n, cur.n) };
+        })
+      });
+
+      /* ── per event, within the range ── */
+      var rows = events.map(function (e) {
+        var n = cur.per[e.id] || 0;
+        var sd = D.parseISO(e.start);
+        var from = sd && sd > P.start ? sd : P.start;
+        var span = Math.max(1, D.diffDays(from, P.end) + 1);
+        var act = 0;
+        for (var d = P.start; d <= P.end; d = D.addDays(d, 1)) {
+          var o = byDay[D.toISO(d)];
+          if (o && o.per[e.id]) act++;
+        }
+        return { event: e, count: n, share: cur.n ? n / cur.n : 0, rate: n / span, activeDays: act, last: S.last(e) };
+      }).sort(function (a, b) { return b.count - a.count || a.event.name.localeCompare(b.event.name, 'en'); });
+      els.eventSub.textContent = meta.title;
+      if (!rows.length) {
+        els.events.innerHTML = '<tbody><tr><td class="table-empty" colspan="6">No events yet.</td></tr></tbody>';
+      } else {
+        els.events.innerHTML =
+          '<thead><tr><th scope="col">Event</th><th scope="col">Taps</th><th scope="col">Share</th><th scope="col">Per day</th>' +
+          '<th scope="col">Active days</th><th scope="col">Last tap</th></tr></thead>' +
+          '<tbody>' + rows.map(function (r) {
+            var pct = Math.round(r.share * 100);
+            var color = tone(r.event);
+            return '<tr>' +
+              '<td class="c-name"><span class="name-cell" style="--c:' + U.esc(color) + '">' +
+                '<i class="dot"></i><span title="' + U.esc(r.event.name) + '">' + U.esc(r.event.name) + '</span></span></td>' +
+              '<td class="c-taps">' + r.count + '</td>' +
+              '<td class="c-share"><span class="share-cell"><span class="meter" style="--c:' + U.esc(color) + '">' +
+                '<i style="--w:' + pct + '%"></i></span><span>' + pct + '%</span></span></td>' +
+              '<td class="c-rate" data-label="Per day">' + fmtRate(r.rate) + '</td>' +
+              '<td class="c-days" data-label="Active days">' + r.activeDays + '</td>' +
+              '<td class="c-last" data-label="Last tap">' + (r.last ? U.esc(D.fmtRelative(r.last)) : '—') + '</td>' +
+            '</tr>';
+          }).join('') + '</tbody>';
+      }
+
+      /* ── streaks, all time ── */
+      var first = events.reduce(function (acc, e) {
+        var f = S.first(e);
+        return f === null ? acc : (acc === null || f < acc ? f : acc);
+      }, null);
+      var perActive = st.activeDays ? Object.keys(totals).reduce(function (a, k) { return a + totals[k]; }, 0) / st.activeDays : 0;
+      els.streak.innerHTML =
         '<div class="streak-row">' +
           sr(st.current, 'current', st.current > 0 ? 'hot' : '') +
           sr(st.longest, 'longest') +
@@ -79,217 +320,125 @@ window.V = window.V || {};
             ? 'Longest run ended ' + U.esc(D.fmtDay(st.longestEnd)) +
               (st.current ? ' · currently on a ' + st.current + '-day run' : ' · no run active right now')
             : 'Tap something to start a streak.') +
-          ' · average ' + perActive.toFixed(1) + ' taps on an active day.' +
+          ' · average ' + perActive.toFixed(1) + ' taps on an active day' +
+          (first ? ' · first tap ' + U.esc(D.fmtDay(D.dayKey(first))) : '') + '.' +
         '</p>';
 
-      /* ── last 30 days ── */
-      var days = S.lastDays(30);
-      var max30 = Math.max.apply(null, days.map(function (d) { return d.n; }).concat([1]));
-      var sum30 = days.reduce(function (a, d) { return a + d.n; }, 0);
-      var peak = days.reduce(function (best, d) { return d.n > best.n ? d : best; }, { n: 0 });
-      Stats.chart(Stats._els.d30, days.map(function (d, i) {
-        return {
-          n: d.n,
-          tip: D.fmtDay(d.iso) + ' · ' + d.n + ' ' + U.plural(d.n, 'tap'),
-          cap: (i % 5 === 0 || i === days.length - 1) ? String(D.parseISO(d.iso).getDate()) : ''
-        };
-      }), max30, 'Last 30 days: ' + sum30 + ' ' + U.plural(sum30, 'tap') +
-        (peak.n ? ', busiest ' + D.fmtDay(peak.iso) + ' with ' + peak.n : ''));
-      Stats._els.d30sub.textContent = sum30 + ' ' + U.plural(sum30, 'tap') + ' · peak ' + max30;
-
-      /* ── by month ── */
-      var years = S.years();
-      if (Stats.year === null || years.indexOf(Stats.year) < 0) Stats.year = years[0];
-      Stats._els.year.innerHTML = years.map(function (y) {
-        return '<option value="' + y + '"' + (y === Stats.year ? ' selected' : '') + '>' + y + '</option>';
-      }).join('');
-      var months = S.byMonth(Stats.year);
-      var maxM = Math.max.apply(null, months.concat([1]));
-      Stats.chart(Stats._els.months, months.map(function (n, i) {
-        return { n: n, tip: D.MONTHS_LONG[i] + ' ' + Stats.year + ' · ' + n + ' ' + U.plural(n, 'tap'), cap: D.MONTHS[i][0] };
-      }), maxM, 'Taps per month in ' + Stats.year, 'tall');
-
-      /* ── weekday / hour ── */
-      var wd = S.byWeekday();
-      var maxWd = Math.max.apply(null, wd.concat([1]));
-      Stats.chart(Stats._els.weekday, wd.map(function (n, i) {
-        return { n: n, tip: D.WEEKDAYS_LONG[(i + 1) % 7] + ' · ' + n + ' ' + U.plural(n, 'tap'), cap: D.WEEKDAYS[(i + 1) % 7] };
-      }), maxWd, 'Taps by weekday');
-
-      var hr = S.byHour();
-      var maxHr = Math.max.apply(null, hr.concat([1]));
-      Stats.chart(Stats._els.hour, hr.map(function (n, i) {
-        return { n: n, tip: U.pad2(i) + ':00–' + U.pad2(i) + ':59 · ' + n + ' ' + U.plural(n, 'tap'), cap: i % 6 === 0 ? U.pad2(i) : '' };
-      }), maxHr, 'Taps by hour of day');
-
-      /* ── per event: a table on wide screens, stacked rows on phones ── */
-      var rows = S.perEvent();
-      Stats._els.eventSub.textContent = rows.length ? rows.length + ' ' + U.plural(rows.length, 'event') : '';
-      if (!rows.length) {
-        Stats._els.events.innerHTML = '<tbody><tr><td class="table-empty" colspan="6">No events yet.</td></tr></tbody>';
-      } else {
-        Stats._els.events.innerHTML =
-          '<thead><tr><th scope="col">Event</th><th scope="col">Taps</th><th scope="col">Share</th><th scope="col">Per day</th>' +
-          '<th scope="col">Active days</th><th scope="col">Last tap</th></tr></thead>' +
-          '<tbody>' + rows.map(function (r) {
-            var pct = Math.round(r.share * 100);
-            var color = V.ui.tone(r.event.color).c;
-            return '<tr>' +
-              '<td class="c-name"><span class="name-cell" style="--c:' + U.esc(color) + '">' +
-                '<i class="dot"></i><span title="' + U.esc(r.event.name) + '">' + U.esc(r.event.name) + '</span></span></td>' +
-              '<td class="c-taps">' + r.count + '</td>' +
-              '<td class="c-share"><span class="share-cell"><span class="meter" style="--c:' + U.esc(color) + '">' +
-                '<i style="--w:' + pct + '%"></i></span>' +
-                '<span>' + pct + '%</span></span></td>' +
-              '<td class="c-rate" data-label="Per day">' + (r.rate >= 1 ? r.rate.toFixed(1) : r.rate.toFixed(2)) + '</td>' +
-              '<td class="c-days" data-label="Active days">' + r.activeDays + '</td>' +
-              '<td class="c-last" data-label="Last tap">' + (r.last ? U.esc(D.fmtRelative(r.last)) : '—') + '</td>' +
-            '</tr>';
-          }).join('') + '</tbody>';
-      }
-
-      /* ── activity grid ── */
-      Stats._els.heatSub.textContent = st.activeDays + ' active ' + U.plural(st.activeDays, 'day');
-      var weeks = Stats.weeksIn(Stats.year);
-      Stats._els.heatScroll.style.setProperty('--weeks', weeks);
-      Stats._els.heatMonths.innerHTML = Stats.heatMonthsHTML(Stats.year);
-      Stats._els.heat.innerHTML = Stats.heatGridHTML(Stats.year);
+      /* ── activity: the last 53 weeks ── */
+      var heat = Stats.heat(totals);
+      els.heatSub.textContent = heat.active + ' active ' + U.plural(heat.active, 'day');
+      els.heatScroll.style.setProperty('--weeks', heat.weeks);
+      els.heatMonths.innerHTML = heat.months;
+      els.heat.innerHTML = heat.cells;
       Stats.revealHeat();
     },
 
-    /* bars for one chart; items: [{ n, tip, cap }] */
-    chart: function (el, items, max, label, extra) {
-      el.className = 'bar-chart has-caps' + (extra ? ' ' + extra : '');
-      el.setAttribute('role', 'img');
-      el.setAttribute('aria-label', label);
-      var last = items.length - 1;
-      el.innerHTML = items.map(function (it, i) {
-        var h = it.n ? Math.max(4, Math.round((it.n / max) * 100)) : 3;
-        var cls = 'bar' + (it.n ? '' : ' zero') + (i === last && it.cap ? ' cap-end' : '') + (i === 0 && it.cap ? ' cap-start' : '');
-        return '<div class="' + cls + '" data-tip="' + U.esc(it.tip) + '" style="--h:' + h + '%;--i:' + i + '">' +
-          '<i></i>' + (it.cap ? '<span class="cap">' + U.esc(it.cap) + '</span>' : '') +
-        '</div>';
-      }).join('');
-    },
-
-    /* ── tooltip: one element, fixed and clamped to the viewport ── */
-    initTooltip: function () {
-      var tip = Stats._tip = U.el('div', 'chart-tip');
-      tip.setAttribute('role', 'tooltip');
-      tip.setAttribute('aria-hidden', 'true');
-      document.body.appendChild(tip);
-      var view = Stats._els.view;
-
-      function onPoint(ev) {
-        var bar = ev.target.closest && ev.target.closest('.bar-chart .bar');
-        if (bar) Stats.showTip(bar);
+    /* open a trend column in the calendar */
+    open: function (b) {
+      var d = b.from;
+      var iso = D.toISO(d);
+      if (b.kind === 'month') {
+        var sel = D.parseISO(V.views.cal.sel);
+        iso = sel && sel.getFullYear() === d.getFullYear() && sel.getMonth() === d.getMonth() ? V.views.cal.sel : iso;
       }
-      view.addEventListener('pointerover', onPoint);
-      view.addEventListener('pointerdown', onPoint);
-      view.addEventListener('pointerout', function (ev) {
+      V.views.cal.y = d.getFullYear();
+      V.views.cal.m = d.getMonth();
+      V.views.cal.sel = iso;
+      V.views.scrollMem.calendar = 0;
+      V.views.toggleTab('calendar');
+    },
+
+    /* the per-event split of one day, for tooltips */
+    dayRows: function (iso) {
+      var o = (Stats._byDay || {})[iso];
+      if (!o) return [];
+      return Stats.events().map(function (e) { return { name: e.name, color: V.ui.tone(e.color).c, n: o.per[e.id] || 0 }; })
+        .sort(function (a, b) { return b.n - a.n; });
+    },
+
+    /* tooltips and drill-down for any grid of day cells (.hc[data-date]):
+       hover or tap shows the day; a click, or a second tap, opens it */
+    bindCells: function (grid, rowsFor) {
+      var shown = null;
+      function show(cell) {
+        var iso = cell.dataset.date;
+        var n = Number(cell.dataset.n || 0);
+        var r = cell.getBoundingClientRect();
+        shown = cell;
+        Charts.clear();
+        Charts.showTip({ x: r.left + r.width / 2, y: r.top }, {
+          head: D.fmtDayLong(iso), value: n, unit: ['tap', 'taps'], rows: n ? rowsFor(iso) : [],
+          hint: 'Click to open in the calendar'
+        });
+      }
+      grid.addEventListener('pointerover', function (ev) {
         if (ev.pointerType !== 'mouse') return;
-        var to = ev.relatedTarget;
-        if (!to || !to.closest || !to.closest('.bar-chart .bar')) Stats.hideTip();
+        var cell = ev.target.closest('.hc[data-date]');
+        if (cell) show(cell);
       });
-      document.addEventListener('pointerdown', function (ev) {
-        if (!ev.target.closest || !ev.target.closest('.bar-chart .bar')) Stats.hideTip();
+      /* mouse only: a touch pointer "leaves" the moment the finger lifts */
+      grid.addEventListener('pointerleave', function (ev) {
+        if (ev.pointerType !== 'mouse') return;
+        shown = null;
+        Charts.clear();
       });
-      window.addEventListener('scroll', Stats.hideTip, { passive: true });
-      window.addEventListener('resize', Stats.hideTip);
-    },
-
-    showTip: function (bar) {
-      var tip = Stats._tip;
-      var chart = bar.parentElement;
-      Stats.clearBars();
-      bar.classList.add('is-on');
-      chart.classList.add('is-hover');
-      tip.textContent = bar.dataset.tip || '';
-      tip.classList.add('is-on');
-
-      var r = (bar.querySelector('i') || bar).getBoundingClientRect();
-      var vw = document.documentElement.clientWidth;
-      var w = tip.offsetWidth, h = tip.offsetHeight;
-      var x = Math.max(8, Math.min(vw - w - 8, r.left + r.width / 2 - w / 2));
-      var top = U.qs('#topbar').getBoundingClientRect().bottom + 6;
-      var y = r.top - h - 8;
-      if (y < top) y = r.bottom + 8;
-      tip.style.setProperty('--x', Math.round(x) + 'px');
-      tip.style.setProperty('--y', Math.round(y) + 'px');
-    },
-
-    hideTip: function () {
-      if (Stats._tip) Stats._tip.classList.remove('is-on');
-      Stats.clearBars();
-    },
-
-    clearBars: function () {
-      U.qsa('.bar-chart.is-hover').forEach(function (c) {
-        c.classList.remove('is-hover');
-        U.qsa('.bar.is-on', c).forEach(function (b) { b.classList.remove('is-on'); });
+      grid.addEventListener('pointerdown', function (ev) {
+        if (ev.pointerType === 'mouse') return;
+        var cell = ev.target.closest('.hc[data-date]');
+        if (!cell) return;
+        if (shown === cell) return;              // the click that follows opens it
+        ev.preventDefault();
+        show(cell);
+        grid._armed = cell;
       });
+      grid.addEventListener('click', function (ev) {
+        var cell = ev.target.closest('.hc[data-date]');
+        if (!cell) return;
+        if (grid._armed === cell && ev.pointerType && ev.pointerType !== 'mouse') {
+          grid._armed = null;                     // first tap only shows it
+          ev.stopImmediatePropagation();
+          return;
+        }
+        shown = null;
+        Charts.clear();
+      }, true);
     },
 
-    /* ── contribution-style grid: one column per week, Monday at the top,
-       oldest → newest so time reads left to right ── */
-    gridStart: function (year) {
-      var start = new Date(year, 0, 1);
-      return D.addDays(start, -((start.getDay() + 6) % 7));      // the Monday on or before 1 Jan
-    },
-
-    weeksIn: function (year) {
-      var start = Stats.gridStart(year);
-      return Math.ceil((D.diffDays(start, new Date(year, 11, 31)) + 1) / 7);
-    },
-
-    heatGridHTML: function (year) {
-      var totals = S.dayTotals();
+    /* ── the last 53 weeks, Monday at the top ── */
+    heat: function (totals) {
       var level = V.views.levelOf;
       var levels = V.views.levels(totals);
-      var y = year || new Date().getFullYear();
-      var start = Stats.gridStart(y);
-      var total = Stats.weeksIn(y) * 7;
-      var todayISO = D.toISO(D.today());
-      var cells = [];
+      var today = D.today();
+      var todayISO = D.toISO(today);
+      var monday = D.addDays(today, -((today.getDay() + 6) % 7));
+      var start = D.addDays(monday, -7 * 52);
+      var weeks = 53;
+      var cells = [], months = [], active = 0, lastLabelCol = -9;
 
-      for (var i = 0; i < total; i++) {
+      for (var i = 0; i < weeks * 7; i++) {
         var day = D.addDays(start, i);
         var iso = D.toISO(day);
-        if (day.getFullYear() !== y) {
-          cells.push('<i class="hc blank"></i>');
-          continue;
-        }
+        if (day > today) { cells.push('<i class="hc blank"></i>'); continue; }
         var n = totals[iso] || 0;
-        var cls = 'hc' + (n ? ' v' + level(n, levels) : '') + (iso === todayISO ? ' today' : '');
-        cells.push('<i class="' + cls + '" data-date="' + iso + '" title="' +
-          U.esc(D.fmtDay(iso)) + ' — ' + n + ' ' + U.plural(n, 'tap') + '"></i>');
+        if (n) active++;
+        cells.push('<i class="hc' + (n ? ' v' + level(n, levels) : '') + (iso === todayISO ? ' today' : '') +
+          '" data-date="' + iso + '" data-n="' + n + '" aria-label="' + U.esc(D.fmtDay(iso)) + ', ' + n + ' ' + U.plural(n, 'tap') + '"></i>');
+        if (day.getDate() === 1) {
+          var col = Math.floor(i / 7) + 1;
+          if (col - lastLabelCol >= 3) {
+            months.push('<span style="grid-column:' + col + ' / span 3">' + D.MONTHS[day.getMonth()] + '</span>');
+            lastLabelCol = col;
+          }
+        }
       }
-      return cells.join('');
+      return { cells: cells.join(''), months: months.join(''), weeks: weeks, active: active };
     },
 
-    /* month labels placed over the week column each month starts in */
-    heatMonthsHTML: function (year) {
-      var start = Stats.gridStart(year);
-      var out = [];
-      for (var m = 0; m < 12; m++) {
-        var col = Math.floor(D.diffDays(start, new Date(year, m, 1)) / 7) + 1;
-        out.push('<span style="grid-column:' + col + ' / span 4">' + D.MONTHS[m] + '</span>');
-      }
-      return out.join('');
-    },
-
-    /* phones show part of the year: bring today (or the year's end) into view */
+    /* on a phone the grid scrolls: bring today into view */
     revealHeat: function () {
       var scroller = Stats._els.heatScroll;
       requestAnimationFrame(function () {
-        if (scroller.scrollWidth <= scroller.clientWidth + 1) { scroller.scrollLeft = 0; return; }
-        var target = U.qs('.hc.today', Stats._els.heat);
-        if (!target) {
-          scroller.scrollLeft = Stats.year > new Date().getFullYear() ? 0 : scroller.scrollWidth;
-          return;
-        }
-        var sr = scroller.getBoundingClientRect(), tr = target.getBoundingClientRect();
-        scroller.scrollLeft += tr.right - sr.right + Math.min(64, sr.width / 4);
+        scroller.scrollLeft = scroller.scrollWidth;
       });
     },
 
@@ -310,8 +459,8 @@ window.V = window.V || {};
           var n = totals[iso] || 0;
           var cls = 'hc' + (n ? ' v' + level(n, levels) : '') +
             (iso === todayISO ? ' today' : '') + (iso === selISO ? ' sel' : '');
-          out.push('<i class="' + cls + '" data-date="' + iso + '" title="' +
-            U.esc(D.fmtDay(iso)) + ' — ' + n + ' ' + U.plural(n, 'tap') + '"></i>');
+          out.push('<i class="' + cls + '" data-date="' + iso + '" data-n="' + n + '" aria-label="' +
+            U.esc(D.fmtDay(iso)) + ', ' + n + ' ' + U.plural(n, 'tap') + '"></i>');
         }
       }
       return out.join('');
@@ -322,8 +471,44 @@ window.V = window.V || {};
     }
   };
 
-  function sh(value, label, cls, i) {
-    return '<div class="sh' + (cls ? ' ' + cls : '') + '" style="--i:' + (i || 0) + '"><b>' + value + '</b><span>' + U.esc(label) + '</span></div>';
+  /* ── helpers ─────────────────────────────────────────── */
+
+  /* a stat tile: value, label, and the change against the period before */
+  function tile(cls, value, label, change, i) {
+    return '<div class="sh' + (cls ? ' ' + cls : '') + '" style="--i:' + i + '">' +
+      '<b>' + value + '</b><span>' + U.esc(label) + '</span>' + change + '</div>';
+  }
+
+  /* direction says which way it moved; whether that is good depends on the
+     event (more workouts, fewer cigarettes), so the colour stays neutral */
+  function delta(cur, prev, short) {
+    var vs = 'vs ' + RANGES[Stats.range].prev;
+    if (!prev && !cur) return '';
+    var title = ' title="' + vs + '"';
+    if (!prev) {
+      return '<em class="delta up"' + title + '><svg class="ico" aria-hidden="true"><use href="#i-up"/></svg>' +
+        (short ? 'new' : 'new ' + vs) + '</em>';
+    }
+    var pct = Math.round((cur - prev) / prev * 100);
+    var dir = pct > 0 ? 'up' : pct < 0 ? 'down' : 'flat';
+    var icon = dir === 'flat' ? '' : '<svg class="ico" aria-hidden="true"><use href="#i-' + dir + '"/></svg>';
+    var label = (pct > 0 ? '+' : '') + pct + '%';
+    return '<em class="delta ' + dir + '"' + title + ' aria-label="' + label + ' ' + vs + '">' + icon + label + (short ? '' : ' ' + vs) + '</em>';
+  }
+
+  function fmtRate(r) {
+    if (!r) return '0';
+    return r >= 10 ? String(Math.round(r)) : r >= 1 ? r.toFixed(1) : r.toFixed(2);
+  }
+
+  function share(n, total) {
+    return total ? Math.round(n / total * 100) + '% of the taps in this range' : '';
+  }
+
+  function peakIndex(list) {
+    var best = -1;
+    list.forEach(function (v, i) { if (v > 0 && (best < 0 || v > list[best])) best = i; });
+    return best;
   }
 
   function sr(value, label, cls) {

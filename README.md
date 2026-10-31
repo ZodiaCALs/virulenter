@@ -19,6 +19,7 @@ so you get both the running total and the *when*.
 - [Quick start](#quick-start)
 - [Android APK](#android-apk)
 - [Installing on a phone](#installing-on-a-phone)
+- [Testing on the web and on Android](#testing-on-the-web-and-on-android)
 - [How your data is stored](#how-your-data-is-stored)
 - [Features](#features)
 - [Exporting](#exporting)
@@ -72,10 +73,10 @@ Wi-Fi, local-file and https routes side by side.
 
 ### 2. One file — nothing to install, nothing to host
 
-**`dist/virulenter.html`** — a single self-contained file, ~230 KB. Send it by
+**`dist/virulenter.html`** — a single self-contained file, ~290 KB. Send it by
 email or chat, drop it on a USB stick or a shared drive, and double-click it.
 No server, no build step, no network access of any kind: the audit confirms
-zero external references, with the stylesheet, all seven scripts and the
+zero external references, with the stylesheet, all eight scripts and the
 favicon inlined.
 
 Everything works this way. The only things it *cannot* do are the two that
@@ -148,6 +149,9 @@ an opaque origin where `history.replaceState` throws.
 | **exports** | CSV/JSON go to Downloads, or out through a share sheet |
 | **install** | `node tools/share-apk.mjs` → scan the QR |
 | **survives being backgrounded** | yes — the session URL is snapshotted to private storage on every change |
+| **icon** | adaptive (fits any launcher shape) and themed — Android 13+ tints it with the wallpaper |
+| **dark mode** | follows the phone; the status and navigation bars switch with it |
+| **debug builds** | inspectable live from `chrome://inspect` — see [Testing](#testing-on-the-web-and-on-android) |
 | **rebuild** | `node tools/build-apk.mjs` |
 
 The absence of the `INTERNET` permission is deliberate and verified: the web
@@ -208,13 +212,52 @@ Then open the https URL on the phone and install:
 | **Firefox** | no install UI | runs as a normal web app |
 
 Installation is verified in the test suite over HTTP: the manifest and all five
-icons load, the worker registers and pre-caches the 18-file shell, and an
+icons load, the worker registers and pre-caches the 19-file shell, and an
 offline reload served entirely from cache is checked with
 `Network.emulateNetworkConditions`.
 
 ### D. Already installed
 
 The install row disappears once the app is running in standalone mode.
+
+## Testing on the web and on Android
+
+### On the web
+
+| What | How |
+|---|---|
+| Run it | `node tools/serve.mjs`, then open `http://localhost:8080/` |
+| On a phone on the same Wi-Fi | open the LAN address it prints, e.g. `http://192.168.1.24:8080/` |
+| With no server at all | double-click `dist/virulenter.html` |
+| Phone sizes on a computer | Chrome DevTools → device toolbar (⌘⇧M / Ctrl+Shift+M) |
+| Dark mode, reduced motion, reduced transparency | DevTools → ⋮ → More tools → **Rendering** → *Emulate CSS media feature* |
+| The automated suites | `node tools/verify.mjs` — and the two variants in [Verification](#verification) |
+| Every screen, both themes | `node tools/shots.mjs` writes them to `verify/shots/` |
+
+Worth trying by hand: tap a card and watch the count, the sparkline and the
+summary move; remove a tap in the calendar and press **Undo**; in **Stats**, hover
+or tap a column, drag a finger across a chart, use the arrow keys and Enter,
+switch **7D / 30D / 90D / 1Y**, pick one event, and open the table view (the grid
+icon); in **Settings → Appearance**, switch to Dark and try a custom colour.
+
+### On Android
+
+1. **Build** — `node tools/build-apk.mjs` for a debug APK, `--release` for the
+   signed one. The first run provisions the JDK, Gradle and the Android SDK
+   (about 900 MB); the provisioning scripts fetch macOS builds of the tools.
+2. **Install** — `node tools/share-apk.mjs` and scan the QR code with the
+   phone, or over USB: `adb install -r dist/virulenter-android-debug.apk`.
+3. **Inspect** — a debug build switches on WebView debugging. With the phone on
+   USB (and USB debugging on), open `chrome://inspect` on the computer and press
+   *inspect* under Virulenter: the full DevTools, attached to the running app.
+4. **Check** — the launcher icon in your launcher's shape, and as a themed icon
+   (Settings → Wallpaper & style → Themed icons, Android 13+); dark mode, with
+   the system bars following; the back button closing one sheet at a time; a
+   CSV export landing in Downloads; and that the log survives the app being
+   swiped away and reopened.
+
+No build at hand? Open the LAN address in Chrome on the phone and use ⋮ →
+*Add to Home screen* — the same app, minus the native file saving.
 
 ## How your data is stored
 
@@ -291,16 +334,32 @@ is the difference between holding a year and holding six weeks.
   logged.
 
 ### Statistics
-- Totals: taps, events, today, last 7 days, average per day, first tap ever.
-- **Streaks**: current run, longest run, active days, average on an active day.
-- **Last 30 days** bar chart with hover/tap values.
-- **By month** for any year that has data, **by weekday**, **by hour of day**.
-- **Per-event table**: taps, share of total, average per day, active days, last
-  tap — stacked into compact rows on a phone instead of scrolling sideways.
-- **Activity grid** in the contribution style — one cell per day of the year,
-  opening scrolled to today; tap a day to open it in the calendar.
+- **One filter row** scopes every figure on the page, so the numbers always
+  agree: the range (7 days, 30 days, 13 weeks, 12 months), then one event or all
+  of them. It stays pinned under the top bar while you scroll.
+- **Stat tiles**: taps in the range — the one hero figure — average per day and
+  active days, each with its change against the period before; the current
+  streak and the best.
+- **Taps per day, week or month**: columns on a hairline grid with round-number
+  ticks, a dashed line at the average, and only the peak labelled.
+- **By weekday and by hour**: the busiest column in the accent, the rest
+  receding — the finding, at a glance.
+- **Interactive throughout**: hover or tap a column for a tooltip that leads
+  with the value and splits it by event; drag a finger to scrub; use the arrow
+  keys and Enter; click — or tap again — to open that day, week or month in the
+  calendar.
+- **A table view** of every chart, one tap away, for exact numbers and screen
+  readers.
+- **Per event** (stacked into compact rows on a phone), **streaks** (all time),
+  and a **53-week activity heatmap** with the same tooltips.
 
 ### Appearance
+- **Liquid glass**: translucent panes over a soft aurora drawn from your accent,
+  with frosted bars, sheets and dialogs. Turn on *Reduce transparency* in the
+  system settings and every surface goes solid.
+- **The icon**: a liquid-glass V catching a drop — the glass refracts the light
+  behind it — drawn by `tools/icon.mjs` for the web, iOS and Android (legacy,
+  adaptive and themed).
 - **Light, dark, or follow the system** — the system setting is tracked live.
 - 10 accent presets plus an arbitrary custom colour (picker or hex).
 - Choosing a colour re-tints the whole app, including the calendar and heat-grid
@@ -340,7 +399,8 @@ virulenter/
 │  │  ├─ store.js           state, derived statistics, CSV, URL sync
 │  │  ├─ ui.js              card and day-panel rendering, sheets
 │  │  ├─ views.js           events list, calendar grid, intensity scale
-│  │  ├─ stats.js           statistics view, heat grids, charts
+│  │  ├─ charts.js          interactive SVG charts and the shared tooltip
+│  │  ├─ stats.js           statistics dashboard, filters, heat grids
 │  │  └─ app.js             bootstrap, routing, install flow, export
 │  └─ icons/                generated icon set (SVG + PNG)
 ├─ apk/                     Android project (see apk/README.md)
@@ -352,10 +412,10 @@ virulenter/
 │  ├─ virulenter-android-release.apk
 │  └─ virulenter-android-debug.apk
 ├─ tools/
-│  ├─ verify.mjs            80 automated checks in real headless Chrome
+│  ├─ verify.mjs            88 automated checks in real headless Chrome
 │  ├─ chrome.mjs            finds Chrome / Chromium for the headless tools
 │  ├─ shots.mjs             regenerates verify/shots/*.png
-│  ├─ icon.mjs              regenerates the icon set (web + Android densities)
+│  ├─ icon.mjs              draws every icon: web, iOS, Android legacy, adaptive, themed
 │  ├─ serve.mjs             HTTP server for installing / phone testing
 │  ├─ build-apk.mjs         provisions the toolchain and builds the APK
 │  ├─ sync-android.mjs      copies app/ into the Android assets
@@ -373,7 +433,7 @@ virulenter/
 node tools/serve.mjs                 # serve app/ for install + LAN testing
 node build.mjs                       # rebuild dist/virulenter.html
 node build.mjs --min                 # minified variant
-node tools/verify.mjs                # 80 checks, served over HTTP
+node tools/verify.mjs                # 88 checks, served over HTTP
 node tools/verify.mjs --url=file://$PWD/dist/virulenter.html   # checks the single-file build
 node tools/shots.mjs                 # regenerate screenshots
 node tools/icon.mjs                  # regenerate icons (web + Android)
@@ -422,7 +482,7 @@ load order, so the single-file build is a literal inlining of the same files and
 behaves identically — which is why one verification suite covers both.
 
 ```
-core ─ codec ─ store ─ ui ─ views ─ stats ─ app
+core ─ codec ─ store ─ ui ─ views ─ charts ─ stats ─ app
 ```
 
 - `core.js` — date arithmetic on **ordinal day numbers**. `Date.UTC(...)/86400000`
@@ -433,6 +493,8 @@ core ─ codec ─ store ─ ui ─ views ─ stats ─ app
 - `store.js` — state plus every derived figure (streaks, distributions, CSV).
   Pure reads; nothing is cached in the browser.
 - `ui.js` / `views.js` / `stats.js` — rendering only.
+- `charts.js` — SVG column charts drawn at the container's real width, with the
+  hover, touch, keyboard and table-view layers; one tooltip for every chart.
 - `app.js` — wiring, routing, install flow, export.
 
 Rendering is string-based and re-derived on change. At the scale a personal
@@ -445,9 +507,9 @@ Three suites, all green:
 
 | suite | scope | result |
 |---|---|---|
-| `tools/verify.mjs` | the web app in headless Chrome | **80 checks** |
-| `tools/verify.mjs --url=file://…/dist/virulenter.html` | the single-file build | **79 checks** |
-| `tools/verify.mjs --root=apk/app/src/main/assets` | the exact bytes packaged into the APK | **79 checks** |
+| `tools/verify.mjs` | the web app in headless Chrome | **88 checks** |
+| `tools/verify.mjs --url=file://…/dist/virulenter.html` | the single-file build | **86 checks** |
+| `tools/verify.mjs --root=apk/app/src/main/assets` | the exact bytes packaged into the APK | **87 checks** |
 | `tools/validate-apk.mjs` | the built APK itself | **14 checks** |
 
 The web suite drives the real application over CDP — covering:
@@ -463,7 +525,10 @@ The web suite drives the real application over CDP — covering:
 - codec round-trips: Unicode names, month ends, a 365-tap year, exact tap times
 - CSV: row count, RFC 4180 quoting, CRLF, both export shapes
 - appearance: presets, fonts, custom colour — through the link and onto the ramp
-- statistics: every panel, bar counts, streak and per-event figures, heat grid
+- statistics: every panel, the range rebucketing (7 days / 13 weeks / 12
+  months), streak and per-event figures, the heat grid
+- charts: the keyboard path from a column to the calendar, tooltips that split
+  a value by event, the event filter rescoping every figure, table views
 - calendar jump picker and the year strip
 - PWA: manifest contents and icon fetches, worker registration and pre-cache,
   and **an offline reload** with `Network.emulateNetworkConditions`
@@ -472,6 +537,9 @@ The web suite drives the real application over CDP — covering:
   label or figure is clipped, nothing floats over the controls, and sheets
   stack in the order they were opened
 - the theme, in-page confirmations, Undo, and merging a backup into itself
+- glass turning solid under *reduce transparency*, and the iOS touch icon
+  being a full-bleed square (iOS rounds it; a pre-rounded one showed dark
+  corners)
 
 The APK validator reads the built artifact with `aapt2` and `apksigner`: package
 identity, API levels, launcher entry point, resource table, signature, the

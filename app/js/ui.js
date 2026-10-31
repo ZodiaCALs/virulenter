@@ -192,11 +192,13 @@ window.V = window.V || {};
       var c = C.rgb(color) ? color : V.COLORS[0];
       if (dark) c = C.readable(c, surface, 3);          // slate on near-black: lift it
       var soft = C.mix(surface, c, dark ? 0.2 : 0.12);
+      /* the fills are translucent, so the glass under them shows through;
+         text contrast is still measured against the equivalent solid tint */
       var t = {
         c: c,
-        soft: soft,
-        soft2: C.mix(surface, c, dark ? 0.28 : 0.19),
-        softer: C.mix(surface, c, dark ? 0.1 : 0.07),
+        soft: C.rgba(c, dark ? 0.2 : 0.13),
+        soft2: C.rgba(c, dark ? 0.29 : 0.2),
+        softer: C.rgba(c, dark ? 0.13 : 0.09),
         text: C.readable(c, soft, 4.5),
         ink: C.onColor(c)
       };

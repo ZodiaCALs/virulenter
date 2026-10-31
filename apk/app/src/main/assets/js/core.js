@@ -365,6 +365,38 @@ window.V = window.V || {};
        which is the bar for bold UI text — otherwise near-black */
     onColor: function (bg) {
       return C.contrast('#ffffff', bg) >= 3 ? '#ffffff' : '#0e1525';
+    },
+
+    /* [hue 0..360, saturation 0..1, lightness 0..1] */
+    hsl: function (hex) {
+      var c = C.rgb(hex);
+      if (!c) return [0, 0, 0];
+      var r = c[0] / 255, g = c[1] / 255, b = c[2] / 255;
+      var max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
+      var h = 0, s = 0, l = (max + min) / 2;
+      if (d) {
+        s = d / (1 - Math.abs(2 * l - 1));
+        h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+        h *= 60;
+        if (h < 0) h += 360;
+      }
+      return [h, s, l];
+    },
+
+    fromHsl: function (h, s, l) {
+      h = ((h % 360) + 360) % 360;
+      var c = (1 - Math.abs(2 * l - 1)) * s;
+      var x = c * (1 - Math.abs((h / 60) % 2 - 1));
+      var m = l - c / 2;
+      var rgb = h < 60 ? [c, x, 0] : h < 120 ? [x, c, 0] : h < 180 ? [0, c, x]
+              : h < 240 ? [0, x, c] : h < 300 ? [x, 0, c] : [c, 0, x];
+      return C.hex(rgb.map(function (v) { return (v + m) * 255; }));
+    },
+
+    /* the same colour at another hue — for an aurora built around one accent */
+    spin: function (hex, deg, lightness) {
+      var t = C.hsl(hex);
+      return C.fromHsl(t[0] + deg, t[1], lightness == null ? t[2] : lightness);
     }
   };
 

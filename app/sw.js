@@ -11,7 +11,7 @@
 
    Bump CACHE when the shell changes; the old cache is dropped on activate.
    ============================================================ */
-const CACHE = 'virulenter-v4';
+const CACHE = 'virulenter-v5';
 
 const SHELL = [
   './',
@@ -25,6 +25,7 @@ const SHELL = [
   './js/store.js',
   './js/ui.js',
   './js/views.js',
+  './js/charts.js',
   './js/stats.js',
   './js/app.js',
   './icons/icon.svg',

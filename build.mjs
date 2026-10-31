@@ -19,7 +19,7 @@ const read = (p) => readFileSync(join(ROOT, p), 'utf8');
 
 const CSS_FILES = ['app/css/base.css', 'app/css/views.css', 'app/css/stats.css'];
 const JS_FILES = ['app/js/core.js', 'app/js/codec.js', 'app/js/store.js', 'app/js/ui.js',
-                  'app/js/views.js', 'app/js/stats.js', 'app/js/app.js'];
+                  'app/js/views.js', 'app/js/charts.js', 'app/js/stats.js', 'app/js/app.js'];
 
 function collapseCss(s) {
   return s.replace(/\/\*[\s\S]*?\*\//g, '')

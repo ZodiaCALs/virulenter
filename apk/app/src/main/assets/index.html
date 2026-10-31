@@ -142,51 +142,73 @@
 
     <!-- ══════════ Statistics ══════════ -->
     <section class="view" id="view-stats" aria-label="Statistics" hidden>
+      <!-- one row of filters, scoping everything below it -->
+      <div class="stat-filters" id="statFilters">
+        <div class="seg" id="statRange" role="radiogroup" aria-label="Time range">
+          <button class="seg-btn" type="button" role="radio" data-range="7d" aria-label="Last 7 days">7D</button>
+          <button class="seg-btn is-on" type="button" role="radio" data-range="30d" aria-label="Last 30 days">30D</button>
+          <button class="seg-btn" type="button" role="radio" data-range="90d" aria-label="Last 13 weeks">90D</button>
+          <button class="seg-btn" type="button" role="radio" data-range="1y" aria-label="Last 12 months">1Y</button>
+        </div>
+        <div class="filter-chips" id="statOnly" role="radiogroup" aria-label="Events"></div>
+      </div>
+
       <div class="stat-hero" id="statHero"></div>
 
       <div class="card panel">
-        <div class="panel-head"><h3>Streaks</h3><span class="panel-sub">consecutive days with a tap</span></div>
+        <div class="panel-head">
+          <div class="panel-title"><h3 id="statTrendTitle">Taps per day</h3><span class="panel-sub" id="statTrendSub"></span></div>
+          <button class="icon-btn ghost table-toggle" type="button" data-table-for="statTrend" aria-pressed="false" aria-label="Show these numbers as a table" title="Table view">
+            <svg class="ico" aria-hidden="true"><use href="#i-rows"/></svg>
+          </button>
+        </div>
+        <div class="chart" id="statTrend"></div>
+      </div>
+
+      <div class="stat-pair">
+        <div class="card panel">
+          <div class="panel-head">
+            <div class="panel-title"><h3>By weekday</h3><span class="panel-sub" id="statWeekdaySub"></span></div>
+            <button class="icon-btn ghost table-toggle" type="button" data-table-for="statWeekday" aria-pressed="false" aria-label="Show these numbers as a table" title="Table view">
+              <svg class="ico" aria-hidden="true"><use href="#i-rows"/></svg>
+            </button>
+          </div>
+          <div class="chart" id="statWeekday"></div>
+        </div>
+
+        <div class="card panel">
+          <div class="panel-head">
+            <div class="panel-title"><h3>By hour</h3><span class="panel-sub" id="statHourSub"></span></div>
+            <button class="icon-btn ghost table-toggle" type="button" data-table-for="statHour" aria-pressed="false" aria-label="Show these numbers as a table" title="Table view">
+              <svg class="ico" aria-hidden="true"><use href="#i-rows"/></svg>
+            </button>
+          </div>
+          <div class="chart" id="statHour"></div>
+        </div>
+      </div>
+
+      <div class="card panel">
+        <div class="panel-head"><div class="panel-title"><h3>Per event</h3><span class="panel-sub" id="statEventSub"></span></div></div>
+        <div class="table-wrap"><table class="table stack" id="statEvents"></table></div>
+      </div>
+
+      <div class="card panel">
+        <div class="panel-head"><div class="panel-title"><h3>Streaks</h3><span class="panel-sub">all time</span></div></div>
         <div id="statStreak"></div>
       </div>
 
       <div class="card panel">
         <div class="panel-head">
-          <h3>Last 30 days</h3>
-          <span class="panel-sub" id="stat30Sub"></span>
+          <div class="panel-title"><h3>Activity</h3><span class="panel-sub" id="statHeatSub"></span></div>
+          <div class="legend" aria-hidden="true">
+            <span class="legend-label">Less</span>
+            <i class="lv l0"></i><i class="lv l1"></i><i class="lv l2"></i><i class="lv l3"></i><i class="lv l4"></i>
+            <span class="legend-label">More</span>
+          </div>
         </div>
-        <div class="bar-chart" id="stat30"></div>
-      </div>
-
-      <div class="card panel">
-        <div class="panel-head">
-          <h3>By month</h3>
-          <select class="mini-select" id="statYear" aria-label="Year"></select>
-        </div>
-        <div class="bar-chart tall" id="statMonths"></div>
-      </div>
-
-      <div class="stat-pair">
-        <div class="card panel">
-          <div class="panel-head"><h3>By weekday</h3><span class="panel-sub">when you tap</span></div>
-          <div class="bar-chart" id="statWeekday"></div>
-        </div>
-
-        <div class="card panel">
-          <div class="panel-head"><h3>By hour</h3><span class="panel-sub">local time</span></div>
-          <div class="bar-chart" id="statHour"></div>
-        </div>
-      </div>
-
-      <div class="card panel">
-        <div class="panel-head"><h3>Per event</h3><span class="panel-sub" id="statEventSub"></span></div>
-        <div class="table-wrap"><table class="table" id="statEvents"></table></div>
-      </div>
-
-      <div class="card panel">
-        <div class="panel-head"><h3>Activity</h3><span class="panel-sub" id="statHeatSub"></span></div>
         <div class="heat-scroll" id="statHeatScroll">
           <div class="heat-months" id="statHeatMonths" aria-hidden="true"></div>
-          <div class="heat-grid" id="statHeat"></div>
+          <div class="heat-grid" id="statHeat" role="group" aria-label="Taps per day over the last 53 weeks"></div>
         </div>
       </div>
     </section>
@@ -473,6 +495,7 @@
   <symbol id="i-left" viewBox="0 0 24 24"><path d="m14.5 6-6 6 6 6"/></symbol>
   <symbol id="i-right" viewBox="0 0 24 24"><path d="m9.5 6 6 6-6 6"/></symbol>
   <symbol id="i-down" viewBox="0 0 24 24"><path d="m6.5 9.5 5.5 5.5 5.5-5.5"/></symbol>
+  <symbol id="i-up" viewBox="0 0 24 24"><path d="m6.5 14.5 5.5-5.5 5.5 5.5"/></symbol>
   <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/></symbol>
   <symbol id="i-sort" viewBox="0 0 24 24"><path d="M8 5v14M4.5 15.5 8 19l3.5-3.5M16 19V5M12.5 8.5 16 5l3.5 3.5"/></symbol>
   <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5.5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="18.5" cy="12" r="1.4"/></symbol>
@@ -499,52 +522,182 @@
 
   <symbol id="vmark" viewBox="0 0 512 512">
     <defs>
-      <radialGradient id="vmA" cx="30%" cy="18%" r="72%">
-        <stop offset="0%" stop-color="#a78bfa"/><stop offset="55%" stop-color="#7c5cff"/><stop offset="100%" stop-color="#4c2fd6"/>
-      </radialGradient>
-      <radialGradient id="vmB" cx="82%" cy="24%" r="66%">
-        <stop offset="0%" stop-color="#67e8f9"/><stop offset="60%" stop-color="#3b82f6"/><stop offset="100%" stop-color="#3b82f6" stop-opacity="0"/>
-      </radialGradient>
-      <radialGradient id="vmC" cx="24%" cy="86%" r="68%">
-        <stop offset="0%" stop-color="#f0abfc"/><stop offset="55%" stop-color="#c026d3"/><stop offset="100%" stop-color="#c026d3" stop-opacity="0"/>
-      </radialGradient>
-      <linearGradient id="vmBody" x1="12%" y1="0%" x2="88%" y2="100%">
-        <stop offset="0%" stop-color="#fff" stop-opacity=".42"/><stop offset="45%" stop-color="#fff" stop-opacity=".12"/><stop offset="100%" stop-color="#fff" stop-opacity=".28"/>
-      </linearGradient>
-      <linearGradient id="vmV" x1="18%" y1="0%" x2="82%" y2="100%">
-        <stop offset="0%" stop-color="#fff" stop-opacity=".97"/><stop offset="40%" stop-color="#eef2ff" stop-opacity=".80"/><stop offset="100%" stop-color="#fff" stop-opacity=".88"/>
-      </linearGradient>
-      <linearGradient id="vmSpec" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stop-color="#fff" stop-opacity=".08"/><stop offset="42%" stop-color="#fff" stop-opacity=".85"/><stop offset="100%" stop-color="#fff" stop-opacity="0"/>
-      </linearGradient>
-      <linearGradient id="vmGloss" x1="0%" y1="0%" x2="42%" y2="100%">
-        <stop offset="0%" stop-color="#fff" stop-opacity=".55"/><stop offset="36%" stop-color="#fff" stop-opacity=".10"/><stop offset="62%" stop-color="#fff" stop-opacity="0"/>
-      </linearGradient>
-      <linearGradient id="vmRim" x1="0%" y1="0%" x2="60%" y2="100%">
-        <stop offset="0%" stop-color="#fff" stop-opacity=".9"/><stop offset="40%" stop-color="#fff" stop-opacity=".18"/><stop offset="100%" stop-color="#fff" stop-opacity=".42"/>
-      </linearGradient>
-      <filter id="vmBlur" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="34"/></filter>
-      <filter id="vmShadow" x="-40%" y="-40%" width="180%" height="180%">
-        <feDropShadow dx="0" dy="9" stdDeviation="12" flood-color="#1b0b4d" flood-opacity=".34"/>
-      </filter>
-      <clipPath id="vmTile"><rect width="512" height="512" rx="116"/></clipPath>
+    <linearGradient id="vm-base" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#8a6cff"/>
+      <stop offset=".4" stop-color="#5233e4"/>
+      <stop offset=".76" stop-color="#26137f"/>
+      <stop offset="1" stop-color="#120840"/>
+    </linearGradient>
+    <radialGradient id="vm-cyan">
+      <stop offset="0" stop-color="#6ff5ff"/>
+      <stop offset=".5" stop-color="#2fb4ff" stop-opacity=".75"/>
+      <stop offset="1" stop-color="#2f7dff" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="vm-pink">
+      <stop offset="0" stop-color="#ff7ad9"/>
+      <stop offset=".5" stop-color="#d63ad0" stop-opacity=".75"/>
+      <stop offset="1" stop-color="#a21caf" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="vm-amber">
+      <stop offset="0" stop-color="#ffc98a"/>
+      <stop offset=".55" stop-color="#ff8a5c" stop-opacity=".5"/>
+      <stop offset="1" stop-color="#ff6a5c" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="vm-sheen" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#fff" stop-opacity="0"/>
+      <stop offset=".5" stop-color="#fff" stop-opacity=".9"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="vm-soft" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="42"/></filter>
+    <filter id="vm-haze" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="22"/></filter>
+
+    <!-- what the glass does to the light behind it -->
+    <filter id="vm-lens" x="-20%" y="-20%" width="140%" height="140%" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="9"/>
+      <feColorMatrix type="saturate" values="1.55"/>
+      <feComponentTransfer>
+        <feFuncR type="linear" slope="1.1" intercept=".12"/>
+        <feFuncG type="linear" slope="1.1" intercept=".12"/>
+        <feFuncB type="linear" slope="1.05" intercept=".12"/>
+      </feComponentTransfer>
+    </filter>
+
+    <!-- the V as a mask, and directional bands along its edges -->
+    <mask id="vm-v" maskUnits="userSpaceOnUse" x="0" y="0" width="512" height="512">
+      <polyline points="148,156 256,360 364,156" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#fff" stroke-width="66"/>
+    </mask>
+    <mask id="vm-rimLit" maskUnits="userSpaceOnUse" x="0" y="0" width="512" height="512">
+      <polyline points="148,156 256,360 364,156" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#fff" stroke-width="66"/>
+      <g transform="translate(5 7)"><polyline points="148,156 256,360 364,156" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#000" stroke-width="66"/></g>
+    </mask>
+    <mask id="vm-rimDeep" maskUnits="userSpaceOnUse" x="0" y="0" width="512" height="512">
+      <polyline points="148,156 256,360 364,156" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#fff" stroke-width="66"/>
+      <g transform="translate(-7 -10)"><polyline points="148,156 256,360 364,156" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#000" stroke-width="66"/></g>
+    </mask>
+    <mask id="vm-rimLine" maskUnits="userSpaceOnUse" x="0" y="0" width="512" height="512">
+      <g transform="translate(-4 -6)"><polyline points="148,156 256,360 364,156" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#fff" stroke-width="66"/></g>
+      <g transform="translate(-6.5 -9.5)"><polyline points="148,156 256,360 364,156" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#000" stroke-width="66"/></g>
+    </mask>
+    <mask id="vm-edge" maskUnits="userSpaceOnUse" x="0" y="0" width="512" height="512">
+      <polyline points="148,156 256,360 364,156" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#fff" stroke-width="66"/>
+      <polyline points="148,156 256,360 364,156" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#000" stroke-width="63"/>
+    </mask>
+
+    <linearGradient id="vm-tint" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity=".84"/>
+      <stop offset=".5" stop-color="#f4f1ff" stop-opacity=".4"/>
+      <stop offset="1" stop-color="#e4ddff" stop-opacity=".6"/>
+    </linearGradient>
+    <linearGradient id="vm-lit" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fff"/>
+      <stop offset=".55" stop-color="#fff" stop-opacity=".75"/>
+      <stop offset="1" stop-color="#fff" stop-opacity=".25"/>
+    </linearGradient>
+    <linearGradient id="vm-deep" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3b1fb0" stop-opacity=".1"/>
+      <stop offset="1" stop-color="#2a1490" stop-opacity=".42"/>
+    </linearGradient>
+    <linearGradient id="vm-streak" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity=".95"/>
+      <stop offset=".55" stop-color="#fff" stop-opacity=".45"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="vm-caustic" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#5ff0ff"/>
+      <stop offset=".5" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#ff7ad9"/>
+    </linearGradient>
+    <filter id="vm-shadow" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="15"/></filter>
+    <filter id="vm-glow" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="20"/></filter>
+    <filter id="vm-fine" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="1.6"/></filter>
+    <filter id="vm-glint" x="-200%" y="-200%" width="500%" height="500%"><feGaussianBlur stdDeviation="3.2"/></filter>
+
+    <!-- the drop -->
+    <clipPath id="vm-drop"><circle cx="256" cy="196" r="31"/></clipPath>
+    <radialGradient id="vm-dropBody" cx=".38" cy=".32" r=".75">
+      <stop offset="0" stop-color="#fff" stop-opacity=".55"/>
+      <stop offset=".45" stop-color="#fff" stop-opacity=".12"/>
+      <stop offset=".85" stop-color="#2a1385" stop-opacity=".25"/>
+      <stop offset="1" stop-color="#140846" stop-opacity=".55"/>
+    </radialGradient>
+    <radialGradient id="vm-dropCaustic" cx=".68" cy=".78" r=".38">
+      <stop offset="0" stop-color="#bff8ff" stop-opacity=".95"/>
+      <stop offset="1" stop-color="#bff8ff" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- the tile as a slab of glass -->
+    <linearGradient id="vm-gloss" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity=".42"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="vm-rim" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity=".9"/>
+      <stop offset=".4" stop-color="#fff" stop-opacity=".16"/>
+      <stop offset=".75" stop-color="#fff" stop-opacity=".08"/>
+      <stop offset="1" stop-color="#fff" stop-opacity=".4"/>
+    </linearGradient>
+      <clipPath id="vm-tile"><rect width="512" height="512" rx="116"/></clipPath>
     </defs>
-    <g clip-path="url(#vmTile)">
-      <rect width="512" height="512" fill="url(#vmA)"/>
-      <g filter="url(#vmBlur)">
-        <ellipse cx="404" cy="120" rx="188" ry="164" fill="url(#vmB)"/>
-        <ellipse cx="104" cy="418" rx="196" ry="172" fill="url(#vmC)"/>
-      </g>
-      <rect width="512" height="512" fill="url(#vmBody)"/>
-      <g filter="url(#vmShadow)">
-        <polyline points="152,160 256,360 360,160" fill="none" stroke="url(#vmV)" stroke-width="62"
-                  stroke-linecap="round" stroke-linejoin="round"/>
-      </g>
-      <polyline points="152,160 256,360" fill="none" stroke="url(#vmSpec)" stroke-width="21"
-                stroke-linecap="round" stroke-linejoin="round"/>
-      <rect width="512" height="512" fill="url(#vmGloss)"/>
-      <rect x="3" y="3" width="506" height="506" rx="113" fill="none" stroke="url(#vmRim)" stroke-width="6"/>
+    <g clip-path="url(#vm-tile)">
+    <rect width="512" height="512" fill="url(#vm-base)"/>
+    <g filter="url(#vm-soft)">
+      <ellipse cx="430" cy="92" rx="220" ry="176" fill="url(#vm-cyan)"/>
+      <ellipse cx="62" cy="452" rx="236" ry="196" fill="url(#vm-pink)"/>
+      <ellipse cx="470" cy="500" rx="170" ry="120" fill="url(#vm-cyan)" opacity=".35"/>
     </g>
+    <g filter="url(#vm-haze)" opacity=".22">
+      <ellipse cx="200" cy="150" rx="300" ry="34" fill="url(#vm-sheen)" transform="rotate(-28 200 150)"/>
+    </g>
+    <g transform="translate(0 20)" filter="url(#vm-shadow)" opacity=".5">
+      <polyline points="148,156 256,360 364,156" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#0a0430" stroke-width="66"/>
+    </g>
+    <g transform="translate(0 38)" filter="url(#vm-glow)" opacity=".5" style="mix-blend-mode:screen">
+      <polyline points="148,156 256,360 364,156" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="url(#vm-caustic)" stroke-width="46.199999999999996"/>
+    </g>
+    <g mask="url(#vm-v)">
+      <g filter="url(#vm-lens)" transform="translate(256 262) scale(1.22) translate(-256 -262)">
+    <rect width="512" height="512" fill="url(#vm-base)"/>
+    <g filter="url(#vm-soft)">
+      <ellipse cx="430" cy="92" rx="220" ry="176" fill="url(#vm-cyan)"/>
+      <ellipse cx="62" cy="452" rx="236" ry="196" fill="url(#vm-pink)"/>
+      <ellipse cx="470" cy="500" rx="170" ry="120" fill="url(#vm-cyan)" opacity=".35"/>
+    </g>
+    <g filter="url(#vm-haze)" opacity=".22">
+      <ellipse cx="200" cy="150" rx="300" ry="34" fill="url(#vm-sheen)" transform="rotate(-28 200 150)"/>
+    </g></g>
+      <rect width="512" height="512" fill="url(#vm-tint)"/>
+    </g>
+    <rect width="512" height="512" fill="url(#vm-deep)" mask="url(#vm-rimDeep)"/>
+    <rect width="512" height="512" fill="#9df3ff" opacity=".7" mask="url(#vm-rimLine)"/>
+    <rect width="512" height="512" fill="url(#vm-lit)" mask="url(#vm-rimLit)"/>
+    <rect width="512" height="512" fill="#fff" opacity=".5" mask="url(#vm-edge)"/>
+    <g filter="url(#vm-fine)">
+      <polyline points="154,154 248,326" fill="none"
+                stroke="url(#vm-streak)" stroke-width="9" stroke-linecap="round"/>
+      <polyline points="356,164 330,214" fill="none"
+                stroke="#fff" stroke-opacity=".45" stroke-width="5" stroke-linecap="round"/>
+    </g>
+    <circle cx="142" cy="147" r="7" fill="#fff" filter="url(#vm-glint)"/>
+    <circle cx="142" cy="147" r="3" fill="#fff"/>
+    <ellipse cx="256" cy="241" rx="21.7" ry="6" fill="#0a0430" opacity=".22" filter="url(#vm-glint)"/>
+    <g clip-path="url(#vm-drop)">
+      <g filter="url(#vm-lens)" transform="translate(256 196) scale(-1.6 -1.6) translate(-256 -196)">
+    <rect width="512" height="512" fill="url(#vm-base)"/>
+    <g filter="url(#vm-soft)">
+      <ellipse cx="430" cy="92" rx="220" ry="176" fill="url(#vm-cyan)"/>
+      <ellipse cx="62" cy="452" rx="236" ry="196" fill="url(#vm-pink)"/>
+      <ellipse cx="470" cy="500" rx="170" ry="120" fill="url(#vm-cyan)" opacity=".35"/>
+    </g>
+    <g filter="url(#vm-haze)" opacity=".22">
+      <ellipse cx="200" cy="150" rx="300" ry="34" fill="url(#vm-sheen)" transform="rotate(-28 200 150)"/>
+    </g></g>
+      <circle cx="256" cy="196" r="31" fill="url(#vm-dropBody)"/>
+      <circle cx="256" cy="196" r="31" fill="url(#vm-dropCaustic)"/>
+    </g>
+    <circle cx="256" cy="196" r="30.25" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="1.5"/>
+    <ellipse cx="245" cy="183" rx="9" ry="5.5" fill="#fff" opacity=".9" transform="rotate(-35 245 183)"/>
+    <path d="M0 0H512V176C392 236 150 150 0 214Z" fill="url(#vm-gloss)" opacity=".5"/>
+    <rect x="3" y="3" width="506" height="506" rx="113" fill="none" stroke="url(#vm-rim)" stroke-width="5"/></g>
   </symbol>
 </svg>
 
@@ -553,6 +706,7 @@
 <script src="js/store.js"></script>
 <script src="js/ui.js"></script>
 <script src="js/views.js"></script>
+<script src="js/charts.js"></script>
 <script src="js/stats.js"></script>
 <script src="js/app.js"></script>
 </body>
