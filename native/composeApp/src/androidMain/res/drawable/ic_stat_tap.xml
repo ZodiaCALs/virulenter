@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- status-bar mark: the dial's sweep and its hub (white; the system tints it) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp"
+    android:viewportWidth="24" android:viewportHeight="24">
+    <path android:fillColor="#FFFFFFFF" android:pathData="M12,3A9,9 0 1,1 3,12L5.2,12A6.8,6.8 0 1,0 12,5.2Z" />
+    <path android:fillColor="#FFFFFFFF" android:pathData="M9.8,12a2.2,2.2 0 1,0 4.4,0a2.2,2.2 0 1,0 -4.4,0Z" />
+</vector>

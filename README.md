@@ -4,10 +4,12 @@
 
 **Tap to count. Every press is a data point.**
 
-An installable, offline-first counter that keeps a timestamped log of every tap —
+An offline-first counter that keeps a timestamped log of every tap —
 so you get both the running total and the *when*.
 
-`no account` · `no server` · `no browser storage` · `your log travels in the link`
+**Web** · **Android** · **Windows** · **macOS** · **Linux**
+
+`no account` · `no server` · `your data stays yours`
 
 </div>
 
@@ -16,14 +18,17 @@ so you get both the running total and the *when*.
 ## Contents
 
 - [What it is](#what-it-is)
+- [Downloads](#downloads)
 - [Quick start](#quick-start)
-- [Android APK](#android-apk)
+- [Native app — Android, Windows, macOS, Linux](#native-app--android-windows-macos-linux)
+- [Android APK (web wrapper)](#android-apk-web-wrapper)
 - [Installing on a phone](#installing-on-a-phone)
 - [Testing on the web and on Android](#testing-on-the-web-and-on-android)
 - [How your data is stored](#how-your-data-is-stored)
 - [Features](#features)
 - [Exporting](#exporting)
 - [Appearance](#appearance)
+- [App icon](#app-icon)
 - [Project layout](#project-layout)
 - [Commands](#commands)
 - [Architecture](#architecture)
@@ -46,9 +51,45 @@ Two questions get answered from the same data:
 | *How many so far?* | the big number on each card |
 | *When did they happen?* | the calendar heat grid and the statistics view |
 
-Nothing is sent anywhere, and nothing is written to the browser. The complete
-session lives in the URL, so **the link is the save file**: bookmark it, or open
-it on another device and everything is there.
+Nothing is sent anywhere. In the web app nothing is even written to the
+browser: the complete session lives in the URL, so **the link is the save
+file** — bookmark it, or open it on another device and everything is there.
+The native app keeps the same data in one file on the device, and moves it to
+and from the web app through backups and links.
+
+| | |
+|---|---|
+| **Web app** (`app/`) | plain HTML/CSS/JS; installable as a PWA, or a single file you just open |
+| **Native app** (`native/`) | Kotlin Multiplatform + Compose: Android, Windows, macOS, Linux — with notifications, reminders, a live counter, a Quick Settings tile, a widget and a tray menu |
+| **Android wrapper** (`apk/`) | the web app in a WebView, with no permissions at all |
+
+## Downloads
+
+Every file is built by GitHub Actions ([`release.yml`](.github/workflows/release.yml))
+and attached to the release when a version tag is pushed — see
+[RELEASE_NOTES.md](RELEASE_NOTES.md) for what is in 2.0.0:
+
+| file | for |
+|---|---|
+| `virulenter-android.apk` | Android 8.0+, native app |
+| `Virulenter-2.0.0.msi` | Windows 10/11 |
+| `Virulenter-2.0.0.dmg` | macOS (Apple silicon and Intel builds come from the runner's architecture) |
+| `virulenter_2.0.0-1_amd64.deb` | Debian, Ubuntu and derivatives |
+| `virulenter.html` | any browser — the web app as one file, also kept in [`dist/`](dist/virulenter.html) |
+| `virulenter-web-android.apk` | Android 7.0+, the web app wrapped |
+
+To publish a release from this repository:
+
+```bash
+git tag v2.0.0
+```
+
+```bash
+git push origin v2.0.0
+```
+
+Each push to a branch also runs the workflow and keeps the files as build
+artifacts on the run's page, without publishing a release.
 
 ## Quick start
 
@@ -97,11 +138,49 @@ the ordinary sense — a local file needs no network to load.
 > or hand them over without the `.html` extension. If double-clicking opens a
 > text editor instead of a browser, rename it to `virulenter.html` first.
 
-## Android APK
+## Native app — Android, Windows, macOS, Linux
 
-An installable Android build lives in **`dist/virulenter-android-release.apk`**
-(3.1 MB). It is signed and zip-aligned, so it installs by tapping it — no
-developer tools, no cable, no command line on the phone.
+[`native/`](native/README.md) is Virulenter written once in Kotlin Multiplatform
+with Compose Multiplatform, and native on each platform:
+
+- **Live counter** — Android: an ongoing notification with today's count, a
+  clock running from the last tap, **+1** and **Undo**, and goal progress.
+  Desktop: an always-on-top mini counter window.
+- **Reminders** — daily per event on chosen weekdays; on Android through
+  `AlarmManager` (exact once allowed, re-armed after reboots), with a **+1**
+  button in the notification; on desktop while the app runs in the tray.
+- **Count without opening the app** — Quick Settings tile, home-screen widget
+  with a live clock, launcher shortcuts; on desktop a tray menu and Ctrl/⌘ 1–9.
+- **Goals**, the calendar heat grid, the statistics dashboard with interactive
+  charts, appearance, import/export and undo — shared by every platform.
+- A glass material with real backdrop blur, grain and lit rims; tight corners.
+
+Data moves both ways with the web app: import a web link, a data code or a JSON
+backup; copy a data code back. The link codec is a byte-exact port of
+`app/js/codec.js`, tested against payloads produced by the web app.
+
+```bash
+cd native && ./gradlew :composeApp:run        # desktop, from source
+```
+
+```bash
+cd native && ./gradlew :composeApp:assembleRelease   # Android APK
+```
+
+Building, packaging (`.msi`, `.dmg`, `.deb`), tests and the layout are in
+[`native/README.md`](native/README.md).
+
+## Android APK (web wrapper)
+
+The web app, wrapped for Android. `node tools/build-apk.mjs --release` builds it
+(the first run provisions the toolchain), and the release workflow attaches it
+to each release as `virulenter-web-android.apk`. It is signed and zip-aligned,
+so it installs by tapping it — no developer tools, no cable, no command line on
+the phone.
+
+> `dist/virulenter-android-release.apk` and `-debug.apk` are the builds from
+> v0.0.1 and still show the original interface; build a fresh one, or take it
+> from a release.
 
 ### Getting it onto the phone
 
@@ -259,6 +338,25 @@ icon); in **Settings → Appearance**, switch to Dark and try a custom colour.
 No build at hand? Open the LAN address in Chrome on the phone and use ⋮ →
 *Add to Home screen* — the same app, minus the native file saving.
 
+### The native app
+
+| What | How |
+|---|---|
+| Desktop, from source | `cd native && ./gradlew :composeApp:run` |
+| Android | `./gradlew :composeApp:assembleDebug`, then `adb install -r composeApp/build/outputs/apk/debug/composeApp-debug.apk` |
+| Shared-code tests | `./gradlew :composeApp:desktopTest` |
+| Without building | take the APK and installers from a release (see [Downloads](#downloads)) |
+
+Worth trying by hand on Android: turn on **Settings → Live notification** and
+pull down the shade — the clock runs from your last tap, **+1** counts without
+opening the app; give an event a **daily reminder** a minute or two ahead and
+lock the phone; add the **Count +1** tile in Quick Settings and the **widget** on
+the home screen; long-press the app icon for the "+1" shortcuts; set a **daily
+goal** and reach it. On desktop: count from the **tray menu** and with
+**Ctrl/⌘ 1–9**, open the **mini counter** (View menu), close the window and let
+a reminder arrive from the tray. Then import a web link in **Settings → Import**,
+and paste **Copy data code** into the web app.
+
 ## How your data is stored
 
 This is the part that shapes everything else.
@@ -354,12 +452,10 @@ is the difference between holding a year and holding six weeks.
   and a **53-week activity heatmap** with the same tooltips.
 
 ### Appearance
-- **Liquid glass**: translucent panes over a soft aurora drawn from your accent,
-  with frosted bars, sheets and dialogs. Turn on *Reduce transparency* in the
-  system settings and every surface goes solid.
-- **The icon**: a liquid-glass V catching a drop — the glass refracts the light
-  behind it — drawn by `tools/icon.mjs` for the web, iOS and Android (legacy,
-  adaptive and themed).
+- **Frosted glass**: panes with backdrop blur, an acrylic grain and a 1px rim
+  lit from the top left, over an aurora drawn from your accent, a fine light
+  grid and one defined orb. Corners are tight (4–16px). Turn on *Reduce
+  transparency* in the system settings and every surface goes solid.
 - **Light, dark, or follow the system** — the system setting is tracked live.
 - 10 accent presets plus an arbitrary custom colour (picker or hex).
 - Choosing a colour re-tints the whole app, including the calendar and heat-grid
@@ -380,6 +476,35 @@ is the difference between holding a year and holding six weeks.
 CSV follows RFC 4180: fields containing commas, quotes or newlines are quoted,
 and embedded quotes are doubled. Rows are CRLF-terminated, so files open cleanly
 in spreadsheet software.
+
+## App icon
+
+Five directions, none derived from the first mark, each drawn for every
+platform — shown as iOS, Android (and its themed form), macOS and Windows draw
+them, on light and dark wallpapers ([docs/icons/index.html](docs/icons/index.html)):
+
+![The five icon options](docs/icons/options.png)
+
+| style | after | idea |
+|---|---|---|
+| **Chrono Neon** *(applied)* | futuristic | a chronograph bezel on obsidian glass; the count sweeps round it in light |
+| **Liquid Ring** | Apple · Liquid Glass | a clear glass ring three-quarters full of light |
+| **Fluent Tally** | Microsoft · Fluent 2 | four strokes and the strike, luminous layered gradients |
+| **Material Heat** | Google · Material 3 | the heat grid in one tonal palette, ending in a raised plus |
+| **Abacus Mono** | Swiss · Braun | beads stepping up like a bar chart, the newest in orange |
+
+```bash
+node tools/icon.mjs --style=liquid     # apply one everywhere
+```
+
+```bash
+node tools/icon.mjs --gallery          # redraw the comparison sheet
+```
+
+Applying a style redraws the web icons and the in-page mark, the iOS touch
+icon, both Android projects' legacy, adaptive and themed layers, and the
+desktop `.ico`, `.icns` and `.png`. Change `DEFAULT_STYLE` in
+`tools/icon-styles.mjs` to make the choice stick.
 
 ## Project layout
 
@@ -403,19 +528,25 @@ virulenter/
 │  │  ├─ stats.js           statistics dashboard, filters, heat grids
 │  │  └─ app.js             bootstrap, routing, install flow, export
 │  └─ icons/                generated icon set (SVG + PNG)
-├─ apk/                     Android project (see apk/README.md)
+├─ native/                  native app, Kotlin Multiplatform (see native/README.md)
+│  ├─ composeApp/src/       commonMain (model, UI), androidMain, desktopMain, tests
+│  └─ gradlew               Gradle wrapper
+├─ apk/                     Android web-wrapper project (see apk/README.md)
 │  ├─ app/src/main/         manifest, java, res, and the synced web assets
 │  ├─ build.gradle          pinned AGP 8.7.3
 │  └─ gradlew               Gradle wrapper, so no system Gradle is needed
 ├─ dist/
 │  ├─ virulenter.html               single-file web build
-│  ├─ virulenter-android-release.apk
+│  ├─ virulenter-android-release.apk   (v0.0.1, original interface)
 │  └─ virulenter-android-debug.apk
+├─ docs/icons/              the five icon options, side by side
+├─ .github/workflows/       release.yml: builds and publishes every file
 ├─ tools/
-│  ├─ verify.mjs            88 automated checks in real headless Chrome
+│  ├─ verify.mjs            89 automated checks in real headless Chrome
 │  ├─ chrome.mjs            finds Chrome / Chromium for the headless tools
 │  ├─ shots.mjs             regenerates verify/shots/*.png
-│  ├─ icon.mjs              draws every icon: web, iOS, Android legacy, adaptive, themed
+│  ├─ icon.mjs              draws every icon: web, iOS, Android, Windows, macOS, Linux
+│  ├─ icon-styles.mjs       the five icon designs
 │  ├─ serve.mjs             HTTP server for installing / phone testing
 │  ├─ build-apk.mjs         provisions the toolchain and builds the APK
 │  ├─ sync-android.mjs      copies app/ into the Android assets
@@ -433,16 +564,20 @@ virulenter/
 node tools/serve.mjs                 # serve app/ for install + LAN testing
 node build.mjs                       # rebuild dist/virulenter.html
 node build.mjs --min                 # minified variant
-node tools/verify.mjs                # 88 checks, served over HTTP
+node tools/verify.mjs                # 89 checks, served over HTTP
 node tools/verify.mjs --url=file://$PWD/dist/virulenter.html   # checks the single-file build
 node tools/shots.mjs                 # regenerate screenshots
-node tools/icon.mjs                  # regenerate icons (web + Android)
+node tools/icon.mjs                  # regenerate icons (web, Android, desktop)
+node tools/icon.mjs --style=fluent   # switch the icon style everywhere
+node tools/icon.mjs --gallery        # redraw docs/icons/
 node tools/build-apk.mjs             # build the Android APK (provisions on first run)
 node tools/build-apk.mjs --release   # signed release APK
 node tools/share-apk.mjs             # serve the APK + QR so a phone can install it
 node tools/validate-apk.mjs dist/virulenter-android-release.apk
 node tools/verify.mjs --root="$PWD/apk/app/src/main/assets"   # test the packaged assets
 node tools/clean.mjs                 # reclaim build caches
+cd native && ./gradlew :composeApp:desktopTest   # native: shared-code tests
+cd native && ./gradlew :composeApp:run           # native: desktop app from source
 ```
 
 The headless tools find Chrome or Chromium on macOS, Linux and Windows; set
@@ -503,14 +638,15 @@ maintaining a diffing layer.
 
 ## Verification
 
-Three suites, all green:
+All green:
 
 | suite | scope | result |
 |---|---|---|
-| `tools/verify.mjs` | the web app in headless Chrome | **88 checks** |
-| `tools/verify.mjs --url=file://…/dist/virulenter.html` | the single-file build | **86 checks** |
-| `tools/verify.mjs --root=apk/app/src/main/assets` | the exact bytes packaged into the APK | **87 checks** |
+| `tools/verify.mjs` | the web app in headless Chrome | **89 checks** |
+| `tools/verify.mjs --url=file://…/dist/virulenter.html` | the single-file build | **87 checks** |
+| `tools/verify.mjs --root=apk/app/src/main/assets` | the exact bytes packaged into the APK | **88 checks** |
 | `tools/validate-apk.mjs` | the built APK itself | **14 checks** |
+| `native: ./gradlew :composeApp:desktopTest` | the native app's shared code | **31 tests** |
 
 The web suite drives the real application over CDP — covering:
 
@@ -537,7 +673,8 @@ The web suite drives the real application over CDP — covering:
   label or figure is clipped, nothing floats over the controls, and sheets
   stack in the order they were opened
 - the theme, in-page confirmations, Undo, and merging a backup into itself
-- glass turning solid under *reduce transparency*, and the iOS touch icon
+- the glass material — frosted panes, lit rims, tight corners — and its
+  turning solid under *reduce transparency*, and the iOS touch icon
   being a full-bleed square (iOS rounds it; a pre-rounded one showed dark
   corners)
 
@@ -617,6 +754,12 @@ now has a regression check in `tools/verify.mjs`.
   browser to lose. Closing the tab without bookmarking the link does lose the session.
 - **The single-file build is not installable** and has no offline worker; those
   require an HTTP origin.
+- **The web app and the native app do not sync by themselves.** Move data with
+  a backup, a link or a data code (native: Settings › Import and *Copy data code*).
+- **Desktop reminders need the app running** — in the tray counts. On a Linux
+  desktop without a system tray, closing the window quits the app.
+- **Backdrop blur in the native app needs Android 12+**; older versions get a
+  denser tint instead.
 
 ## Browser support
 

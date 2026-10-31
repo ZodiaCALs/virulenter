@@ -197,22 +197,28 @@ network, performance — attached to the app running on the phone.
 
 ## Icon and theme resources
 
-`tools/icon.mjs` draws every launcher asset from one vector master:
+`tools/icon.mjs` draws every launcher asset from one drawing (the style chosen
+in `tools/icon-styles.mjs`; see [the icon options](../docs/icons/index.html)):
 
 | resource | what it is |
 |---|---|
-| `mipmap-*/ic_launcher*.png` | legacy bitmaps, square and round, for API 24–25 |
-| `drawable/ic_launcher_background.png` | adaptive layer: the coloured field |
-| `drawable/ic_launcher_foreground.png` | adaptive layer: the glass V and drop, inside the safe zone, refracting its own copy of the field |
-| `drawable/ic_launcher_monochrome.png` | the silhouette Android 13+ tints for themed icons; older versions ignore it |
+| `mipmap-*/ic_launcher*.png` | legacy bitmaps, square and round, for launchers without adaptive icons |
+| `drawable-xxxhdpi/ic_launcher_background.png` | adaptive layer: the plate (432 px = 108 dp at xxxhdpi; Android scales it down per density) |
+| `drawable-xxxhdpi/ic_launcher_foreground.png` | adaptive layer: the mark, inside the 66 dp safe zone |
+| `drawable-xxxhdpi/ic_launcher_monochrome.png` | the silhouette Android 13+ tints for themed icons; older versions ignore it |
+
+The layers used to sit in `drawable/` (mdpi), which made Android scale a 432 px
+bitmap *up* four times on decode on a typical phone; in `drawable-xxxhdpi/`
+they are only ever scaled down.
 
 `values-night/` gives the window and system bars the dark theme's colour, so a
 phone in dark mode shows no light bars around the dark app.
 
 ## What is not here
 
-- **No push notifications.** They would need a server, and this app has none.
-- **No widgets or quick-settings tile.** A reasonable next step, not built.
+- **No notifications, widget or Quick Settings tile here.** The native app
+  ([`native/`](../native/README.md)) has all three, plus reminders and a live
+  counter in the notification shade.
 - **No Play Store upload.** That needs your own signing key and a listing.
 - **Targets Android 7.0+.** Below that the AndroidX WebKit backport is
   unavailable and `WebViewAssetLoader` cannot be used.
