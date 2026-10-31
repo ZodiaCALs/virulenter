@@ -1,31 +1,27 @@
 #!/usr/bin/env node
 /**
- * icon.mjs — renders the Virulenter mark: a liquid-glass "V" catching a drop.
+ * icon.mjs — renders the Virulenter app icon, in any of the candidate
+ * styles drawn in tools/icon-styles.mjs, for every platform the app ships on.
  *
- * Every tap is a drop counted; the V is the glass that holds them. The glass
- * is drawn the way glass behaves rather than as a white shape on a gradient:
+ *   node tools/icon.mjs                    apply the default style
+ *   node tools/icon.mjs --style=chrono     apply another style
+ *   node tools/icon.mjs --gallery          render every style side by side
+ *                                          into docs/icons/ (nothing applied)
  *
- *   field      coloured light behind everything — indigo, with cyan, pink and
- *              amber glows, heavily blurred
- *   lensing    inside the V the field is seen magnified and brightened, the
- *              way a thick pane bends what is behind it; inside the drop it is
- *              seen flipped, as through a lens
- *   rims       light from the top left: a bright rim on the edges facing it,
- *              a deep edge and a thin refracted line on the far side
- *   specular   a streak down the left arm and a glint at its tip
- *   shadow     a soft shadow, and a coloured caustic — light the glass
- *              focuses onto the surface beneath it
- *
- * Gradients, masks and filters only: no bitmaps, no dependencies.
- *
- *   node tools/icon.mjs
- *
- * Writes, all from the one master:
+ * Applying a style writes, all from the one drawing:
  *   app/icons/icon.svg, favicon.svg, icon-180/192/512.png, icon-maskable-512.png
  *   app/index.html            the in-page brand mark (the #vmark symbol)
- *   apk/…/res/mipmap-*        legacy launcher bitmaps, square and round
- *   apk/…/res/drawable        adaptive icon background, foreground and the
- *                             monochrome layer Android 13+ tints for themed icons
+ *   apk/…/res and native/composeApp/src/androidMain/res
+ *                             legacy launcher bitmaps (square and round), the
+ *                             adaptive icon's background and foreground, and
+ *                             the monochrome layer Android 13+ tints
+ *   native/composeApp/icons   app.ico (Windows), app.icns (macOS), app.png
+ *                             (Linux), for the desktop installers
+ *   native/composeApp/src/commonMain/composeResources/drawable/app_icon.png
+ *                             the window and tray icon at run time
+ *
+ * PNGs are drawn by headless Chrome (tools/chrome.mjs finds it); .ico and
+ * .icns files are packed here from those PNGs, with no other tools.
  */
 import { spawn } from 'node:child_process';
 import { mkdtempSync, readFileSync, existsSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
@@ -33,368 +29,303 @@ import { tmpdir } from 'node:os';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { findChrome } from './chrome.mjs';
+import { STYLES, DEFAULT_STYLE, styleById } from './icon-styles.mjs';
 
-const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');   // project root
-const OUT = join(ROOT, 'app', 'icons');
-const ANDROID = join(ROOT, 'apk', 'app', 'src', 'main', 'res');
-mkdirSync(OUT, { recursive: true });
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const arg = (name) => (process.argv.find((a) => a.startsWith(`--${name}=`)) || '').split('=')[1];
+const GALLERY = process.argv.includes('--gallery');
+const STYLE = styleById(arg('style') || DEFAULT_STYLE);
 
-/* ── geometry, on a 512 canvas ────────────────────────────── */
-const VW = 66;                                             // stroke width of the V
-const VPTS = [[148, 156], [256, 360], [364, 156]];         // left tip, point, right tip
-const DROP = { cx: 256, cy: 196, r: 31 };
-const pts = (list) => list.map((p) => p.join(',')).join(' ');
-const vLine = (attrs) => `<polyline points="${pts(VPTS)}" fill="none" stroke-linecap="round" stroke-linejoin="round" ${attrs}/>`;
-
-/* ── the artwork ─────────────────────────────────────────────
-   p   id prefix — the in-page symbol shares a document with other SVGs
-   Returns the <defs> and the drawing layers separately, so the variants
-   (tile, round, adaptive background/foreground) can pick what they need. */
-function art(p) {
-  const id = (n) => `${p}${n}`;
-  const url = (n) => `url(#${id(n)})`;
-
-  const defs = `
-    <linearGradient id="${id('base')}" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#8a6cff"/>
-      <stop offset=".4" stop-color="#5233e4"/>
-      <stop offset=".76" stop-color="#26137f"/>
-      <stop offset="1" stop-color="#120840"/>
-    </linearGradient>
-    <radialGradient id="${id('cyan')}">
-      <stop offset="0" stop-color="#6ff5ff"/>
-      <stop offset=".5" stop-color="#2fb4ff" stop-opacity=".75"/>
-      <stop offset="1" stop-color="#2f7dff" stop-opacity="0"/>
-    </radialGradient>
-    <radialGradient id="${id('pink')}">
-      <stop offset="0" stop-color="#ff7ad9"/>
-      <stop offset=".5" stop-color="#d63ad0" stop-opacity=".75"/>
-      <stop offset="1" stop-color="#a21caf" stop-opacity="0"/>
-    </radialGradient>
-    <radialGradient id="${id('amber')}">
-      <stop offset="0" stop-color="#ffc98a"/>
-      <stop offset=".55" stop-color="#ff8a5c" stop-opacity=".5"/>
-      <stop offset="1" stop-color="#ff6a5c" stop-opacity="0"/>
-    </radialGradient>
-    <linearGradient id="${id('sheen')}" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0" stop-color="#fff" stop-opacity="0"/>
-      <stop offset=".5" stop-color="#fff" stop-opacity=".9"/>
-      <stop offset="1" stop-color="#fff" stop-opacity="0"/>
-    </linearGradient>
-    <filter id="${id('soft')}" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="42"/></filter>
-    <filter id="${id('haze')}" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="22"/></filter>
-
-    <!-- what the glass does to the light behind it -->
-    <filter id="${id('lens')}" x="-20%" y="-20%" width="140%" height="140%" color-interpolation-filters="sRGB">
-      <feGaussianBlur stdDeviation="9"/>
-      <feColorMatrix type="saturate" values="1.55"/>
-      <feComponentTransfer>
-        <feFuncR type="linear" slope="1.1" intercept=".12"/>
-        <feFuncG type="linear" slope="1.1" intercept=".12"/>
-        <feFuncB type="linear" slope="1.05" intercept=".12"/>
-      </feComponentTransfer>
-    </filter>
-
-    <!-- the V as a mask, and directional bands along its edges -->
-    <mask id="${id('v')}" maskUnits="userSpaceOnUse" x="0" y="0" width="512" height="512">
-      ${vLine(`stroke="#fff" stroke-width="${VW}"`)}
-    </mask>
-    <mask id="${id('rimLit')}" maskUnits="userSpaceOnUse" x="0" y="0" width="512" height="512">
-      ${vLine(`stroke="#fff" stroke-width="${VW}"`)}
-      <g transform="translate(5 7)">${vLine(`stroke="#000" stroke-width="${VW}"`)}</g>
-    </mask>
-    <mask id="${id('rimDeep')}" maskUnits="userSpaceOnUse" x="0" y="0" width="512" height="512">
-      ${vLine(`stroke="#fff" stroke-width="${VW}"`)}
-      <g transform="translate(-7 -10)">${vLine(`stroke="#000" stroke-width="${VW}"`)}</g>
-    </mask>
-    <mask id="${id('rimLine')}" maskUnits="userSpaceOnUse" x="0" y="0" width="512" height="512">
-      <g transform="translate(-4 -6)">${vLine(`stroke="#fff" stroke-width="${VW}"`)}</g>
-      <g transform="translate(-6.5 -9.5)">${vLine(`stroke="#000" stroke-width="${VW}"`)}</g>
-    </mask>
-    <mask id="${id('edge')}" maskUnits="userSpaceOnUse" x="0" y="0" width="512" height="512">
-      ${vLine(`stroke="#fff" stroke-width="${VW}"`)}
-      ${vLine(`stroke="#000" stroke-width="${VW - 3}"`)}
-    </mask>
-
-    <linearGradient id="${id('tint')}" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#fff" stop-opacity=".84"/>
-      <stop offset=".5" stop-color="#f4f1ff" stop-opacity=".4"/>
-      <stop offset="1" stop-color="#e4ddff" stop-opacity=".6"/>
-    </linearGradient>
-    <linearGradient id="${id('lit')}" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#fff"/>
-      <stop offset=".55" stop-color="#fff" stop-opacity=".75"/>
-      <stop offset="1" stop-color="#fff" stop-opacity=".25"/>
-    </linearGradient>
-    <linearGradient id="${id('deep')}" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#3b1fb0" stop-opacity=".1"/>
-      <stop offset="1" stop-color="#2a1490" stop-opacity=".42"/>
-    </linearGradient>
-    <linearGradient id="${id('streak')}" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#fff" stop-opacity=".95"/>
-      <stop offset=".55" stop-color="#fff" stop-opacity=".45"/>
-      <stop offset="1" stop-color="#fff" stop-opacity="0"/>
-    </linearGradient>
-    <linearGradient id="${id('caustic')}" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0" stop-color="#5ff0ff"/>
-      <stop offset=".5" stop-color="#ffffff"/>
-      <stop offset="1" stop-color="#ff7ad9"/>
-    </linearGradient>
-    <filter id="${id('shadow')}" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="15"/></filter>
-    <filter id="${id('glow')}" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="20"/></filter>
-    <filter id="${id('fine')}" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="1.6"/></filter>
-    <filter id="${id('glint')}" x="-200%" y="-200%" width="500%" height="500%"><feGaussianBlur stdDeviation="3.2"/></filter>
-
-    <!-- the drop -->
-    <clipPath id="${id('drop')}"><circle cx="${DROP.cx}" cy="${DROP.cy}" r="${DROP.r}"/></clipPath>
-    <radialGradient id="${id('dropBody')}" cx=".38" cy=".32" r=".75">
-      <stop offset="0" stop-color="#fff" stop-opacity=".55"/>
-      <stop offset=".45" stop-color="#fff" stop-opacity=".12"/>
-      <stop offset=".85" stop-color="#2a1385" stop-opacity=".25"/>
-      <stop offset="1" stop-color="#140846" stop-opacity=".55"/>
-    </radialGradient>
-    <radialGradient id="${id('dropCaustic')}" cx=".68" cy=".78" r=".38">
-      <stop offset="0" stop-color="#bff8ff" stop-opacity=".95"/>
-      <stop offset="1" stop-color="#bff8ff" stop-opacity="0"/>
-    </radialGradient>
-
-    <!-- the tile as a slab of glass -->
-    <linearGradient id="${id('gloss')}" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#fff" stop-opacity=".42"/>
-      <stop offset="1" stop-color="#fff" stop-opacity="0"/>
-    </linearGradient>
-    <linearGradient id="${id('rim')}" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#fff" stop-opacity=".9"/>
-      <stop offset=".4" stop-color="#fff" stop-opacity=".16"/>
-      <stop offset=".75" stop-color="#fff" stop-opacity=".08"/>
-      <stop offset="1" stop-color="#fff" stop-opacity=".4"/>
-    </linearGradient>`;
-
-  /* coloured light behind the glass */
-  const field = `
-    <rect width="512" height="512" fill="${url('base')}"/>
-    <g filter="${url('soft')}">
-      <ellipse cx="430" cy="92" rx="220" ry="176" fill="${url('cyan')}"/>
-      <ellipse cx="62" cy="452" rx="236" ry="196" fill="${url('pink')}"/>
-      <ellipse cx="470" cy="500" rx="170" ry="120" fill="${url('cyan')}" opacity=".35"/>
-    </g>
-    <g filter="${url('haze')}" opacity=".22">
-      <ellipse cx="200" cy="150" rx="300" ry="34" fill="${url('sheen')}" transform="rotate(-28 200 150)"/>
-    </g>`;
-
-  /* what sits under the glass: a shadow and a band of focused, coloured light */
-  const under = `
-    <g transform="translate(0 20)" filter="${url('shadow')}" opacity=".5">
-      ${vLine(`stroke="#0a0430" stroke-width="${VW}"`)}
-    </g>
-    <g transform="translate(0 38)" filter="${url('glow')}" opacity=".5" style="mix-blend-mode:screen">
-      ${vLine(`stroke="${url('caustic')}" stroke-width="${VW * 0.7}"`)}
-    </g>`;
-
-  /* the V itself */
-  const glass = `
-    <g mask="${url('v')}">
-      <g filter="${url('lens')}" transform="translate(256 262) scale(1.22) translate(-256 -262)">${field}</g>
-      <rect width="512" height="512" fill="${url('tint')}"/>
-    </g>
-    <rect width="512" height="512" fill="${url('deep')}" mask="${url('rimDeep')}"/>
-    <rect width="512" height="512" fill="#9df3ff" opacity=".7" mask="${url('rimLine')}"/>
-    <rect width="512" height="512" fill="${url('lit')}" mask="${url('rimLit')}"/>
-    <rect width="512" height="512" fill="#fff" opacity=".5" mask="${url('edge')}"/>
-    <g filter="${url('fine')}">
-      <polyline points="${VPTS[0][0] + 6},${VPTS[0][1] - 2} ${VPTS[1][0] - 8},${VPTS[1][1] - 34}" fill="none"
-                stroke="${url('streak')}" stroke-width="9" stroke-linecap="round"/>
-      <polyline points="${VPTS[2][0] - 8},${VPTS[2][1] + 8} ${VPTS[2][0] - 34},${VPTS[2][1] + 58}" fill="none"
-                stroke="#fff" stroke-opacity=".45" stroke-width="5" stroke-linecap="round"/>
-    </g>
-    <circle cx="${VPTS[0][0] - 6}" cy="${VPTS[0][1] - 9}" r="7" fill="#fff" filter="${url('glint')}"/>
-    <circle cx="${VPTS[0][0] - 6}" cy="${VPTS[0][1] - 9}" r="3" fill="#fff"/>`;
-
-  /* the drop: the field seen flipped and magnified, as through a lens */
-  const drop = `
-    <ellipse cx="${DROP.cx}" cy="${DROP.cy + DROP.r + 14}" rx="${DROP.r * 0.7}" ry="6" fill="#0a0430" opacity=".22" filter="${url('glint')}"/>
-    <g clip-path="${url('drop')}">
-      <g filter="${url('lens')}" transform="translate(${DROP.cx} ${DROP.cy}) scale(-1.6 -1.6) translate(${-DROP.cx} ${-DROP.cy})">${field}</g>
-      <circle cx="${DROP.cx}" cy="${DROP.cy}" r="${DROP.r}" fill="${url('dropBody')}"/>
-      <circle cx="${DROP.cx}" cy="${DROP.cy}" r="${DROP.r}" fill="${url('dropCaustic')}"/>
-    </g>
-    <circle cx="${DROP.cx}" cy="${DROP.cy}" r="${DROP.r - 0.75}" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="1.5"/>
-    <ellipse cx="${DROP.cx - 11}" cy="${DROP.cy - 13}" rx="9" ry="5.5" fill="#fff" opacity=".9" transform="rotate(-35 ${DROP.cx - 11} ${DROP.cy - 13})"/>`;
-
-  /* the tile as glass: a curved sheen and a rim catching the light */
-  const slab = (r) => `
-    <path d="M0 0H512V176C392 236 150 150 0 214Z" fill="${url('gloss')}" opacity=".5"/>
-    <rect x="3" y="3" width="506" height="506" rx="${Math.max(0, r - 3)}" fill="none" stroke="${url('rim')}" stroke-width="5"/>`;
-
-  return { defs, field, under, glass, drop, slab };
+/* ── composition ───────────────────────────────────────────────
+   A style is a plate and a glyph on a 512 canvas. These put them together
+   for each place an icon is shown. */
+const DEFS = /<defs>[\s\S]*?<\/defs>/g;
+function parts(style, p) {
+  const plate = style.plate(p);
+  const plateDefs = (plate.match(DEFS) || []).join('');
+  const plateBody = plate.replace(DEFS, '');
+  return { plateDefs, plateBody, glyph: style.glyph(p, plateBody) };
 }
-
-/* ── variants ──────────────────────────────────────────────── */
-const head = (size) =>
-  `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 512 512" role="img" aria-label="Virulenter">`;
-
-/* everything inside the shape: field, shadow, glass, drop, slab */
-function body(a, r) {
-  return a.field + a.under + a.glass + a.drop + a.slab(r);
-}
-
-/* rounded tile (r = corner radius; 0 = full-bleed square) */
-function tile({ size = 512, r = 116, p = 'i-' } = {}) {
-  const a = art(p);
-  return `${head(size)}
-  <defs>${a.defs}
-    <clipPath id="${p}tile"><rect width="512" height="512" rx="${r}"/></clipPath>
-  </defs>
-  <g clip-path="url(#${p}tile)">${body(a, r)}</g>
-</svg>
-`;
-}
-
-/* circle, for android:roundIcon and launchers that mask to a circle */
-function round({ size = 192, p = 'r-' } = {}) {
-  const a = art(p);
-  return `${head(size)}
-  <defs>${a.defs}
-    <clipPath id="${p}circle"><circle cx="256" cy="256" r="256"/></clipPath>
-  </defs>
-  <g clip-path="url(#${p}circle)">${a.field + a.under + a.glass + a.drop}
-    <circle cx="256" cy="256" r="253" fill="none" stroke="url(#${p}rim)" stroke-width="5"/>
-  </g>
-</svg>
-`;
-}
-
-/* content scaled about the centre, for maskable and adaptive layers whose
-   visible area is a centred safe zone */
+const svg = (size, inner, view = '0 0 512 512') =>
+  `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="${view}" role="img" aria-label="Virulenter">${inner}</svg>\n`;
+/* scale about the centre: the adaptive layers place the 512 tile in the
+   72dp a launcher shows of its 108dp layers, so 2/3 */
 const shrink = (k, inner) => `<g transform="translate(256 256) scale(${k}) translate(-256 -256)">${inner}</g>`;
+const ADAPTIVE = 2 / 3;
 
-/* maskable: full-bleed field, glass inside the 80% safe zone */
-function maskable({ size = 512, p = 'm-' } = {}) {
-  const a = art(p);
-  return `${head(size)}
-  <defs>${a.defs}</defs>
-  ${a.field}${shrink(0.78, a.under + a.glass + a.drop)}
-</svg>
-`;
+/* Apple's continuous corner, close enough: a superellipse, n = 5 */
+export function squirclePath(x, y, w, n = 5) {
+  const a = w / 2, cx = x + a, cy = y + a, pts = [];
+  for (let i = 0; i < 360; i++) {
+    const t = (i / 360) * Math.PI * 2, c = Math.cos(t), s = Math.sin(t);
+    pts.push(`${(cx + a * Math.sign(c) * Math.abs(c) ** (2 / n)).toFixed(2)} ${(cy + a * Math.sign(s) * Math.abs(s) ** (2 / n)).toFixed(2)}`);
+  }
+  return 'M' + pts.join('L') + 'Z';
 }
 
-/* Android adaptive icon: the launcher composes these two 108dp layers and
-   masks them (circle, squircle, teardrop…), moving them slightly apart for
-   parallax. The glass refracts the field, so the foreground carries its own
-   lensed copy of it — inside the V only, where a few pixels of parallax do
-   not show. Content stays inside the 66dp safe zone (scale ≈ 0.6). */
-function adaptiveBackground({ size = 432, p = 'b-' } = {}) {
-  const a = art(p);
-  return `${head(size)}<defs>${a.defs}</defs>${a.field}</svg>
-`;
-}
-
-function adaptiveForeground({ size = 432, p = 'f-' } = {}) {
-  const a = art(p);
-  return `${head(size)}<defs>${a.defs}</defs>${shrink(0.6, a.under + a.glass + a.drop)}</svg>
-`;
-}
-
-/* Android 13+ themed icons: one flat silhouette the system tints */
-function monochrome({ size = 432 } = {}) {
-  return `${head(size)}${shrink(0.6, `
-    ${vLine(`stroke="#fff" stroke-width="${VW}"`)}
-    <circle cx="${DROP.cx}" cy="${DROP.cy}" r="${DROP.r}" fill="#fff"/>`)}</svg>
-`;
-}
-
-/* ── write the vector files ─────────────────────────────────── */
-writeFileSync(join(OUT, 'icon.svg'), tile({ size: 512 }), 'utf8');
-writeFileSync(join(OUT, 'favicon.svg'), tile({ size: 512, p: 'fv-' }), 'utf8');
-console.log('wrote app/icons/icon.svg, favicon.svg');
-
-/* the in-page brand mark: the same art as a <symbol>, ids prefixed vm- */
-{
-  const a = art('vm-');
-  const symbol = `<symbol id="vmark" viewBox="0 0 512 512">
-    <defs>${a.defs}
-      <clipPath id="vm-tile"><rect width="512" height="512" rx="116"/></clipPath>
-    </defs>
-    <g clip-path="url(#vm-tile)">${body(a, 116)}</g>
-  </symbol>`;
-  const indexPath = join(ROOT, 'app', 'index.html');
-  const html = readFileSync(indexPath, 'utf8');
-  const start = html.indexOf('<symbol id="vmark"');
-  const end = html.indexOf('</symbol>', start);
-  if (start < 0 || end < 0) throw new Error('no <symbol id="vmark"> in app/index.html');
-  writeFileSync(indexPath, html.slice(0, start) + symbol + html.slice(end + '</symbol>'.length), 'utf8');
-  console.log('updated the #vmark symbol in app/index.html');
-}
-
-/* ── rasterise ──────────────────────────────────────────────── */
-const jobs = [
-  { out: join(OUT, 'icon-192.png'), size: 192, svg: () => tile({ size: 192 }) },
-  { out: join(OUT, 'icon-512.png'), size: 512, svg: () => tile({ size: 512 }) },
-  /* iOS rounds the corners itself, so the touch icon is a full square */
-  { out: join(OUT, 'icon-180.png'), size: 180, svg: () => tile({ size: 180, r: 0 }) },
-  { out: join(OUT, 'icon-maskable-512.png'), size: 512, svg: () => maskable({ size: 512 }) },
-  { out: join(ANDROID, 'drawable', 'ic_launcher_background.png'), size: 432, svg: () => adaptiveBackground() },
-  { out: join(ANDROID, 'drawable', 'ic_launcher_foreground.png'), size: 432, svg: () => adaptiveForeground() },
-  { out: join(ANDROID, 'drawable', 'ic_launcher_monochrome.png'), size: 432, svg: () => monochrome() }
-];
-for (const [dir, size] of [['mdpi', 48], ['hdpi', 72], ['xhdpi', 96], ['xxhdpi', 144], ['xxxhdpi', 192]]) {
-  jobs.push({ out: join(ANDROID, 'mipmap-' + dir, 'ic_launcher.png'), size, svg: () => tile({ size, r: 104 }) });
-  jobs.push({ out: join(ANDROID, 'mipmap-' + dir, 'ic_launcher_round.png'), size, svg: () => round({ size }) });
-}
-
-let CHROME;
-try { CHROME = findChrome(); } catch (e) {
-  console.log(e.message + ' SVGs written, PNGs skipped.');
-  process.exit(0);
-}
-
-const profile = mkdtempSync(join(tmpdir(), 'vr-icon-'));
-const chrome = spawn(CHROME, [
-  '--headless=new', '--remote-debugging-port=0', '--user-data-dir=' + profile,
-  '--no-sandbox', '--no-first-run', '--disable-crash-reporter', '--disable-breakpad',
-  '--force-color-profile=srgb', '--hide-scrollbars', 'about:blank'
-], { stdio: 'ignore' });
-
-const pf = join(profile, 'DevToolsActivePort');
-let port = null;
-for (let i = 0; i < 120; i++) {
-  if (existsSync(pf)) { port = readFileSync(pf, 'utf8').split('\n')[0].trim(); if (port) break; }
-  await new Promise((r) => setTimeout(r, 100));
-}
-if (!port) { console.error('could not reach Chrome'); chrome.kill(); process.exit(1); }
-
-const targets = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json();
-const ws = new WebSocket(targets.find((t) => t.type === 'page').webSocketDebuggerUrl);
-await new Promise((res, rej) => { ws.onopen = res; ws.onerror = rej; });
-
-let id = 0; const pend = new Map();
-ws.onmessage = (m) => {
-  const x = JSON.parse(m.data);
-  if (x.id && pend.has(x.id)) { const { res, rej } = pend.get(x.id); pend.delete(x.id); x.error ? rej(new Error(JSON.stringify(x.error))) : res(x.result); }
+const shapes = {
+  /* rounded square; r = 0 is full bleed (iOS and maskable round it themselves) */
+  tile: (style, { size = 512, r = 112, p = 't-' } = {}) => {
+    const a = parts(style, p);
+    return svg(size, `${a.plateDefs}<defs><clipPath id="${p}clip"><rect width="512" height="512" rx="${r}"/></clipPath></defs>
+      <g clip-path="url(#${p}clip)">${a.plateBody}${a.glyph}</g>`);
+  },
+  circle: (style, { size = 192, p = 'c-' } = {}) => {
+    const a = parts(style, p);
+    return svg(size, `${a.plateDefs}<defs><clipPath id="${p}clip"><circle cx="256" cy="256" r="256"/></clipPath></defs>
+      <g clip-path="url(#${p}clip)">${a.plateBody}${a.glyph}</g>`);
+  },
+  squircle: (style, { size = 180, p = 'q-' } = {}) => {
+    const a = parts(style, p);
+    return svg(size, `${a.plateDefs}<defs><clipPath id="${p}clip"><path d="${squirclePath(0, 0, 512)}"/></clipPath></defs>
+      <g clip-path="url(#${p}clip)">${a.plateBody}${a.glyph}</g>`);
+  },
+  /* macOS: the shape sits inside the canvas with room for its shadow */
+  mac: (style, { size = 512, p = 'mac-' } = {}) => {
+    const a = parts(style, p), k = 0.805, o = 256 - 256 * k;
+    return svg(size, `${a.plateDefs}<defs>
+        <clipPath id="${p}clip"><rect x="${o}" y="${o}" width="${512 * k}" height="${512 * k}" rx="${92}"/></clipPath>
+        <filter id="${p}drop" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="9" stdDeviation="9" flood-color="#000" flood-opacity=".32"/></filter>
+      </defs>
+      <rect x="${o}" y="${o}" width="${512 * k}" height="${512 * k}" rx="92" fill="#000" filter="url(#${p}drop)"/>
+      <g clip-path="url(#${p}clip)">${shrink(k, a.plateBody + a.glyph)}</g>`);
+  },
+  maskable: (style, { size = 512, p = 'm-' } = {}) => {
+    const a = parts(style, p);
+    return svg(size, `${a.plateDefs}${a.plateBody}${shrink(0.9, a.glyph)}`);
+  },
+  background: (style, { size = 432, p = 'b-' } = {}) => {
+    const a = parts(style, p);
+    return svg(size, `${a.plateDefs}${shrink(ADAPTIVE, a.plateBody)}`);
+  },
+  foreground: (style, { size = 432, p = 'f-' } = {}) => {
+    const a = parts(style, p);
+    return svg(size, `${a.plateDefs}${shrink(ADAPTIVE, a.glyph)}`);
+  },
+  monochrome: (style, { size = 432 } = {}) => svg(size, shrink(ADAPTIVE, style.mono())),
+  /* Android 13+ themed icon as a launcher draws it: the monochrome layer
+     tinted over a tonal plate (for the gallery) */
+  themed: (style, { size = 180, p = 'th-', bg = '#D8E2FF', ink = '#1A2B52' } = {}) =>
+    svg(size, `<defs>
+        <clipPath id="${p}clip"><circle cx="256" cy="256" r="256"/></clipPath>
+        <mask id="${p}mask" maskUnits="userSpaceOnUse" x="0" y="0" width="512" height="512">${style.mono().replace(/mono-/g, p + 'mono-')}</mask>
+      </defs>
+      <g clip-path="url(#${p}clip)"><rect width="512" height="512" fill="${bg}"/>
+      <rect width="512" height="512" fill="${ink}" mask="url(#${p}mask)"/></g>`)
 };
-const send = (method, params = {}) => new Promise((res, rej) => {
-  const i = ++id; pend.set(i, { res, rej }); ws.send(JSON.stringify({ id: i, method, params }));
-});
 
-await send('Page.enable');
-/* transparent page, so rounded corners and adaptive layers keep their alpha */
-await send('Emulation.setDefaultBackgroundColorOverride', { color: { r: 0, g: 0, b: 0, a: 0 } });
-
-for (const job of jobs) {
-  /* drawn at the exact target size, so Chrome antialiases for that size */
-  const html = `<!doctype html><html><head><style>html,body{margin:0;background:transparent}svg{display:block;width:${job.size}px;height:${job.size}px}</style></head><body>${job.svg()}</body></html>`;
-  await send('Emulation.setDeviceMetricsOverride', { width: job.size, height: job.size, deviceScaleFactor: 1, mobile: false });
-  await send('Page.navigate', { url: 'data:text/html;base64,' + Buffer.from(html, 'utf8').toString('base64') });
-  await new Promise((r) => setTimeout(r, 350));
-  const shot = await send('Page.captureScreenshot', {
-    format: 'png', captureBeyondViewport: false,
-    clip: { x: 0, y: 0, width: job.size, height: job.size, scale: 1 }
+/* ── rasteriser: headless Chrome over the DevTools protocol ──────── */
+async function openChrome() {
+  const CHROME = findChrome();
+  const profile = mkdtempSync(join(tmpdir(), 'vr-icon-'));
+  const proc = spawn(CHROME, [
+    '--headless=new', '--remote-debugging-port=0', '--user-data-dir=' + profile,
+    '--no-sandbox', '--no-first-run', '--disable-crash-reporter', '--disable-breakpad',
+    '--force-color-profile=srgb', '--hide-scrollbars', 'about:blank'
+  ], { stdio: 'ignore' });
+  const pf = join(profile, 'DevToolsActivePort');
+  let port = null;
+  for (let i = 0; i < 150 && !port; i++) {
+    if (existsSync(pf)) port = readFileSync(pf, 'utf8').split('\n')[0].trim() || null;
+    if (!port) await new Promise((r) => setTimeout(r, 100));
+  }
+  if (!port) { proc.kill(); throw new Error('could not reach Chrome'); }
+  const targets = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json();
+  const ws = new WebSocket(targets.find((t) => t.type === 'page').webSocketDebuggerUrl);
+  await new Promise((res, rej) => { ws.onopen = res; ws.onerror = rej; });
+  let id = 0; const pend = new Map();
+  ws.onmessage = (m) => {
+    const x = JSON.parse(m.data);
+    if (x.id && pend.has(x.id)) { const { res, rej } = pend.get(x.id); pend.delete(x.id); x.error ? rej(new Error(JSON.stringify(x.error))) : res(x.result); }
+  };
+  const send = (method, params = {}) => new Promise((res, rej) => {
+    const i = ++id; pend.set(i, { res, rej }); ws.send(JSON.stringify({ id: i, method, params }));
   });
-  mkdirSync(dirname(job.out), { recursive: true });
-  writeFileSync(job.out, Buffer.from(shot.data, 'base64'));
-  console.log('wrote ' + job.out.replace(ROOT + '/', ''));
+  await send('Page.enable');
+  /* a transparent page, so rounded corners and adaptive layers keep alpha */
+  await send('Emulation.setDefaultBackgroundColorOverride', { color: { r: 0, g: 0, b: 0, a: 0 } });
+  /* height 0 = as tall as the page */
+  async function shoot(html, width, height, scale = 1) {
+    await send('Emulation.setDeviceMetricsOverride', { width, height: height || 800, deviceScaleFactor: scale, mobile: false });
+    await send('Page.navigate', { url: 'data:text/html;base64,' + Buffer.from(html, 'utf8').toString('base64') });
+    await new Promise((r) => setTimeout(r, 400));
+    if (!height) {
+      const { result } = await send('Runtime.evaluate', { expression: 'document.documentElement.scrollHeight', returnByValue: true });
+      height = result.value;
+      await send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: scale, mobile: false });
+      await new Promise((r) => setTimeout(r, 200));
+    }
+    const shot = await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: true, clip: { x: 0, y: 0, width, height, scale: 1 } });
+    return Buffer.from(shot.data, 'base64');
+  }
+  /* an SVG drawn at its exact pixel size, so Chrome antialiases for it */
+  const png = (svgText, size) => shoot(`<!doctype html><html><head><style>html,body{margin:0;background:transparent}svg{display:block;width:${size}px;height:${size}px}</style></head><body>${svgText}</body></html>`, size, size);
+  const close = () => { ws.close(); proc.kill(); setTimeout(() => { try { rmSync(profile, { recursive: true, force: true }); } catch {} }, 200); };
+  return { shoot, png, close };
 }
 
-ws.close();
-chrome.kill();
-setTimeout(() => { try { rmSync(profile, { recursive: true, force: true }); } catch {} ; process.exit(0); }, 200);
+/* ── .ico and .icns: containers of PNGs ─────────────────────────── */
+function ico(pngs) {             // [{ size, data }]
+  const head = Buffer.alloc(6 + 16 * pngs.length);
+  head.writeUInt16LE(0, 0); head.writeUInt16LE(1, 2); head.writeUInt16LE(pngs.length, 4);
+  let offset = head.length;
+  pngs.forEach(({ size, data }, i) => {
+    const e = 6 + 16 * i;
+    head.writeUInt8(size >= 256 ? 0 : size, e); head.writeUInt8(size >= 256 ? 0 : size, e + 1);
+    head.writeUInt16LE(1, e + 4); head.writeUInt16LE(32, e + 6);
+    head.writeUInt32LE(data.length, e + 8); head.writeUInt32LE(offset, e + 12);
+    offset += data.length;
+  });
+  return Buffer.concat([head, ...pngs.map((x) => x.data)]);
+}
+function icns(entries) {         // [{ type: 'ic10', data }]
+  const chunks = entries.map(({ type, data }) => {
+    const h = Buffer.alloc(8); h.write(type, 0, 'ascii'); h.writeUInt32BE(8 + data.length, 4);
+    return Buffer.concat([h, data]);
+  });
+  const h = Buffer.alloc(8); h.write('icns', 0, 'ascii'); h.writeUInt32BE(8 + chunks.reduce((n, c) => n + c.length, 0), 4);
+  return Buffer.concat([h, ...chunks]);
+}
+
+const write = (path, data) => { mkdirSync(dirname(path), { recursive: true }); writeFileSync(path, data); console.log('wrote ' + path.replace(ROOT + '/', '')); };
+
+/* ── apply one style everywhere ─────────────────────────────────── */
+async function apply(style) {
+  const WEB = join(ROOT, 'app', 'icons');
+  write(join(WEB, 'icon.svg'), shapes.tile(style, { size: 512 }));
+  write(join(WEB, 'favicon.svg'), shapes.tile(style, { size: 512, p: 'fv-' }));
+
+  /* the in-page brand mark: the same tile as a <symbol>, ids prefixed vm- */
+  {
+    const a = parts(style, 'vm-');
+    const symbol = `<symbol id="vmark" viewBox="0 0 512 512">${a.plateDefs}
+      <defs><clipPath id="vm-clip"><rect width="512" height="512" rx="112"/></clipPath></defs>
+      <g clip-path="url(#vm-clip)">${a.plateBody}${a.glyph}</g>
+    </symbol>`;
+    const indexPath = join(ROOT, 'app', 'index.html');
+    const html = readFileSync(indexPath, 'utf8');
+    const start = html.indexOf('<symbol id="vmark"');
+    const end = html.indexOf('</symbol>', start);       // symbols never nest
+    if (start < 0 || end < 0) throw new Error('no <symbol id="vmark"> in app/index.html');
+    writeFileSync(indexPath, html.slice(0, start) + symbol + html.slice(end + '</symbol>'.length), 'utf8');
+    console.log('updated the #vmark symbol in app/index.html');
+  }
+
+  let r;
+  try { r = await openChrome(); } catch (e) { console.log(e.message + ' — SVGs written, PNGs skipped.'); return; }
+  try {
+    write(join(WEB, 'icon-192.png'), await r.png(shapes.tile(style, { size: 192 }), 192));
+    write(join(WEB, 'icon-512.png'), await r.png(shapes.tile(style, { size: 512 }), 512));
+    write(join(WEB, 'icon-180.png'), await r.png(shapes.tile(style, { size: 180, r: 0 }), 180));
+    write(join(WEB, 'icon-maskable-512.png'), await r.png(shapes.maskable(style, { size: 512 }), 512));
+
+    /* Android: the WebView app and the native app share the same set */
+    const androidRes = [join(ROOT, 'apk', 'app', 'src', 'main', 'res')];
+    const nativeRoot = join(ROOT, 'native', 'composeApp');
+    if (existsSync(nativeRoot)) androidRes.push(join(nativeRoot, 'src', 'androidMain', 'res'));
+    for (const res of androidRes) {
+      /* the 108dp layers at xxxhdpi (432px); Android scales them down per density */
+      for (const old of ['ic_launcher_background', 'ic_launcher_foreground', 'ic_launcher_monochrome']) {
+        rmSync(join(res, 'drawable', old + '.png'), { force: true });
+      }
+      write(join(res, 'drawable-xxxhdpi', 'ic_launcher_background.png'), await r.png(shapes.background(style), 432));
+      write(join(res, 'drawable-xxxhdpi', 'ic_launcher_foreground.png'), await r.png(shapes.foreground(style), 432));
+      write(join(res, 'drawable-xxxhdpi', 'ic_launcher_monochrome.png'), await r.png(shapes.monochrome(style), 432));
+      for (const [dir, size] of [['mdpi', 48], ['hdpi', 72], ['xhdpi', 96], ['xxhdpi', 144], ['xxxhdpi', 192]]) {
+        write(join(res, 'mipmap-' + dir, 'ic_launcher.png'), await r.png(shapes.tile(style, { size, r: 100 }), size));
+        write(join(res, 'mipmap-' + dir, 'ic_launcher_round.png'), await r.png(shapes.circle(style, { size }), size));
+      }
+    }
+
+    /* desktop: installers and the running window */
+    if (existsSync(nativeRoot)) {
+      const ICONS = join(nativeRoot, 'icons');
+      const tilePng = async (size) => ({ size, data: await r.png(shapes.tile(style, { size, r: 104 }), size) });
+      write(join(ICONS, 'app.ico'), ico(await Promise.all([16, 24, 32, 48, 64, 128, 256].map(tilePng))));
+      const mac = async (size) => r.png(shapes.mac(style, { size }), size);
+      write(join(ICONS, 'app.icns'), icns([
+        { type: 'icp4', data: await mac(16) }, { type: 'icp5', data: await mac(32) },
+        { type: 'ic11', data: await mac(32) }, { type: 'ic12', data: await mac(64) },
+        { type: 'ic07', data: await mac(128) }, { type: 'ic13', data: await mac(256) },
+        { type: 'ic08', data: await mac(256) }, { type: 'ic14', data: await mac(512) },
+        { type: 'ic09', data: await mac(512) }, { type: 'ic10', data: await mac(1024) }
+      ]));
+      write(join(ICONS, 'app.png'), await r.png(shapes.tile(style, { size: 512, r: 104 }), 512));
+      write(join(nativeRoot, 'src', 'commonMain', 'composeResources', 'drawable', 'app_icon.png'),
+        await r.png(shapes.tile(style, { size: 256, r: 56 }), 256));
+    }
+  } finally { r.close(); }
+}
+
+/* ── gallery: every style, as each platform shows it ────────────── */
+async function gallery() {
+  const OUT = join(ROOT, 'docs', 'icons');
+  mkdirSync(OUT, { recursive: true });
+  const card = (style, n) => {
+    const P = (k) => `${style.id}-${k}-`;
+    const light = `
+      <figure>${shapes.squircle(style, { size: 92, p: P('ql') })}<figcaption>iOS</figcaption></figure>
+      <figure>${shapes.circle(style, { size: 92, p: P('cl') })}<figcaption>Android</figcaption></figure>
+      <figure>${shapes.themed(style, { size: 92, p: P('tl') })}<figcaption>Themed</figcaption></figure>
+      <figure>${shapes.mac(style, { size: 108, p: P('ml') })}<figcaption>macOS</figcaption></figure>`;
+    const dark = `
+      <figure>${shapes.squircle(style, { size: 92, p: P('qd') })}<figcaption>iOS</figcaption></figure>
+      <figure>${shapes.tile(style, { size: 92, r: 104, p: P('wd') })}<figcaption>Windows</figcaption></figure>
+      <figure>${shapes.themed(style, { size: 92, p: P('td'), bg: '#26304A', ink: '#CBD8FF' })}<figcaption>Themed</figcaption></figure>
+      <figure class="smalls"><div>${[48, 32, 16].map((s, i) => shapes.tile(style, { size: s, r: 112, p: P('s' + i) })).join('')}</div><figcaption>48 · 32 · 16</figcaption></figure>`;
+    return `<section class="opt">
+      <div class="lead">
+        <header><span class="n">${n}</span><div><h2>${style.name}${style.id === DEFAULT_STYLE ? ' <em>applied</em>' : ''}</h2><p class="fam">${style.family}</p></div></header>
+        ${shapes.squircle(style, { size: 196, p: P('hero') })}
+        <p class="idea">${style.idea}</p>
+        <code>--style=${style.id}</code>
+      </div>
+      <div class="walls"><div class="wall light">${light}</div><div class="wall dark">${dark}</div></div>
+    </section>`;
+  };
+  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Virulenter icon options</title>
+<style>
+  :root { --bg: #F3F4F7; --ink: #10131A; --ink2: #5A6273; --card: #fff; --line: rgba(16,19,26,.08); }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 36px; background: var(--bg); color: var(--ink);
+         font: 14.5px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif; }
+  h1 { margin: 0 0 4px; font-size: 26px; letter-spacing: -.5px; }
+  .lede { margin: 0 0 24px; color: var(--ink2); max-width: 900px; }
+  .opt { display: grid; grid-template-columns: 236px minmax(0, 1fr); gap: 18px; align-items: stretch;
+         background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 18px; margin-bottom: 16px; }
+  .lead { display: grid; gap: 10px; align-content: start; justify-items: start; }
+  .lead > svg { filter: drop-shadow(0 10px 16px rgba(16,19,26,.18)); margin: 4px 0 2px 20px; }
+  header { display: flex; gap: 10px; align-items: center; }
+  .n { width: 26px; height: 26px; border-radius: 7px; display: grid; place-items: center; background: var(--ink); color: #fff; font-weight: 700; font-size: 13px; }
+  h2 { margin: 0; font-size: 17px; letter-spacing: -.3px; line-height: 1.2; }
+  h2 em { font-style: normal; font-size: 10.5px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase; vertical-align: 2px;
+          margin-left: 6px; padding: 2px 6px; border-radius: 5px; background: #10131A; color: #fff; }
+  .fam { margin: 0; color: var(--ink2); font-size: 12.5px; }
+  .idea { margin: 0; color: var(--ink2); font-size: 13px; }
+  code { font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--ink2); background: var(--bg); border-radius: 6px; padding: 5px 8px; }
+  .walls { display: grid; gap: 12px; grid-template-rows: 1fr 1fr; }
+  .wall { display: flex; gap: 14px; align-items: center; justify-content: space-around; padding: 14px; border-radius: 10px; }
+  .wall.light { background: linear-gradient(135deg, #DCE6FF, #F4E6FF 55%, #FFE9DA); color: #2A3040; }
+  .wall.dark { background: linear-gradient(135deg, #0B1020, #1B1036 55%, #2A0F24); color: #C9D0E0; }
+  figure { margin: 0; display: grid; justify-items: center; gap: 6px; }
+  figure svg { display: block; }
+  figcaption { font-size: 11px; font-weight: 600; letter-spacing: .2px; opacity: .78; }
+  .smalls div { display: flex; gap: 8px; align-items: flex-end; height: 92px; padding-bottom: 22px; }
+</style></head><body>
+<h1>Virulenter · icon options</h1>
+<p class="lede">Five directions, none derived from the old mark. Each is shown as iOS, Android (and its Android 13+ themed form), macOS and Windows draw it, on a light and a dark wallpaper, down to favicon size. Apply one with <code>node tools/icon.mjs --style=…</code>.</p>
+${STYLES.map((s, i) => card(s, i + 1)).join('')}
+</body></html>`;
+  write(join(OUT, 'index.html'), html);
+  let r;
+  try { r = await openChrome(); } catch (e) { console.log(e.message + ' — gallery PNG skipped.'); return; }
+  try {
+    write(join(OUT, 'options.png'), await r.shoot(html, 1240, 0, 1));
+    for (const s of STYLES) write(join(OUT, `${s.id}.png`), await r.png(shapes.squircle(s, { size: 512, p: s.id + '-x-' }), 512));
+  } finally { r.close(); }
+}
+
+if (GALLERY) await gallery();
+else await apply(STYLE);
+setTimeout(() => process.exit(0), 300);

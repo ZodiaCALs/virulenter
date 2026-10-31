@@ -5,5 +5,5 @@
          values-night/colors.xml holds the dark theme's counterparts. -->
     <color name="app_background">#F4F5F8</color>
     <color name="app_accent">#2F6BFF</color>
-    <color name="app_icon_background">#5233E4</color>
+    <color name="app_icon_background">#0B0F1C</color>
 </resources>
