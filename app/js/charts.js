@@ -141,7 +141,7 @@ window.V = window.V || {};
       });
 
       /* hover band, behind the columns */
-      out.push('<rect class="band" x="0" y="' + topPad + '" width="' + Math.max(1, band - 2) + '" height="' + plotH + '" rx="6"/>');
+      out.push('<rect class="band" x="0" y="' + topPad + '" width="' + Math.max(1, band - 2) + '" height="' + plotH + '" rx="4"/>');
 
       /* columns */
       var geo = [];
