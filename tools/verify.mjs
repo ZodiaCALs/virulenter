@@ -1429,16 +1429,26 @@ check('heat cells show their day on hover', charts.heatTip === charts.heatWant, 
    less transparency */
 await send('Emulation.setEmulatedMedia', { features: [
   { name: 'prefers-color-scheme', value: 'light' }, { name: 'prefers-reduced-transparency', value: 'reduce' }] });
-const solid = await evaluate(`(() => {
-  V.views.toggleTab('home');
-  return { pane: getComputedStyle(document.querySelector('.summary')).backgroundColor,
-           aura: getComputedStyle(document.body, '::before').display };
-})()`);
+const MATERIAL = `(() => {
+  const pane = document.querySelector('.summary');
+  const cs = getComputedStyle(pane), rim = getComputedStyle(pane, '::before');
+  return { pane: cs.backgroundColor, blur: cs.backdropFilter || cs.webkitBackdropFilter || 'none',
+           rim: rim.display === 'none' ? 'none' : rim.content, radius: parseFloat(cs.borderTopLeftRadius),
+           aura: getComputedStyle(document.body, '::before').display,
+           grid: getComputedStyle(document.body, '::after').display };
+})()`;
+const solid = await evaluate(`(() => { V.views.toggleTab('home'); return ${MATERIAL}; })()`);
 await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'light' }] });
-const glass = await evaluate(`getComputedStyle(document.querySelector('.summary')).backgroundColor`);
+const glass = await evaluate(MATERIAL);
 check('glass turns solid under "reduce transparency"',
-  /^rgb\(255, 255, 255\)$/.test(solid.pane) && solid.aura === 'none' && /^rgba\(255, 255, 255, 0\.\d+\)$/.test(glass),
+  /^rgb\(255, 255, 255\)$/.test(solid.pane) && solid.aura === 'none' && solid.grid === 'none' &&
+  solid.blur === 'none' && solid.rim === 'none' && /^rgba\(255, 255, 255, 0\.\d+\)$/.test(glass.pane),
   JSON.stringify({ reduced: solid, normal: glass }));
+/* the material itself: panes are frosted, carry a lit rim, and keep to
+   the squarer corner scale (cards 12px at most) */
+check('panes are frosted glass with a lit rim and tight corners',
+  /blur\(/.test(glass.blur) && glass.rim !== 'none' && glass.grid !== 'none' && glass.radius > 0 && glass.radius <= 12,
+  JSON.stringify(glass));
 
 /* iOS rounds the corners of the touch icon itself: a pre-rounded icon
    showed as a rounded square with dark corners */
