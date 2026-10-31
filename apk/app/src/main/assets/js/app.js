@@ -6,7 +6,7 @@ window.V = window.V || {};
   'use strict';
 
   var U = V.util, D = V.date, S = V.store, UI = V.ui, Views = V.views,
-      Stats = V.stats, Codec = V.codec, C = V.color;
+      Charts = V.charts, Stats = V.stats, Codec = V.codec, C = V.color;
 
   var COLOR_NAMES = ['Blue', 'Teal', 'Orange', 'Red', 'Violet', 'Green', 'Magenta', 'Slate'];
   var THEME_LABELS = { system: 'Auto theme', light: 'Light theme', dark: 'Dark theme' };
@@ -29,6 +29,7 @@ window.V = window.V || {};
 
       S.load();
       Views.init();
+      Charts.init();
       Stats.init();
       /* before the first render: card tints depend on the resolved theme */
       App.applyLook(S.look);
@@ -169,7 +170,14 @@ window.V = window.V || {};
         if (cell) Views.setSelectedDay(cell.dataset.date);
       });
 
-      /* the year strip jumps the calendar to the day you pick */
+      /* the year strip shows a day on hover or tap, and jumps the
+         calendar to the day you pick */
+      Stats.bindCells(U.qs('#calYearGrid'), function (iso) {
+        var per = {};
+        S.entriesOnDay(iso).forEach(function (r) { per[r.event.id] = (per[r.event.id] || 0) + 1; });
+        return S.events.map(function (e) { return { name: e.name, color: UI.tone(e.color).c, n: per[e.id] || 0 }; })
+          .sort(function (a, b) { return b.n - a.n; });
+      });
       U.qs('#calYearGrid').addEventListener('click', function (ev) {
         var hc = ev.target.closest('.hc[data-date]');
         if (!hc) return;
@@ -421,7 +429,19 @@ window.V = window.V || {};
       st.setProperty('--accent-light', t.light);
       st.setProperty('--accent-shadow', C.rgba(t.value, dark ? 0.55 : 0.42));
       st.setProperty('--glow', C.rgba(t.value, dark ? 0.16 : 0.1));
+      st.setProperty('--accent-wash', C.rgba(t.value, dark ? 0.2 : 0.12));
       st.setProperty('--font', Codec.fontStack(look.font));
+
+      /* the aurora behind the glass: the accent and two neighbouring hues,
+         so every surface picks up a little of the chosen colour */
+      var sat = C.hsl(t.value)[1];
+      var auraL = dark ? 0.46 : 0.62;
+      var auraA = dark ? [0.36, 0.28, 0.24] : [0.36, 0.28, 0.24];
+      [[0, auraA[0]], [48, auraA[1]], [-64, auraA[2]]].forEach(function (a, i) {
+        var hue = C.spin(t.value, a[0], auraL);
+        if (sat < 0.15) hue = C.mix(hue, dark ? '#3a4150' : '#c9d0dc', 0.6);   // neutral accents stay neutral
+        st.setProperty('--aura-' + (i + 1), C.rgba(hue, a[1]));
+      });
 
       /* heat ramp: from the empty cell's shade up to the accent */
       var from = dark ? '#20242c' : '#ffffff';

@@ -3,51 +3,113 @@
    appearance and settings sheets.
    ============================================================ */
 
-/* ══════════ hero tiles ══════════ */
+/* ══════════ filter row ══════════
+   One row, above everything it scopes; it stays in reach while scrolling. */
+.stat-filters {
+  position: sticky;
+  top: calc(var(--topbar-h) + env(safe-area-inset-top, 0px) + 6px);
+  z-index: 20;
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 14px;
+  padding: 5px;
+  border-radius: 17px;
+  background: var(--pane-strong);
+  -webkit-backdrop-filter: var(--blur);
+  backdrop-filter: var(--blur);
+  box-shadow: inset 0 1px 0 var(--pane-edge), inset 0 0 0 1px var(--pane-line), var(--pane-shadow);
+}
+.stat-filters .seg { flex: none; padding: 2px; border-radius: 12px; }
+.stat-filters .seg-btn { min-height: 32px; padding: 0 11px; font-size: 12.5px; letter-spacing: .2px; }
+.filter-chips {
+  display: flex; gap: 4px;
+  flex: 1; min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 22px), transparent);
+  mask-image: linear-gradient(90deg, #000 calc(100% - 22px), transparent);
+  padding-right: 18px;
+}
+.filter-chips::-webkit-scrollbar { display: none; }
+.fchip {
+  flex: none;
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 34px; padding: 0 12px;
+  border-radius: 11px;
+  font-size: 13px; font-weight: 600;
+  white-space: nowrap;
+  color: var(--text-2);
+  transition: background .2s var(--ease), color .2s var(--ease), box-shadow .2s var(--ease);
+}
+.fchip:hover { color: var(--text); background: var(--surface-2); }
+.fchip i { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.fchip span { max-width: 14ch; overflow: hidden; text-overflow: ellipsis; }
+.fchip.is-on {
+  color: var(--text);
+  background: var(--raised);
+  box-shadow: inset 0 1px 0 var(--btn-edge), inset 0 0 0 1px var(--pane-line), 0 1px 3px rgba(15, 23, 42, .1);
+}
+
+/* ══════════ stat tiles ══════════
+   label · value · change against the period before. One hero figure per
+   view (the first tile); big numbers keep proportional figures. */
 .stat-hero {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 10px;
   margin-bottom: 14px;
 }
 .stat-hero .sh {
+  grid-column: span 2;
   min-width: 0;
-  padding: 14px 16px 13px;
-  background: var(--surface);
-  border: 1px solid var(--hairline);
+  display: flex; flex-direction: column; align-items: flex-start;
+  padding: 13px 14px 12px;
+  background: linear-gradient(155deg, var(--pane-sheen), transparent 38%), var(--pane);
+  border: 1px solid var(--pane-line);
   border-radius: var(--r-lg);
-  box-shadow: var(--shadow-2);
+  box-shadow: inset 0 1px 0 var(--pane-edge), var(--pane-shadow);
   animation: fadeUp .45s var(--ease) both;
   animation-delay: calc(var(--i, 0) * 40ms);
 }
 .stat-hero .sh b {
   display: block;
-  font-size: 28px; font-weight: 760; line-height: 1.12;
-  letter-spacing: -1px;
-  font-variant-numeric: tabular-nums;
+  max-width: 100%;
+  font-size: 26px; font-weight: 760; line-height: 1.12;
+  letter-spacing: -.8px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .stat-hero .sh span {
   display: block; margin-top: 3px;
-  font-size: 12.5px; font-weight: 550; color: var(--text-3);
+  font-size: 12px; font-weight: 550; line-height: 1.35; color: var(--text-3);
 }
-.stat-hero .sh em {
-  font-style: normal; font-size: 14px; font-weight: 650; letter-spacing: 0;
-  color: var(--text-2); margin-left: 6px;
-}
-.stat-hero .sh.span2 { grid-column: span 2; }
-.stat-hero .sh.date b { font-size: 23px; line-height: 1.32; letter-spacing: -.6px; }
+.stat-hero .sh.lead { grid-column: span 6; padding: 16px 18px 15px; }
+.stat-hero .sh.lead b { font-size: 50px; line-height: 1; letter-spacing: -2px; }
+.stat-hero .sh.lead span { font-size: 13.5px; margin-top: 6px; }
 .stat-hero .sh.lead {
   color: var(--accent-ink);
-  background: linear-gradient(140deg, var(--accent-light), var(--accent) 70%);
-  border-color: transparent;
-  box-shadow: 0 16px 34px -18px var(--accent-shadow);
+  background: linear-gradient(155deg, rgba(255, 255, 255, .28), transparent 42%),
+              linear-gradient(140deg, var(--accent-light), var(--accent) 70%);
+  border-color: rgba(255, 255, 255, .25);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .45), 0 16px 34px -18px var(--accent-shadow);
 }
-.stat-hero .sh.lead span { color: inherit; opacity: .8; }
+.stat-hero .sh.lead span { color: inherit; opacity: .82; }
+.delta {
+  display: inline-flex; align-items: center; gap: 2px;
+  margin-top: auto;
+  padding: 2px 8px 2px 5px;
+  border-radius: 999px;
+  font-style: normal; font-size: 11.5px; font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--text-2);
+  background: var(--surface-2);
+}
+.stat-hero .sh .delta { margin-top: 8px; }
+.delta .ico { width: 13px; height: 13px; stroke-width: 2.6; }
+.delta.flat { padding-left: 8px; }
+.stat-hero .sh.lead .delta { color: var(--accent-ink); background: rgba(255, 255, 255, .2); }
 @media (min-width: 640px) {
-  .stat-hero { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-  .stat-hero .sh.w2 { grid-column: span 2; }
-  .stat-hero .sh.date b { font-size: 28px; line-height: 1.12; }
+  .stat-hero { grid-template-columns: repeat(12, minmax(0, 1fr)); }
+  .stat-hero .sh.lead { grid-column: span 6; }
 }
 
 /* ══════════ generic panel ══════════ */
@@ -63,27 +125,16 @@
   margin-bottom: 14px;
 }
 .panel-head h3 { font-size: 15px; font-weight: 700; letter-spacing: -.25px; }
+.panel-title { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.panel-title .panel-sub { text-align: left; }
+.table-toggle { width: 34px; height: 34px; border-radius: 10px; }
+.table-toggle .ico { width: 18px; height: 18px; }
+.table-toggle.is-on { color: var(--accent-text); background: var(--accent-wash); }
 .panel-sub { font-size: 12px; font-weight: 550; color: var(--text-3); text-align: right; font-variant-numeric: tabular-nums; }
 .stat-pair { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0 14px; }
 @media (min-width: 640px) {
   .stat-pair { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
-
-.mini-select {
-  height: 34px;
-  padding: 0 30px 0 12px;
-  border: 1px solid var(--hairline-2);
-  border-radius: 10px;
-  font-size: 13.5px; font-weight: 650;
-  font-variant-numeric: tabular-nums;
-  color: var(--text);
-  background: var(--field) no-repeat right 10px center / 12px
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23858ea0' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
-  -webkit-appearance: none;
-  appearance: none;
-  outline: none;
-}
-.mini-select:focus-visible { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 
 /* ══════════ streaks ══════════ */
 .streak-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
@@ -103,76 +154,87 @@
 .streak-row .sr.hot b { color: var(--accent-text); }
 .streak-note { margin-top: 12px; font-size: 12.5px; line-height: 1.55; color: var(--text-2); }
 
-/* ══════════ bar charts ══════════ */
-.bar-chart {
+/* ══════════ charts (js/charts.js) ══════════ */
+.chart {
   position: relative;
-  display: flex;
-  align-items: flex-end;
-  gap: 4px;
-  height: 108px;
+  min-height: 120px;
+  border-radius: 12px;
+  outline: none;
+  -webkit-user-select: none;
+  user-select: none;
+  --series: var(--accent);
 }
-.bar-chart.tall { height: 140px; }
-.bar-chart.has-caps { margin-bottom: 22px; }
-.bar-chart .bar {
-  position: relative;
-  flex: 1 1 0;
-  min-width: 0;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-}
-.bar-chart .bar i {
-  display: block;
-  height: var(--h, 3%);
-  min-height: 4px;
-  border-radius: 6px 6px 3px 3px;
-  background: linear-gradient(180deg, var(--accent-light), var(--accent));
+.chart:focus-visible { box-shadow: 0 0 0 2px var(--accent); }
+.chart-svg { display: block; overflow: visible; }
+.chart .grid { stroke: var(--grid); stroke-width: 1; shape-rendering: crispEdges; }
+.chart .axis { stroke: var(--axis); stroke-width: 1; shape-rendering: crispEdges; }
+.chart .tick { font-size: 11px; font-weight: 550; fill: var(--text-3); font-variant-numeric: tabular-nums; }
+.chart .tick.y { text-anchor: end; dominant-baseline: middle; }
+.chart .tick.x { text-anchor: middle; }
+.chart .band { fill: var(--surface-2); opacity: 0; transition: opacity .15s var(--ease); }
+.chart .band.is-on { opacity: 1; }
+.chart .bar { fill: var(--series); transition: opacity .2s var(--ease), filter .2s var(--ease), fill .2s var(--ease); }
+.chart .bar.grow {
+  transform-box: fill-box;
   transform-origin: 50% 100%;
   animation: grow .7s var(--ease) both;
-  animation-delay: calc(var(--i, 0) * 12ms);
-  transition: opacity .2s var(--ease), filter .2s var(--ease);
+  animation-delay: calc(var(--i, 0) * 13ms);
 }
-.bar-chart .bar.zero i { background: var(--lv0); }
-.bar-chart .bar.is-on i { filter: brightness(1.08) saturate(1.1); }
-.bar-chart.is-hover .bar:not(.is-on) i { opacity: .45; }
-/* captions sit centred under their bar and may be wider than it — they are
-   never clipped (a two-digit day used to be cut to "1ꞩ") */
-.bar-chart .bar .cap {
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 10.5px; font-weight: 600;
-  line-height: 1;
-  color: var(--text-3);
-  white-space: nowrap;
+.chart .bar.is-rest { fill: var(--deemph); }
+.chart.is-hover .bar:not(.is-on) { opacity: .45; }
+.chart .bar.is-on { filter: brightness(1.08) saturate(1.08); }
+.chart .bar.is-rest.is-on { fill: var(--deemph-on); filter: none; }
+/* the mean is a reference, not data: dashed, labelled, recessive */
+.chart .avg { stroke: var(--text-3); stroke-width: 1; stroke-dasharray: 3 3; opacity: .85; shape-rendering: crispEdges; }
+.chart .avg-label, .chart .peak-label {
+  font-size: 11px; font-weight: 650;
+  fill: var(--text-2);
   font-variant-numeric: tabular-nums;
-  pointer-events: none;
+  paint-order: stroke;
+  stroke: var(--halo); stroke-width: 3px; stroke-linejoin: round;
 }
-.bar-chart .bar.cap-end .cap { left: auto; right: 0; transform: none; }
-.bar-chart .bar.cap-start .cap { left: 0; transform: none; }
+.chart .empty-label { font-size: 13px; font-weight: 550; fill: var(--text-3); text-anchor: middle; dominant-baseline: middle; }
+.chart-table { font-size: 13px; }
+.chart-table td.num { font-weight: 650; }
 
-/* one tooltip for every chart; fixed, and clamped to the viewport by
-   js/stats.js, so it can never stretch the page */
+/* one tooltip for every chart and heat grid; fixed, and clamped to the
+   viewport by js/charts.js, so it can never stretch the page */
 .chart-tip {
   position: fixed;
   left: 0; top: 0;
   z-index: 60;
-  padding: 6px 10px;
-  border-radius: 9px;
-  font-size: 12px; font-weight: 650;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
+  min-width: 128px;
+  max-width: min(280px, calc(100vw - 16px));
+  padding: 9px 12px 10px;
+  border-radius: 13px;
+  font-size: 12.5px; line-height: 1.35;
   color: var(--tooltip-text);
   background: var(--tooltip);
-  box-shadow: 0 8px 20px -8px rgba(0, 0, 0, .4);
+  -webkit-backdrop-filter: var(--blur);
+  backdrop-filter: var(--blur);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .12), 0 12px 30px -10px rgba(0, 0, 0, .45);
   pointer-events: none;
   opacity: 0;
-  transform: translate3d(var(--x, 0), var(--y, 0), 0) scale(.94);
-  transition: opacity .15s var(--ease), transform .2s var(--ease);
+  transform: translate3d(var(--x, 0), var(--y, 0), 0) scale(.96);
+  transition: opacity .15s var(--ease), transform .18s var(--ease);
 }
 .chart-tip.is-on { opacity: 1; transform: translate3d(var(--x, 0), var(--y, 0), 0); }
+.tip-head { font-size: 11.5px; font-weight: 600; opacity: .7; }
+.tip-value { margin-top: 1px; }
+.tip-value b { font-size: 18px; font-weight: 760; letter-spacing: -.4px; }
+.tip-note { font-size: 11.5px; opacity: .7; }
+.tip-rows {
+  display: grid; gap: 3px;
+  margin-top: 7px; padding-top: 7px;
+  border-top: 1px solid rgba(127, 127, 127, .3);
+}
+/* rows keyed with a short line in the event's colour; value first */
+.tip-row { display: grid; grid-template-columns: 12px auto minmax(0, 1fr); align-items: center; gap: 7px; font-size: 12px; }
+.tip-row.more { display: block; opacity: .65; }
+.tip-key { width: 12px; height: 3px; border-radius: 2px; }
+.tip-row b { font-weight: 700; font-variant-numeric: tabular-nums; text-align: right; min-width: 1.4em; }
+.tip-row span { opacity: .82; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tip-hint { margin-top: 7px; font-size: 11px; opacity: .58; }
 
 /* ══════════ per-event table ══════════ */
 .table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
@@ -210,12 +272,12 @@
 /* phones: each event becomes a small stacked card instead of a table that
    has to scroll sideways */
 @media (max-width: 559px) {
-  .table, .table tbody { display: block; }
-  .table thead {
+  .table.stack, .table.stack tbody { display: block; }
+  .table.stack thead {
     position: absolute; width: 1px; height: 1px; overflow: hidden;
     clip-path: inset(50%); white-space: nowrap;
   }
-  .table tr {
+  .table.stack tr {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     grid-template-areas:
@@ -226,16 +288,16 @@
     padding: 13px 0;
     border-top: 1px solid var(--hairline);
   }
-  .table tr:first-child { border-top: 0; padding-top: 2px; }
-  .table td { display: block; padding: 0; border: 0; text-align: left; min-width: 0; }
-  .table td.c-name { grid-area: name; }
-  .table td.c-taps { grid-area: taps; text-align: right; font-size: 15px; }
-  .table td.c-share { grid-area: share; }
-  .table td.c-rate { grid-area: rate; }
-  .table td.c-days { grid-area: days; }
-  .table td.c-last { grid-area: last; text-align: right; padding-right: 0; }
-  .table td.c-rate, .table td.c-days, .table td.c-last { white-space: normal; }
-  .table td[data-label]::before {
+  .table.stack tr:first-child { border-top: 0; padding-top: 2px; }
+  .table.stack td { display: block; padding: 0; border: 0; text-align: left; min-width: 0; }
+  .table.stack td.c-name { grid-area: name; }
+  .table.stack td.c-taps { grid-area: taps; text-align: right; font-size: 15px; }
+  .table.stack td.c-share { grid-area: share; }
+  .table.stack td.c-rate { grid-area: rate; }
+  .table.stack td.c-days { grid-area: days; }
+  .table.stack td.c-last { grid-area: last; text-align: right; padding-right: 0; }
+  .table.stack td.c-rate, .table td.c-days, .table td.c-last { white-space: normal; }
+  .table.stack td[data-label]::before {
     content: attr(data-label);
     display: block;
     margin-bottom: 1px;
@@ -244,7 +306,7 @@
   }
   .share-cell { justify-content: flex-start; }
   .share-cell .meter { flex: 1; width: auto; }
-  .table td.table-empty { grid-column: 1 / -1; text-align: center; }
+  .table.stack td.table-empty { grid-column: 1 / -1; text-align: center; }
 }
 
 /* ══════════ activity grid: weeks × weekdays ══════════ */
@@ -288,6 +350,7 @@
 .heat-grid .hc.sel { box-shadow: 0 0 0 1.5px var(--accent); }
 .heat-grid .hc:not(.blank):hover { transform: scale(1.3); box-shadow: 0 0 0 1.5px var(--accent); position: relative; z-index: 1; }
 .heat-grid .hc.blank { background: transparent; cursor: default; }
+.panel-head .legend { flex: none; }
 @media (min-width: 640px) {
   .heat-scroll { margin: 0; padding: 0 0 4px; }
   .heat-months, .heat-grid { grid-template-columns: repeat(var(--weeks, 53), minmax(9px, 1fr)); min-width: 0; }
@@ -385,14 +448,15 @@
 .look-preview {
   padding: 16px;
   border-radius: 18px;
-  background: radial-gradient(120% 120% at 50% 0%, var(--glow), transparent 70%), var(--bg);
+  background: radial-gradient(70% 70% at 0% 0%, var(--aura-1), transparent 70%),
+              radial-gradient(70% 70% at 100% 100%, var(--aura-2), transparent 70%), var(--bg);
   box-shadow: inset 0 0 0 1px var(--hairline);
 }
 .lp-card {
   padding: 14px;
   border-radius: 16px;
-  background: var(--surface);
-  box-shadow: var(--shadow-2);
+  background: linear-gradient(155deg, var(--pane-sheen), transparent 40%), var(--pane);
+  box-shadow: inset 0 1px 0 var(--pane-edge), var(--pane-shadow);
 }
 .lp-top { display: flex; align-items: center; gap: 10px; }
 .lp-chip {
@@ -436,14 +500,16 @@
   display: flex; gap: 13px; align-items: flex-start;
   padding: 14px;
   border-radius: 18px;
-  background: var(--accent-soft);
+  background: linear-gradient(155deg, var(--pane-sheen), transparent 50%), var(--accent-wash);
+  box-shadow: inset 0 1px 0 var(--btn-edge), inset 0 0 0 1px var(--accent-wash);
 }
 .privacy-ic {
   width: 40px; height: 40px; flex: none;
   border-radius: 12px;
   display: grid; place-items: center;
   color: var(--accent-ink);
-  background: var(--accent);
+  background: linear-gradient(180deg, var(--accent-light), var(--accent) 70%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .4), 0 6px 14px -8px var(--accent-shadow);
 }
 .privacy-ic .ico { width: 22px; height: 22px; }
 .privacy b { display: block; font-size: 14.5px; font-weight: 700; }
@@ -455,7 +521,8 @@
   font-size: 12px; font-weight: 600;
   font-variant-numeric: tabular-nums;
   color: var(--text-2);
-  background: var(--surface);
+  background: var(--raised);
+  box-shadow: inset 0 1px 0 var(--btn-edge);
 }
 .privacy-stats span b { display: inline; font-size: inherit; color: var(--text); }
 
@@ -482,7 +549,8 @@
   border-radius: 10px;
   display: grid; place-items: center;
   color: var(--accent-text);
-  background: var(--surface);
+  background: var(--raised);
+  box-shadow: inset 0 1px 0 var(--btn-edge), inset 0 0 0 1px var(--pane-line);
 }
 .row-ic .ico { width: 19px; height: 19px; }
 .row-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
@@ -506,7 +574,8 @@
   border-radius: 10px;
   display: grid; place-items: center;
   color: var(--accent-text);
-  background: var(--surface);
+  background: var(--raised);
+  box-shadow: inset 0 1px 0 var(--btn-edge), inset 0 0 0 1px var(--pane-line);
 }
 .tile-ic .ico { width: 18px; height: 18px; }
 .tile b { font-size: 14px; font-weight: 650; }

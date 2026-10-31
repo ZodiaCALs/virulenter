@@ -723,34 +723,45 @@ check('year strip renders every day of the year',
   jump.yearStrip >= 365 && jump.yearStrip <= 366, JSON.stringify({ yearStrip: jump.yearStrip }));
 
 /* ── 19g. statistics view ───────────────────────────────── */
-const stats = await evaluate(`(() => {
+const stats = await evaluate(`(async () => {
   V.views.toggleTab('stats');
+  await new Promise((r) => setTimeout(r, 300));
   const txt = s => (document.querySelector(s) || {}).innerText || '';
   const bars = s => document.querySelectorAll(s + ' .bar').length;
-  return {
+  const out = {
     visible: !document.querySelector('#view-stats').hidden,
     homeHidden: document.querySelector('#view-home').hidden,
     hero: document.querySelectorAll('#statHero .sh').length,
     heroText: txt('#statHero').replace(/\\n+/g, ' | '),
     streaks: txt('#statStreak').replace(/\\n+/g, ' | '),
-    d30: bars('#stat30'), months: bars('#statMonths'),
-    weekday: bars('#statWeekday'), hours: bars('#statHour'),
+    d30: bars('#statTrend'), weekday: bars('#statWeekday'), hours: bars('#statHour'),
     rows: document.querySelectorAll('#statEvents tbody tr').length,
     firstRow: (document.querySelector('#statEvents tbody tr') || {}).innerText || '',
     heat: document.querySelectorAll('#statHeat .hc').length,
-    heatFilled: document.querySelectorAll('#statHeat .hc[title]').length
+    heatDays: document.querySelectorAll('#statHeat .hc[data-date]').length
   };
-})()`);
+  for (const r of ['7d', '90d', '1y']) {
+    document.querySelector('#statRange [data-range="' + r + '"]').click();
+    out['r' + r] = bars('#statTrend');
+    out['t' + r] = txt('#statTrendTitle');
+  }
+  document.querySelector('#statRange [data-range="30d"]').click();
+  return out;
+})()`, true);
 check('statistics view renders every panel',
   stats.visible && stats.homeHidden && stats.hero >= 4 && stats.d30 === 30 &&
-  stats.months === 12 && stats.weekday === 7 && stats.hours === 24,
-  JSON.stringify({ hero: stats.hero, d30: stats.d30, months: stats.months, weekday: stats.weekday, hours: stats.hours }));
+  stats.weekday === 7 && stats.hours === 24,
+  JSON.stringify({ hero: stats.hero, d30: stats.d30, weekday: stats.weekday, hours: stats.hours }));
+check('the range filter rebuckets the trend: 7 days, 13 weeks, 12 months',
+  stats.r7d === 7 && stats.r90d === 13 && stats.r1y === 12 &&
+  /day/.test(stats.t7d) && /week/.test(stats.t90d) && /month/.test(stats.t1y),
+  JSON.stringify({ r7d: stats.r7d, r90d: stats.r90d, r1y: stats.r1y, titles: [stats.t7d, stats.t90d, stats.t1y] }));
 check('streak and per-event figures are computed',
   /current/.test(stats.streaks) && /longest/.test(stats.streaks) &&
   stats.rows === 2 && /Coffee, large/.test(stats.firstRow),
   JSON.stringify({ streaks: stats.streaks.slice(0, 60), rows: stats.rows }));
 check('activity heat grid renders a day per cell',
-  stats.heat >= 365 && stats.heatFilled >= 3, JSON.stringify({ heat: stats.heat, filled: stats.heatFilled }));
+  stats.heat >= 365 && stats.heatDays >= 365, JSON.stringify({ heat: stats.heat, days: stats.heatDays }));
 
 /* ── 19h. settings tab opens a sheet over the current view ──
    It used to swap the Events view in underneath, leave the Settings tab lit
@@ -983,29 +994,39 @@ const layout = await evaluate(`(async () => {
     window.scrollTo(0, 0);
     await wait(500);
     const add = document.querySelector('#btnAddTop').getBoundingClientRect();
+    const labels = [];
+    document.querySelectorAll('#view-' + v + ' .chart svg').forEach((svg) => {
+      const sr = svg.getBoundingClientRect();
+      svg.querySelectorAll('text').forEach((t) => {
+        const r = t.getBoundingClientRect();
+        if (r.width && (r.left < sr.left - 1 || r.right > sr.right + 1)) labels.push('outside: ' + t.textContent);
+      });
+      const xs = [...svg.querySelectorAll('.tick.x')].map((t) => t.getBoundingClientRect()).sort((a, b) => a.left - b.left);
+      for (let i = 1; i < xs.length; i++) if (xs[i].left < xs[i - 1].right + 2) labels.push('overlap');
+    });
     out[v] = {
       innerW: innerWidth, docW: document.documentElement.scrollWidth, addRight: Math.round(add.right),
-      clippedCaps: [...document.querySelectorAll('#view-' + v + ' .bar-chart .cap')]
-        .filter((c) => c.scrollWidth > c.clientWidth + 0.5).map((c) => c.textContent)
+      clippedCaps: labels
     };
   }
   return out;
 })()`, true);
 check('no view widens the page on a 360px phone (the top bar stays on screen)',
   Object.values(layout).every((o) => o.innerW === 360 && o.docW <= 360 && o.addRight <= 360), JSON.stringify(layout));
-check('chart axis labels are never clipped',
+check('chart labels are never clipped or overlapping',
   Object.values(layout).every((o) => o.clippedCaps.length === 0), JSON.stringify(layout.stats));
 
 const tip = await evaluate(`(async () => {
   V.views.toggleTab('stats');
-  const bars = document.querySelectorAll('#stat30 .bar');
-  V.stats.showTip(bars[bars.length - 1]);
+  await new Promise((r) => setTimeout(r, 300));
+  const chart = document.querySelector('#statTrend');
+  V.charts.activate(chart, chart._geo.n - 1, 'mouse');
   await new Promise((r) => setTimeout(r, 400));
   const el = document.querySelector('.chart-tip');
   const r = el.getBoundingClientRect();
   const out = { left: Math.round(r.left), right: Math.round(r.right), vw: document.documentElement.clientWidth,
                 docW: document.documentElement.scrollWidth, text: el.textContent, shown: el.classList.contains('is-on') };
-  V.stats.hideTip();
+  V.charts.clear();
   return out;
 })()`, true);
 check('a chart tooltip at the screen edge stays inside the screen',
@@ -1322,7 +1343,7 @@ const TRUNCATED = `(async () => {
       if (!el.offsetParent) return false;
       const cs = getComputedStyle(el);
       return cs.textOverflow === 'ellipsis' && el.scrollWidth > el.clientWidth + 1 &&
-        !el.closest('.ev-name, .name, .name-cell, .chip span');
+        !el.closest('.ev-name, .name, .name-cell, .chip span, .fchip span');
     }).map((el) => el.className + ': ' + el.textContent.trim().slice(0, 30));
     if (cut.length) out[v] = cut;
   }
@@ -1334,6 +1355,108 @@ await new Promise((r) => setTimeout(r, 300));
 const cutWide = await evaluate(TRUNCATED, true);
 check('no figure or label is truncated, on a phone or a wide screen',
   !Object.keys(cutPhone).length && !Object.keys(cutWide).length, JSON.stringify({ phone: cutPhone, wide: cutWide }));
+
+/* ── the charts: keyboard, tooltip, filter, table twin, heat cells ── */
+await send('Emulation.setDeviceMetricsOverride', { width: 430, height: 900, deviceScaleFactor: 2, mobile: true });
+await new Promise((r) => setTimeout(r, 300));
+const charts = await evaluate(`(async () => {
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const D = V.date;
+  V.views.toggleTab('stats');
+  await wait(400);
+  const el = document.querySelector('#statTrend');
+  const out = {};
+  /* keyboard: End reads the newest column, Enter opens it */
+  el.focus();
+  el.dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true }));
+  await wait(100);
+  const tip = document.querySelector('.chart-tip');
+  out.shown = tip.classList.contains('is-on');
+  out.tipText = tip.innerText.replace(/\\n+/g, ' | ');
+  el.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }));
+  out.live = el.querySelector('.sr-only').textContent;
+  el.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+  el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+  await wait(300);
+  out.view = V.app.view;
+  out.sel = V.views.cal.sel;
+  out.today = D.toISO(D.today());
+  /* the event filter rescopes every figure, and recolours the series */
+  V.views.toggleTab('stats');
+  await wait(300);
+  const coffee = V.store.events.find((e) => e.name === 'Coffee');
+  const since = D.stripTime(D.addDays(D.today(), -29));
+  out.coffee30 = coffee.log.filter((t) => t >= since).length;
+  document.querySelector('#statOnly [data-only="' + coffee.id + '"]').click();
+  await wait(200);
+  out.filtered = {
+    hero: Number(document.querySelector('#statHero .lead b').textContent),
+    rows: document.querySelectorAll('#statEvents tbody tr').length,
+    series: getComputedStyle(document.querySelector('#statTrend')).getPropertyValue('--series').trim(),
+    tone: V.ui.tone(coffee.color).c
+  };
+  document.querySelector('#statOnly [data-only=""]').click();
+  await wait(200);
+  /* the table twin */
+  const toggle = document.querySelector('[data-table-for="statTrend"]');
+  toggle.click();
+  out.tableRows = document.querySelectorAll('#statTrend table tbody tr').length;
+  out.pressed = toggle.getAttribute('aria-pressed');
+  toggle.click();
+  out.barsBack = document.querySelectorAll('#statTrend .bar').length;
+  /* heat cells answer the same tooltip */
+  const cell = [...document.querySelectorAll('#statHeat .hc[data-n]')].filter((c) => +c.dataset.n > 0).pop();
+  cell.dispatchEvent(new PointerEvent('pointerover', { pointerType: 'mouse', bubbles: true }));
+  out.heatTip = tip.classList.contains('is-on') ? tip.innerText.split('\\n')[0] : '(hidden)';
+  out.heatWant = D.fmtDayLong(cell.dataset.date);
+  V.charts.clear();
+  return out;
+})()`, true);
+check('a chart answers the keyboard: arrows read each column, Enter opens it in the calendar',
+  charts.shown && /\d+ taps?/.test(charts.tipText) && /: \d+ taps?\./.test(charts.live) &&
+  charts.view === 'calendar' && charts.sel === charts.today, JSON.stringify(charts));
+check('the tooltip leads with the value and splits it by event',
+  /Coffee/.test(charts.tipText) && /Cigarette/.test(charts.tipText), charts.tipText);
+check('the event filter rescopes the figures and recolours the series',
+  charts.filtered.hero === charts.coffee30 && charts.filtered.rows === 1 && charts.filtered.series === charts.filtered.tone,
+  JSON.stringify({ coffee30: charts.coffee30, filtered: charts.filtered }));
+check('every chart has a table view of the same numbers',
+  charts.tableRows === 30 && charts.pressed === 'true' && charts.barsBack === 30,
+  JSON.stringify({ tableRows: charts.tableRows, pressed: charts.pressed, barsBack: charts.barsBack }));
+check('heat cells show their day on hover', charts.heatTip === charts.heatWant, JSON.stringify({ got: charts.heatTip, want: charts.heatWant }));
+
+/* glass gives way to solid surfaces for anyone who asks the system for
+   less transparency */
+await send('Emulation.setEmulatedMedia', { features: [
+  { name: 'prefers-color-scheme', value: 'light' }, { name: 'prefers-reduced-transparency', value: 'reduce' }] });
+const solid = await evaluate(`(() => {
+  V.views.toggleTab('home');
+  return { pane: getComputedStyle(document.querySelector('.summary')).backgroundColor,
+           aura: getComputedStyle(document.body, '::before').display };
+})()`);
+await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'light' }] });
+const glass = await evaluate(`getComputedStyle(document.querySelector('.summary')).backgroundColor`);
+check('glass turns solid under "reduce transparency"',
+  /^rgb\(255, 255, 255\)$/.test(solid.pane) && solid.aura === 'none' && /^rgba\(255, 255, 255, 0\.\d+\)$/.test(glass),
+  JSON.stringify({ reduced: solid, normal: glass }));
+
+/* iOS rounds the corners of the touch icon itself: a pre-rounded icon
+   showed as a rounded square with dark corners */
+if (isHttp) {
+  const touchIcon = await evaluate(`(async () => {
+    const img = new Image();
+    img.src = document.querySelector('link[rel=apple-touch-icon]').href;
+    await img.decode();
+    const c = document.createElement('canvas');
+    c.width = img.width; c.height = img.height;
+    const g = c.getContext('2d');
+    g.drawImage(img, 0, 0);
+    const corner = g.getImageData(0, 0, 1, 1).data[3];
+    return { size: img.width + 'x' + img.height, cornerAlpha: corner };
+  })()`, true);
+  check('the iOS touch icon is a full-bleed 180px square', touchIcon.size === '180x180' && touchIcon.cornerAlpha === 255,
+    JSON.stringify(touchIcon));
+}
 
 /* ── 22. no console errors ──────────────────────────────── */
 const IGNORE = [

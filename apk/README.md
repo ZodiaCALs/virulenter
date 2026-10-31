@@ -180,12 +180,34 @@ Checks the package identity, API levels, launcher entry point, absence of the
 internet permission, the resource table, the signature, the bundled web assets
 and that no bundled page references anything off-device.
 
-The web layer inside the APK is the same code, so the full 50-check web suite
-runs against the packaged assets too:
+The web layer inside the APK is the same code, so the web suite (87 checks
+for the packaged assets) runs against them too:
 
 ```bash
 node ../tools/verify.mjs --root="$PWD/app/src/main/assets"
 ```
+
+## Inspecting it on a phone
+
+A **debug** build switches on WebView debugging (`MainActivity` checks the
+build's debuggable flag; release builds never do). Connect the phone by USB with
+USB debugging enabled, open `chrome://inspect` in Chrome on the computer, and
+press *inspect* under Virulenter: the full DevTools — console, elements,
+network, performance — attached to the app running on the phone.
+
+## Icon and theme resources
+
+`tools/icon.mjs` draws every launcher asset from one vector master:
+
+| resource | what it is |
+|---|---|
+| `mipmap-*/ic_launcher*.png` | legacy bitmaps, square and round, for API 24–25 |
+| `drawable/ic_launcher_background.png` | adaptive layer: the coloured field |
+| `drawable/ic_launcher_foreground.png` | adaptive layer: the glass V and drop, inside the safe zone, refracting its own copy of the field |
+| `drawable/ic_launcher_monochrome.png` | the silhouette Android 13+ tints for themed icons; older versions ignore it |
+
+`values-night/` gives the window and system bars the dark theme's colour, so a
+phone in dark mode shows no light bars around the dark app.
 
 ## What is not here
 

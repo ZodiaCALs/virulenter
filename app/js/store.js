@@ -355,9 +355,10 @@ window.V = window.V || {};
       }).sort(function (a, b) { return b.count - a.count || a.event.name.localeCompare(b.event.name, 'en'); });
     },
 
-    /* longest run of consecutive days with at least one tap, plus current run */
-    streaks: function () {
-      var totals = Store.dayTotals();
+    /* longest run of consecutive days with at least one tap, plus current
+       run — for every event, or for the per-day totals passed in */
+    streaks: function (dayTotals) {
+      var totals = dayTotals || Store.dayTotals();
       var keys = Object.keys(totals).sort();
       if (!keys.length) return { longest: 0, longestEnd: null, current: 0, activeDays: 0 };
 

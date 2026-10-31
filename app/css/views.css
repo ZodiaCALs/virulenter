@@ -1,15 +1,16 @@
 /* ============================================================
    Virulenter · views.css — event cards, calendar, day panel.
    Per-event colour arrives as inline custom properties computed in
-   js/ui.js (UI.tone): --c (the colour), --c-soft / --c-soft-2 (tonal
-   fills), --c-softer (wash), --c-text (readable text) and --c-ink.
+   js/ui.js (UI.tone): --c (the colour), --c-soft / --c-soft-2 (tonal,
+   translucent fills), --c-softer (wash), --c-text (readable text) and
+   --c-ink. Cards are glass panes: see the note at the top of base.css.
    ============================================================ */
 
 .card {
-  background: var(--surface);
-  border: 1px solid var(--hairline);
+  background: linear-gradient(155deg, var(--pane-sheen), transparent 38%), var(--pane);
+  border: 1px solid var(--pane-line);
   border-radius: var(--r-lg);
-  box-shadow: var(--shadow-2);
+  box-shadow: inset 0 1px 0 var(--pane-edge), var(--pane-shadow);
   transition: background-color .3s var(--ease), border-color .3s var(--ease);
 }
 
@@ -18,10 +19,10 @@
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   margin-bottom: 14px;
-  background: var(--surface);
-  border: 1px solid var(--hairline);
+  background: linear-gradient(155deg, var(--pane-sheen), transparent 38%), var(--pane);
+  border: 1px solid var(--pane-line);
   border-radius: var(--r-lg);
-  box-shadow: var(--shadow-2);
+  box-shadow: inset 0 1px 0 var(--pane-edge), var(--pane-shadow);
 }
 .summary .st { position: relative; padding: 14px 10px 13px; text-align: center; min-width: 0; }
 .summary .st + .st::before {
@@ -58,10 +59,10 @@
   display: flex; flex-direction: column;
   min-width: 0;
   padding: 14px 14px 12px;
-  background: linear-gradient(180deg, var(--c-softer, transparent), transparent 96px), var(--surface);
-  border: 1px solid var(--hairline);
+  background: linear-gradient(180deg, var(--c-softer, transparent), transparent 110px), linear-gradient(155deg, var(--pane-sheen), transparent 38%), var(--pane);
+  border: 1px solid var(--pane-line);
   border-radius: var(--r-lg);
-  box-shadow: var(--shadow-2);
+  box-shadow: inset 0 1px 0 var(--pane-edge), var(--pane-shadow);
   transition: box-shadow .25s var(--ease), transform .25s var(--ease), background-color .3s var(--ease);
 }
 .ev.enter {
@@ -70,7 +71,7 @@
 }
 .ev.is-new { animation: cardNew .7s var(--ease-spring) both; }
 @media (hover: hover) {
-  .ev:hover { box-shadow: 0 1px 2px rgba(15, 23, 42, .05), 0 14px 32px -14px rgba(15, 23, 42, .22); }
+  .ev:hover { box-shadow: inset 0 1px 0 var(--pane-edge), 0 1px 2px rgba(15, 23, 42, .05), 0 18px 36px -16px rgba(30, 41, 80, .3); }
 }
 
 .ev-top { display: flex; align-items: center; gap: 11px; min-width: 0; }
@@ -81,6 +82,7 @@
   font-size: 16px; font-weight: 750; line-height: 1;
   color: var(--c-text);
   background: var(--c-soft);
+  box-shadow: inset 0 1px 0 var(--btn-edge), inset 0 0 0 1px var(--c-softer);
 }
 .ev-name {
   flex: 1; min-width: 0;
@@ -162,6 +164,7 @@
   font-size: 16px; font-weight: 700; letter-spacing: -.1px;
   color: var(--c-text);
   background: var(--c-soft);
+  box-shadow: inset 0 1px 0 var(--btn-edge), inset 0 0 0 1px var(--c-softer);
   transition: transform .2s var(--ease), background-color .2s var(--ease), box-shadow .2s var(--ease);
   touch-action: manipulation;
   -webkit-user-select: none;
@@ -230,10 +233,10 @@
   display: flex; flex-direction: column; align-items: center; text-align: center;
   gap: 10px;
   padding: 40px 22px 26px;
-  background: var(--surface);
-  border: 1px solid var(--hairline);
+  background: linear-gradient(155deg, var(--pane-sheen), transparent 38%), var(--pane);
+  border: 1px solid var(--pane-line);
   border-radius: var(--r-lg);
-  box-shadow: var(--shadow-2);
+  box-shadow: inset 0 1px 0 var(--pane-edge), var(--pane-shadow);
   animation: fadeUp .5s var(--ease) both;
 }
 .empty-art {
@@ -243,7 +246,7 @@
   display: grid; place-items: center;
   color: var(--accent-ink);
   background: linear-gradient(145deg, var(--accent-light), var(--accent));
-  box-shadow: 0 14px 30px -12px var(--accent-shadow);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .45), 0 14px 30px -12px var(--accent-shadow);
 }
 .empty-art .ico { width: 32px; height: 32px; stroke-width: 2.4; }
 .empty-ring {
@@ -271,7 +274,7 @@
   padding: 34px 16px;
   text-align: center;
   font-size: 14px; color: var(--text-3);
-  background: var(--surface);
+  background: var(--pane);
   border: 1px dashed var(--hairline-2);
   border-radius: var(--r-lg);
   animation: fadeUp .3s var(--ease) both;
@@ -438,6 +441,7 @@
   font-size: 14px; font-weight: 650;
   color: var(--c-text);
   background: var(--c-soft);
+  box-shadow: inset 0 1px 0 var(--btn-edge), inset 0 0 0 1px var(--c-softer);
   transition: transform .15s var(--ease), background-color .2s var(--ease);
 }
 .chip:hover { background: var(--c-soft-2, var(--c-soft)); }

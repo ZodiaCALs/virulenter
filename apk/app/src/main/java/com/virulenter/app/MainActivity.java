@@ -21,6 +21,7 @@ package com.virulenter.app;
 
 import android.content.ContentValues;
 import android.content.Intent;
+import android.content.pm.ApplicationInfo;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -90,6 +91,13 @@ public class MainActivity extends AppCompatActivity {
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         root.setFitsSystemWindows(true);
         setContentView(root);
+
+        /* A debug build can be inspected from chrome://inspect on a computer
+           over USB. WebView debugging ignores the manifest's debuggable flag,
+           so it has to be switched on here; release builds never are. */
+        if ((getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0) {
+            WebView.setWebContentsDebuggingEnabled(true);
+        }
 
         web = new WebView(this);
         web.setLayoutParams(new FrameLayout.LayoutParams(
