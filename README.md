@@ -72,7 +72,7 @@ Wi-Fi, local-file and https routes side by side.
 
 ### 2. One file — nothing to install, nothing to host
 
-**`dist/virulenter.html`** — a single self-contained file, ~146 KB. Send it by
+**`dist/virulenter.html`** — a single self-contained file, ~230 KB. Send it by
 email or chat, drop it on a USB stick or a shared drive, and double-click it.
 No server, no build step, no network access of any kind: the audit confirms
 zero external references, with the stylesheet, all seven scripts and the
@@ -228,10 +228,12 @@ so the link you can see is always the current session.
 https://example.com/virulenter/#d=AgEEQ29mZmVlApARAagIsuwB
 ```
 
-- **Short sessions** ride in the `#` fragment.
-- **Longer sessions** move to `?d=`, which browsers accept far more of.
+- **Every session rides in the `#` fragment.** A fragment is never sent to the
+  server, so its length is limited only by the browser — whereas a long `?d=`
+  query makes a reload fail with *414 URI Too Long* on most hosts.
 - **Two links merge** — repeat `&d=…` and the app unions them by event id, so
-  there is no hard ceiling. A `?d=` link and a `#d=` fragment merge too.
+  there is no hard ceiling. A `?d=` link and a `#d=` fragment merge too, both
+  on load and when pasted into *Settings → Paste data*.
 - **Backups** — JSON for exact restore, CSV for spreadsheets.
 
 ### Payload format
@@ -240,19 +242,22 @@ A packed binary blob, base64url-encoded. Each tap is stored as *(day offset,
 minute of day)* rather than a raw epoch timestamp: taps sit within a few hours
 of local midnight, so the minute part fits in two bytes.
 
-| taps | link length | form |
+| taps | link length | |
 |---:|---:|---|
-| 1 | 96 | `#d=` |
-| 100 | 762 | `#d=` |
-| 250 | 1 763 | `#d=` |
-| **~280** | **~2 000** | the largest that stays in the fragment |
-| 365 (a year of daily taps) | 2 530 | `?d=` |
-| 2 000 | 13 203 | `?d=`, or split across two links |
+| 1 | 96 | |
+| 100 | 762 | |
+| 250 | 1 763 | |
+| **~280** | **~2 000** | `MAX_URL`: the longest link that is safe to paste into chat or mail |
+| 365 (a year of daily taps) | 2 530 | still saved in the address bar |
+| 2 000 | 13 203 | still saved in the address bar |
+| **~4 800** | **~32 000** | `MAX_BAR`: the address bar stops updating |
 
-`MAX_URL` is deliberately conservative at 2 000 characters — beyond that, chat
-apps and mail clients start truncating. When a session passes it the app stops
-rewriting the bar and tells you to export or split, rather than silently handing
-you a broken link.
+Two limits, for two different jobs. Past `MAX_URL` (2 000 characters) chat apps
+and mail clients start truncating links, so *Settings* suggests moving the data
+as a backup file instead — but the address bar keeps saving every tap. Only past
+`MAX_BAR` (32 000 characters, far inside every browser's limit and small enough
+for Android's saved-state bundle) does the app stop rewriting the bar, and then
+it says so on screen and points you at the backup.
 
 A JSON timestamp costs ~17 base64 characters; this format costs ~2.7. That 6×
 is the difference between holding a year and holding six weeks.
@@ -264,8 +269,12 @@ is the difference between holding a year and holding six weeks.
 - One press = **+1** and a timestamp. Presses are recorded to the minute.
 - Per-card figures: total, average per day, first tap, days running, last tap.
 - Correct English pluralisation (*1 tap* / *3 taps*).
-- Remove a mistaken press individually, or clear an event's history.
+- Remove a mistaken press individually, or clear an event's history — both
+  with **Undo**, as is deleting an event.
 - In-place updates on tap, so the list never reorders under your finger.
+- Each card shows its **last seven days** as a sparkline, in the event's colour.
+- Destructive actions ask first, in an in-page dialog that also works inside
+  the Android app (which answers `window.confirm()` with an instant *no*).
 
 ### Calendar
 - Monday-first month grid; each day shaded by how many taps landed on it. The
@@ -273,23 +282,30 @@ is the difference between holding a year and holding six weeks.
   you tap three times a week or forty times a day.
 - **Quick jump** — tap the month title for a 12-month picker with per-month
   counts, plus a list of the years that actually contain data.
-- **`−1y` / `Today` / `+1y`** buttons for fast travel.
-- **Year-at-a-glance strip** under the calendar: all twelve months as columns,
-  every day of the year visible, each cell clickable.
-- Tap a day to list its taps with times; add a tap to a past day; delete one.
+- **Previous year / `Today` / next year** buttons for fast travel, and a
+  sideways swipe on the grid to change month.
+- **Year at a glance**: a row per month and a column per day, so a whole year
+  fits the width of a phone — every day visible, each cell clickable.
+- Tap a day to list its taps with times, or delete one. Add a tap to a past day
+  for **the event you pick, at the time you set**; days still ahead cannot be
+  logged.
 
 ### Statistics
 - Totals: taps, events, today, last 7 days, average per day, first tap ever.
 - **Streaks**: current run, longest run, active days, average on an active day.
 - **Last 30 days** bar chart with hover/tap values.
 - **By month** for any year that has data, **by weekday**, **by hour of day**.
-- **Per-event table**: taps, share of total, average per day, active days, last tap.
-- **Activity grid** in the contribution style — one cell per day of the year.
+- **Per-event table**: taps, share of total, average per day, active days, last
+  tap — stacked into compact rows on a phone instead of scrolling sideways.
+- **Activity grid** in the contribution style — one cell per day of the year,
+  opening scrolled to today; tap a day to open it in the calendar.
 
 ### Appearance
+- **Light, dark, or follow the system** — the system setting is tracked live.
 - 10 accent presets plus an arbitrary custom colour (picker or hex).
 - Choosing a colour re-tints the whole app, including the calendar and heat-grid
-  ramps — the shades are derived from your accent, not hard-coded.
+  ramps — the shades are derived from your accent, not hard-coded, and mixed
+  against the active theme so every text colour keeps its contrast.
 - 5 typefaces: System, Humanist, Serif, Rounded, Mono, each shown in its own face.
 - Live preview card inside the sheet.
 - Appearance is part of the payload, so the look travels with the link.
@@ -336,7 +352,8 @@ virulenter/
 │  ├─ virulenter-android-release.apk
 │  └─ virulenter-android-debug.apk
 ├─ tools/
-│  ├─ verify.mjs            51 automated checks in real headless Chrome
+│  ├─ verify.mjs            80 automated checks in real headless Chrome
+│  ├─ chrome.mjs            finds Chrome / Chromium for the headless tools
 │  ├─ shots.mjs             regenerates verify/shots/*.png
 │  ├─ icon.mjs              regenerates the icon set (web + Android densities)
 │  ├─ serve.mjs             HTTP server for installing / phone testing
@@ -356,7 +373,7 @@ virulenter/
 node tools/serve.mjs                 # serve app/ for install + LAN testing
 node build.mjs                       # rebuild dist/virulenter.html
 node build.mjs --min                 # minified variant
-node tools/verify.mjs                # 51 checks, served over HTTP
+node tools/verify.mjs                # 80 checks, served over HTTP
 node tools/verify.mjs --url=file://$PWD/dist/virulenter.html   # checks the single-file build
 node tools/shots.mjs                 # regenerate screenshots
 node tools/icon.mjs                  # regenerate icons (web + Android)
@@ -367,6 +384,9 @@ node tools/validate-apk.mjs dist/virulenter-android-release.apk
 node tools/verify.mjs --root="$PWD/apk/app/src/main/assets"   # test the packaged assets
 node tools/clean.mjs                 # reclaim build caches
 ```
+
+The headless tools find Chrome or Chromium on macOS, Linux and Windows; set
+`CHROME=/path/to/browser` to use a specific one.
 
 ### Keeping the checkout small
 
@@ -425,8 +445,9 @@ Three suites, all green:
 
 | suite | scope | result |
 |---|---|---|
-| `tools/verify.mjs` | the web app in headless Chrome | **51 checks** |
-| `tools/verify.mjs --root=apk/app/src/main/assets` | the exact bytes packaged into the APK | **50 checks** |
+| `tools/verify.mjs` | the web app in headless Chrome | **80 checks** |
+| `tools/verify.mjs --url=file://…/dist/virulenter.html` | the single-file build | **79 checks** |
+| `tools/verify.mjs --root=apk/app/src/main/assets` | the exact bytes packaged into the APK | **79 checks** |
 | `tools/validate-apk.mjs` | the built APK itself | **14 checks** |
 
 The web suite drives the real application over CDP — covering:
@@ -438,7 +459,7 @@ The web suite drives the real application over CDP — covering:
 - URL round-trip across a real reload
 - calendar: grid shape, intensity classes, day panel, removing a tap, day totals
 - both merge paths (repeated `?d=`, and `?d=` with `#d=`), corrupt-link handling
-- link-form switching and oversized-log warnings
+- long logs keep saving in the fragment; a log past the ceiling warns
 - codec round-trips: Unicode names, month ends, a 365-tap year, exact tap times
 - CSV: row count, RFC 4180 quoting, CRLF, both export shapes
 - appearance: presets, fonts, custom colour — through the link and onto the ramp
@@ -447,6 +468,10 @@ The web suite drives the real application over CDP — covering:
 - PWA: manifest contents and icon fetches, worker registration and pre-cache,
   and **an offline reload** with `Network.emulateNetworkConditions`
 - XSS escaping of user text in every render path
+- layout on a 360px phone and on a wide screen: nothing widens the page, no
+  label or figure is clipped, nothing floats over the controls, and sheets
+  stack in the order they were opened
+- the theme, in-page confirmations, Undo, and merging a backup into itself
 
 The APK validator reads the built artifact with `aapt2` and `apksigner`: package
 identity, API levels, launcher entry point, resource table, signature, the
@@ -471,6 +496,39 @@ value (it calls that a conflict, not a match), a Kotlin `stdlib` / `stdlib-jdk7`
 version skew that surfaced as duplicate classes, and an `xml` comment containing
 a double hyphen — which XML forbids and `aapt2` rejects.
 
+### The UI review
+
+A later pass through the interface — measuring layout in headless Chrome at
+phone and desktop widths rather than reading screenshots — found these. Each
+now has a regression check in `tools/verify.mjs`.
+
+1. **Every tap after roughly the 280th was lost on reload.** The address bar
+   stopped updating at the share-friendly 2 000 characters. It now keeps saving
+   up to `MAX_BAR`, in the fragment (see [Payload format](#payload-format)).
+2. **A start date before 2020 moved every tap forward** by the difference: the
+   start was written as 2020-01-01 while taps were measured from the real start.
+3. **Inside the Android app, Delete and Erase did nothing, and loading data
+   replaced everything without asking** — the WebView answers `confirm()` with an
+   instant *no*. In a browser, *Cancel* on that question also meant *replace*.
+4. **Appearance opened underneath Settings**, so its button seemed dead: both
+   sheets had the same `z-index` and Appearance came first in the document.
+5. **The Stats view widened the page on phones.** Invisible chart tooltips
+   stuck out past the edge, mobile Chrome grew the layout viewport, and the top
+   bar's **+** slid off-screen. Two-digit axis labels were clipped to "1ꞩ".
+6. **Both heat grids opened on January**, 53 weeks wide inside a phone-width
+   card — no active day was visible without scrolling.
+7. The floating **+** covered the last card; the top bar's settings button had
+   no handler; the Settings tab stayed lit, and hid **+**, after closing.
+8. "Add a tap on this day **at 16:37**" logged 12:00, logged *future* days as
+   today, and always picked whichever card sorted first.
+9. Smaller ones: "yesterday" for a tap two calendar days back; the lightest heat
+   shade never used; an inflated average when the start date followed the first
+   tap; `NaN` in the *Oldest* sort; pasted links reading only their first `d=`;
+   JSON backups losing their ids on the way in, and duplicating a session's taps
+   when merged back; dismissed notices reappearing; a sheet re-opened during its
+   close animation vanishing; and a top bar that sat one notch-height too low in
+   standalone mode.
+
 ## Limitations
 
 - **A link is a snapshot.** Tapping on your phone and on your laptop produces two
@@ -480,7 +538,13 @@ a double hyphen — which XML forbids and `aapt2` rejects.
   matches by id — so merging a link into *its own* state duplicates events rather
   than de-duplicating them. Merge two *different* links, or use the JSON backup,
   which does carry ids.
-- **Times are stored to the minute.** Two taps in the same minute are one entry.
+- **Times are stored to the minute.** Two taps in the same minute are both kept,
+  with the same time.
+- **Start dates begin in 2020.** The format cannot hold an earlier start date; the
+  form will not take one, and one arriving in a backup is stored as 1 Jan 2020.
+  Taps themselves can be decades older.
+- **The address bar holds about 4 800 taps** (`MAX_BAR`). Past that the app keeps
+  working but stops rewriting the link, and asks you to save a backup.
 - **Clearing browser data cannot lose your log** — there was never anything in the
   browser to lose. Closing the tab without bookmarking the link does lose the session.
 - **The single-file build is not installable** and has no offline worker; those
@@ -490,6 +554,8 @@ a double hyphen — which XML forbids and `aapt2` rejects.
 
 Chrome / Edge 111+, Safari 16.4+, Firefox 113+. Older browsers degrade rather
 than break — the app derives its own colour shades in hex rather than relying on
-`color-mix()` for anything structural.
+`color-mix()`, and the frosted bars fall back to solid ones without
+`backdrop-filter`. Motion is reduced to instant changes under
+`prefers-reduced-motion`.
 
 Installation requires HTTP; everything else works over `file://`.

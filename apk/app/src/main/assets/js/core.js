@@ -54,15 +54,34 @@ window.V = window.V || {};
       };
     },
 
-    toast: function (msg) {
+    /* toast(msg) or toast(msg, { action: 'Undo', onAction: fn, duration: ms }).
+       At most three stay on screen; the oldest makes way for a new one. */
+    toast: function (msg, opts) {
+      opts = opts || {};
       var wrap = U.qs('#toastWrap');
-      if (!wrap) return;
-      var t = U.el('div', 'toast', U.esc(msg));
+      if (!wrap) return null;
+      var live = U.qsa('.toast:not(.out)', wrap);
+      if (live.length >= 3) dismiss(live[0]);
+
+      var t = U.el('div', 'toast');
+      t.setAttribute('role', 'status');
+      t.appendChild(U.el('span', 'toast-msg', U.esc(msg)));
+      if (opts.action && typeof opts.onAction === 'function') {
+        var b = U.el('button', 'toast-act', U.esc(opts.action));
+        b.type = 'button';
+        b.addEventListener('click', function () { opts.onAction(); dismiss(t); });
+        t.appendChild(b);
+      }
       wrap.appendChild(t);
-      setTimeout(function () {
-        t.classList.add('out');
-        setTimeout(function () { t.remove(); }, 220);
-      }, 1700);
+      var timer = setTimeout(function () { dismiss(t); }, opts.duration || (opts.action ? 4500 : 2000));
+
+      function dismiss(node) {
+        if (!node || node.classList.contains('out')) return;
+        if (node === t) clearTimeout(timer);
+        node.classList.add('out');
+        setTimeout(function () { node.remove(); }, 240);
+      }
+      return t;
     },
 
     copy: function (text) {
@@ -246,7 +265,9 @@ window.V = window.V || {};
       return U.pad2(d.getHours()) + ':' + U.pad2(d.getMinutes());
     },
 
-    /* relative, human: "3 min ago" / "Yesterday 14:05" */
+    /* relative, human: "3 mins ago" / "yesterday 14:05" / "3 days ago".
+       Days are calendar days, not 24-hour blocks: 36 hours before 08:00 is
+       the day before yesterday, and must not read as "yesterday". */
     fmtRelative: function (ts) {
       if (!ts) return '';
       var now = Date.now(), diff = now - ts;
@@ -255,8 +276,8 @@ window.V = window.V || {};
       if (min < 1) return 'just now';
       if (min < 60) return min + (min === 1 ? ' min ago' : ' mins ago');
       var hrs = Math.floor(min / 60);
-      if (hrs < 24) return hrs + (hrs === 1 ? ' hour ago' : ' hours ago');
-      var days = Math.floor(hrs / 24);
+      var days = D.diffDays(dFromTs(ts), dFromTs(now));
+      if (days === 0 || hrs < 6) return hrs + (hrs === 1 ? ' hour ago' : ' hours ago');
       if (days === 1) return 'yesterday ' + D.fmtTime(ts);
       if (days < 7) return days + ' days ago';
       return D.fmtDay(D.dayKey(ts));
@@ -278,5 +299,73 @@ window.V = window.V || {};
   /* ── colours for new events ───────────────────────────── */
   V.COLORS = ['#2f6bff', '#0ea5a0', '#f0872b', '#d92d4b',
               '#7c4dff', '#0f9d58', '#c2185b', '#5b6472'];
+
+  /* The card surface in each theme. Tints are mixed against these in hex,
+     so they must match --surface in css/base.css. */
+  V.SURFACE = { light: '#ffffff', dark: '#16191f' };
+
+  /* ── colour maths ─────────────────────────────────────────
+     Everything derived from a user colour (accent, event colours, heat
+     ramps) is computed here in plain hex rather than with color-mix(), so
+     older browsers get the same shades and contrast is guaranteed. */
+  var C = V.color = {
+    rgb: function (hex) {
+      var m = /^#?([0-9a-f]{6})$/i.exec(String(hex || ''));
+      if (!m) return null;
+      var n = parseInt(m[1], 16);
+      return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+    },
+
+    hex: function (rgb) {
+      return '#' + rgb.map(function (v) {
+        var s = Math.max(0, Math.min(255, Math.round(v))).toString(16);
+        return s.length === 1 ? '0' + s : s;
+      }).join('');
+    },
+
+    /* t is the share of b: mix(a, b, 0) = a, mix(a, b, 1) = b */
+    mix: function (a, b, t) {
+      var x = C.rgb(a), y = C.rgb(b);
+      if (!x || !y) return a;
+      return C.hex(x.map(function (v, i) { return v + (y[i] - v) * t; }));
+    },
+
+    rgba: function (hex, alpha) {
+      var c = C.rgb(hex) || [0, 0, 0];
+      return 'rgba(' + c[0] + ', ' + c[1] + ', ' + c[2] + ', ' + alpha + ')';
+    },
+
+    /* WCAG relative luminance */
+    luminance: function (hex) {
+      var c = C.rgb(hex);
+      if (!c) return 0;
+      var f = function (v) {
+        v /= 255;
+        return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+      };
+      return 0.2126 * f(c[0]) + 0.7152 * f(c[1]) + 0.0722 * f(c[2]);
+    },
+
+    contrast: function (a, b) {
+      var la = C.luminance(a), lb = C.luminance(b);
+      return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+    },
+
+    /* push fg toward black (light bg) or white (dark bg) until it reaches
+       the wanted contrast ratio against bg */
+    readable: function (fg, bg, min) {
+      var target = min || 4.5;
+      var toward = C.luminance(bg) > 0.18 ? '#000000' : '#ffffff';
+      var out = fg;
+      for (var i = 1; i <= 20 && C.contrast(out, bg) < target; i++) out = C.mix(fg, toward, i * 0.05);
+      return out;
+    },
+
+    /* label colour for a filled background: white whenever it holds 3:1,
+       which is the bar for bold UI text — otherwise near-black */
+    onColor: function (bg) {
+      return C.contrast('#ffffff', bg) >= 3 ? '#ffffff' : '#0e1525';
+    }
+  };
 
 })(window.V);
