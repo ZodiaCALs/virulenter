@@ -67,10 +67,11 @@ platform:
 
 ## New icon: Glass Heat
 
-The calendar's heat grid as panes of frosted glass on a deep instrument grid:
-the coolest panes nearly clear, the hottest holding light, glowing at their
-edges and lighting the field; the plus a glass orb lit from within, inside a
-HUD ring, with viewfinder brackets framing the grid. It is **Material Heat**
+The calendar's heat grid as thin panes of glass on a deep green field: flat
+sheets with hairline edges and a fine satin grain, the coolest nearly clear,
+the hottest holding mint light that glows onto the field; the plus on a disc of
+deep green glass inside a fine HUD ring, with slim viewfinder brackets framing
+the grid. It is **Material Heat**
 (after Google's Material 3), picked from five new directions and rebuilt in
 glass. The notification icon, launcher shortcut and widget follow it, and
 Android 13+ themed icons keep the heat steps.
