@@ -160,6 +160,153 @@ const material = {
 };
 
 /* ════════════════════════════════════════════════════════════════
+   Glass Heat — Material Heat, rebuilt in glass (the chosen mark)
+   The same heat grid and raised plus, as panes of frosted glass over a
+   deep tonal field ruled with a fine instrument grid. Each pane carries a
+   blurred, brightened copy of the field behind it — so the grid goes soft
+   inside the glass and stays crisp between — then a tint that grows with
+   the day's heat: the coolest panes are nearly clear, the hottest hold
+   light and throw a glow onto the field. Lit rims and a gloss give the
+   glass its edge; the plus is a deep glass orb lit from within, inside a
+   broken HUD ring, and viewfinder brackets frame the grid.
+   ════════════════════════════════════════════════════════════════ */
+const GH = {
+  deep: '#020A06', field: '#062016', core: '#0E3D29', glow: '#1FB86E',
+  mint: '#7CFFB5', pale: '#C2FFDD', leaf: '#2FD583', dark: '#0A6B3F', grid: '#9CF5C6',
+};
+/* heat per pane, 1 (cool) … 5 (hot); null is the orb */
+const GLASS_GRID = [
+  [1, 2, 3],
+  [2, 3, 4],
+  [3, 5, null],
+];
+const GR = 26;                                   // pane corner radius
+/* tint per heat: [top-left colour, alpha], [bottom-right colour, alpha] */
+const GLASS_TINT = {
+  1: [[GH.pale, 0.06], [GH.leaf, 0.03]],
+  2: [[GH.pale, 0.12], [GH.leaf, 0.11]],
+  3: [[GH.pale, 0.22], [GH.leaf, 0.27]],
+  4: [[GH.mint, 0.38], [GH.leaf, 0.52]],
+  5: [[GH.mint, 0.6], [GH.leaf, 0.8]],
+};
+const panes = () => GLASS_GRID.flatMap((row, r) => row.map((h, c) => (h ? { h, x: cellXY(c, r)[0], y: cellXY(c, r)[1] } : null))).filter(Boolean);
+const pane = (t, attrs, d = 0) =>
+  `<rect x="${t.x + d}" y="${t.y + d}" width="${CELL - 2 * d}" height="${CELL - 2 * d}" rx="${GR - d}" ${attrs}/>`;
+const bracket = (x, y, dx, dy) => `<path d="M${x} ${y + 24 * dy}V${y}H${x + 24 * dx}"/>`;
+const glassHeat = {
+  id: 'glass',
+  name: 'Glass Heat',
+  family: 'Material 3, in glass',
+  idea: 'Material Heat as frosted glass on a deep instrument grid: hotter panes hold more light and glow; the plus is a glass orb lit from within.',
+  plate: (p) => `
+    <defs>
+      <radialGradient id="${p}hf" gradientUnits="userSpaceOnUse" cx="256" cy="200" r="400">
+        <stop offset="0" stop-color="${GH.core}"/><stop offset=".55" stop-color="${GH.field}"/><stop offset="1" stop-color="${GH.deep}"/>
+      </radialGradient>
+      <radialGradient id="${p}hl" gradientUnits="userSpaceOnUse" cx="330" cy="340" r="260">
+        <stop offset="0" stop-color="${GH.glow}" stop-opacity=".46"/><stop offset="1" stop-color="${GH.glow}" stop-opacity="0"/>
+      </radialGradient>
+      <pattern id="${p}hg" width="32" height="32" patternUnits="userSpaceOnUse" x="0" y="0">
+        <path d="M32 0H0V32" fill="none" stroke="${GH.grid}" stroke-opacity=".11" stroke-width="1.2"/>
+      </pattern>
+      <radialGradient id="${p}hm" gradientUnits="userSpaceOnUse" cx="256" cy="256" r="340">
+        <stop offset=".3" stop-color="#fff"/><stop offset="1" stop-color="#fff" stop-opacity="0"/>
+      </radialGradient>
+      <mask id="${p}hk" maskUnits="userSpaceOnUse" ${BLEED}><rect ${BLEED} fill="url(#${p}hm)"/></mask>
+      <linearGradient id="${p}hs" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="512" y2="512">
+        <stop offset="0" stop-color="#fff" stop-opacity=".08"/><stop offset=".42" stop-color="#fff" stop-opacity="0"/>
+      </linearGradient>
+    </defs>
+    <rect ${BLEED} fill="url(#${p}hf)"/>
+    <rect ${BLEED} fill="url(#${p}hl)"/>
+    <rect ${BLEED} fill="url(#${p}hg)" mask="url(#${p}hk)"/>
+    <rect ${BLEED} fill="url(#${p}hs)"/>`,
+  glyph: (p, plate) => {
+    const ts = panes();
+    const hot = ts.filter((t) => t.h >= 3);
+    return `
+    <defs>
+      <clipPath id="${p}hc">${ts.map((t) => pane(t, '')).join('')}<circle cx="${CKX}" cy="${CKY}" r="${FAB_R}"/></clipPath>
+      <filter id="${p}hfrost" x="-5%" y="-5%" width="110%" height="110%">
+        <feGaussianBlur stdDeviation="7"/>
+        <feComponentTransfer>
+          <feFuncR type="linear" slope="1.12" intercept=".01"/><feFuncG type="linear" slope="1.14" intercept=".015"/><feFuncB type="linear" slope="1.1" intercept=".01"/>
+        </feComponentTransfer>
+      </filter>
+      <filter id="${p}hbloom" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="17"/></filter>
+      <filter id="${p}hsoft" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="8"/></filter>
+      <filter id="${p}htight" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="2.6"/></filter>
+      ${Object.entries(GLASS_TINT).map(([h, [[c0, a0], [c1, a1]]]) => `
+      <linearGradient id="${p}ht${h}" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="${c0}" stop-opacity="${a0}"/><stop offset="1" stop-color="${c1}" stop-opacity="${a1}"/>
+      </linearGradient>`).join('')}
+      <radialGradient id="${p}hin" cx=".5" cy="1.05" r=".75">
+        <stop offset="0" stop-color="${GH.mint}" stop-opacity=".55"/><stop offset="1" stop-color="${GH.mint}" stop-opacity="0"/>
+      </radialGradient>
+      <linearGradient id="${p}hgloss" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#fff" stop-opacity=".2"/><stop offset=".3" stop-color="#fff" stop-opacity=".03"/><stop offset=".31" stop-color="#fff" stop-opacity="0"/>
+      </linearGradient>
+      <!-- a diagonal reflection across each pane: the cue that says glass -->
+      <linearGradient id="${p}hband" x1="0" y1="0" x2="1" y2="1">
+        <stop offset=".22" stop-color="#fff" stop-opacity="0"/><stop offset=".24" stop-color="#fff" stop-opacity=".13"/>
+        <stop offset=".36" stop-color="#fff" stop-opacity=".07"/><stop offset=".38" stop-color="#fff" stop-opacity="0"/>
+        <stop offset=".44" stop-color="#fff" stop-opacity="0"/><stop offset=".45" stop-color="#fff" stop-opacity=".08"/>
+        <stop offset=".48" stop-color="#fff" stop-opacity="0"/>
+      </linearGradient>
+      <linearGradient id="${p}hrim" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#fff" stop-opacity=".95"/><stop offset=".36" stop-color="#fff" stop-opacity=".14"/>
+        <stop offset=".72" stop-color="#fff" stop-opacity=".05"/><stop offset="1" stop-color="${GH.mint}" stop-opacity=".6"/>
+      </linearGradient>
+      <radialGradient id="${p}horb" cx=".42" cy=".38" r=".75">
+        <stop offset="0" stop-color="${GH.leaf}" stop-opacity=".95"/><stop offset=".62" stop-color="#139B5B" stop-opacity=".92"/>
+        <stop offset="1" stop-color="${GH.dark}" stop-opacity=".96"/>
+      </radialGradient>
+      <linearGradient id="${p}hcres" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#fff" stop-opacity=".6"/><stop offset="1" stop-color="#fff" stop-opacity="0"/>
+      </linearGradient>
+    </defs>
+    <!-- light the hot panes throw onto the field -->
+    <g filter="url(#${p}hbloom)">
+      ${hot.map((t) => pane(t, `fill="${GH.leaf}" fill-opacity="${((t.h - 2) * 0.22).toFixed(2)}"`)).join('')}
+      <circle cx="${CKX}" cy="${CKY}" r="${FAB_R + 8}" fill="${GH.mint}" fill-opacity=".62"/>
+    </g>
+    <!-- depth: every pane casts a soft shadow -->
+    <g filter="url(#${p}hsoft)" fill="#000" fill-opacity=".5">
+      ${ts.map((t) => `<rect x="${t.x}" y="${t.y + 9}" width="${CELL}" height="${CELL}" rx="${GR}"/>`).join('')}
+      <circle cx="${CKX}" cy="${CKY + 10}" r="${FAB_R}"/>
+    </g>
+    <!-- the frost: the field behind each pane, blurred and brightened -->
+    <g clip-path="url(#${p}hc)"><g filter="url(#${p}hfrost)">${plate}</g></g>
+    <!-- heat, as light held in the glass -->
+    ${ts.map((t) => pane(t, `fill="url(#${p}ht${t.h})"`)).join('')}
+    ${hot.map((t) => pane(t, `fill="url(#${p}hin)" fill-opacity="${((t.h - 2) / 3).toFixed(2)}"`)).join('')}
+    <!-- the hottest panes glow at their inner edge, like lit acrylic -->
+    <g fill="none" stroke="${GH.mint}" stroke-width="3" filter="url(#${p}htight)">
+      ${ts.filter((t) => t.h >= 4).map((t) => pane(t, `stroke-opacity="${t.h === 5 ? 0.7 : 0.4}"`, 4)).join('')}
+    </g>
+    <!-- gloss, a diagonal reflection, then the lit rim -->
+    ${ts.map((t) => pane(t, `fill="url(#${p}hgloss)"`, 2)).join('')}
+    ${ts.map((t) => pane(t, `fill="url(#${p}hband)"`)).join('')}
+    ${ts.map((t) => pane(t, `fill="none" stroke="url(#${p}hrim)" stroke-width="2"`, 1)).join('')}
+    <!-- the orb: deep glass lit from within, and its HUD ring -->
+    <circle cx="${CKX}" cy="${CKY}" r="${FAB_R}" fill="url(#${p}horb)"/>
+    <ellipse cx="${CKX - 9}" cy="${CKY - 25}" rx="31" ry="15" fill="url(#${p}hcres)" filter="url(#${p}htight)"/>
+    <circle cx="${CKX}" cy="${CKY}" r="${FAB_R - 1}" fill="none" stroke="url(#${p}hrim)" stroke-width="2"/>
+    <g fill="${GH.pale}" filter="url(#${p}htight)" opacity=".9">${plus(CKX, CKY, 46, 13)}</g>
+    <g fill="#fff">${plus(CKX, CKY, 42, 11)}</g>
+    <g fill="none" stroke="${GH.mint}" stroke-linecap="round">
+      <path d="${arc(CKX, CKY, FAB_R + 13, -35, 205)}" stroke-width="2.4" stroke-opacity=".55"/>
+      <path d="${arc(CKX, CKY, FAB_R + 13, 222, 300)}" stroke-width="2.4" stroke-opacity=".28"/>
+    </g>
+    <!-- viewfinder brackets frame the grid; the orb holds the fourth corner -->
+    <g fill="none" stroke="${GH.mint}" stroke-opacity=".5" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+      ${bracket(G0 - 16, G0 - 16, 1, 1)}${bracket(512 - G0 + 16, G0 - 16, -1, 1)}${bracket(G0 - 16, 512 - G0 + 16, 1, -1)}
+    </g>`;
+  },
+  mono: () => material.mono(),
+};
+
+/* ════════════════════════════════════════════════════════════════
    3 · Liquid Ring — after Apple's Liquid Glass (iOS 26)
    A ring of clear glass, three-quarters full of light: the day's count
    filling toward a goal. The tube refracts the field behind it (a
@@ -389,9 +536,9 @@ const abacus = {
     ${RODS.map((r) => [...r.left, ...r.right].map((x) => `<circle cx="${x}" cy="${r.y}" r="23" fill="#fff"/>`).join('')).join('')}`
 };
 
-export const STYLES = [chrono, liquidRing, fluent, material, abacus];
+export const STYLES = [glassHeat, material, chrono, liquidRing, fluent, abacus];
 /* the style applied when none is named; change it here to switch for good */
-export const DEFAULT_STYLE = 'chrono';
+export const DEFAULT_STYLE = 'glass';
 export function styleById(id) {
   const s = STYLES.find((x) => x.id === id);
   if (!s) throw new Error(`unknown icon style "${id}" — one of: ${STYLES.map((x) => x.id).join(', ')}`);

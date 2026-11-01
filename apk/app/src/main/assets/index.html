@@ -521,47 +521,124 @@
   <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></symbol>
 
   <symbol id="vmark" viewBox="0 0 512 512"><defs>
-      <radialGradient id="vm-pl" gradientUnits="userSpaceOnUse" cx="256" cy="226" r="330">
-        <stop offset="0" stop-color="#18203A"/><stop offset=".6" stop-color="#0B0F1C"/><stop offset="1" stop-color="#05070D"/>
+      <radialGradient id="vm-hf" gradientUnits="userSpaceOnUse" cx="256" cy="200" r="400">
+        <stop offset="0" stop-color="#0E3D29"/><stop offset=".55" stop-color="#062016"/><stop offset="1" stop-color="#020A06"/>
       </radialGradient>
-      <pattern id="vm-grid" width="32" height="32" patternUnits="userSpaceOnUse" x="0" y="0">
-        <path d="M32 0H0V32" fill="none" stroke="#9DB7FF" stroke-opacity=".07" stroke-width="1.5"/>
+      <radialGradient id="vm-hl" gradientUnits="userSpaceOnUse" cx="330" cy="340" r="260">
+        <stop offset="0" stop-color="#1FB86E" stop-opacity=".46"/><stop offset="1" stop-color="#1FB86E" stop-opacity="0"/>
+      </radialGradient>
+      <pattern id="vm-hg" width="32" height="32" patternUnits="userSpaceOnUse" x="0" y="0">
+        <path d="M32 0H0V32" fill="none" stroke="#9CF5C6" stroke-opacity=".11" stroke-width="1.2"/>
       </pattern>
-      <radialGradient id="vm-fade" gradientUnits="userSpaceOnUse" cx="256" cy="256" r="300">
-        <stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#fff" stop-opacity="0"/>
+      <radialGradient id="vm-hm" gradientUnits="userSpaceOnUse" cx="256" cy="256" r="340">
+        <stop offset=".3" stop-color="#fff"/><stop offset="1" stop-color="#fff" stop-opacity="0"/>
       </radialGradient>
-      <mask id="vm-gm" maskUnits="userSpaceOnUse" x="-256" y="-256" width="1024" height="1024"><rect x="-256" y="-256" width="1024" height="1024" fill="url(#vm-fade)"/></mask>
-      <radialGradient id="vm-aura" gradientUnits="userSpaceOnUse" cx="256" cy="256" r="230">
-        <stop offset=".55" stop-color="#5A4BFF" stop-opacity=".0"/><stop offset=".78" stop-color="#5A4BFF" stop-opacity=".22"/><stop offset="1" stop-color="#5A4BFF" stop-opacity="0"/>
-      </radialGradient>
+      <mask id="vm-hk" maskUnits="userSpaceOnUse" x="-256" y="-256" width="1024" height="1024"><rect x="-256" y="-256" width="1024" height="1024" fill="url(#vm-hm)"/></mask>
+      <linearGradient id="vm-hs" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="512" y2="512">
+        <stop offset="0" stop-color="#fff" stop-opacity=".08"/><stop offset=".42" stop-color="#fff" stop-opacity="0"/>
+      </linearGradient>
     </defs>
       <defs><clipPath id="vm-clip"><rect width="512" height="512" rx="112"/></clipPath></defs>
       <g clip-path="url(#vm-clip)">
     
-    <rect x="-256" y="-256" width="1024" height="1024" fill="url(#vm-pl)"/>
-    <rect x="-256" y="-256" width="1024" height="1024" fill="url(#vm-grid)" mask="url(#vm-gm)"/>
-    <rect x="-256" y="-256" width="1024" height="1024" fill="url(#vm-aura)"/>
+    <rect x="-256" y="-256" width="1024" height="1024" fill="url(#vm-hf)"/>
+    <rect x="-256" y="-256" width="1024" height="1024" fill="url(#vm-hl)"/>
+    <rect x="-256" y="-256" width="1024" height="1024" fill="url(#vm-hg)" mask="url(#vm-hk)"/>
+    <rect x="-256" y="-256" width="1024" height="1024" fill="url(#vm-hs)"/>
     <defs>
-      <filter id="vm-glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="7"/></filter>
-      <filter id="vm-glow2" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="3"/></filter>
-      <linearGradient id="vm-hand" gradientUnits="userSpaceOnUse" x1="256" y1="256" x2="154.27" y2="277.62">
-        <stop offset="0" stop-color="#E04CFF" stop-opacity=".1"/><stop offset="1" stop-color="#F3B8FF"/>
+      <clipPath id="vm-hc"><rect x="100" y="100" width="92" height="92" rx="26" /><rect x="210" y="100" width="92" height="92" rx="26" /><rect x="320" y="100" width="92" height="92" rx="26" /><rect x="100" y="210" width="92" height="92" rx="26" /><rect x="210" y="210" width="92" height="92" rx="26" /><rect x="320" y="210" width="92" height="92" rx="26" /><rect x="100" y="320" width="92" height="92" rx="26" /><rect x="210" y="320" width="92" height="92" rx="26" /><circle cx="366" cy="366" r="50"/></clipPath>
+      <filter id="vm-hfrost" x="-5%" y="-5%" width="110%" height="110%">
+        <feGaussianBlur stdDeviation="7"/>
+        <feComponentTransfer>
+          <feFuncR type="linear" slope="1.12" intercept=".01"/><feFuncG type="linear" slope="1.14" intercept=".015"/><feFuncB type="linear" slope="1.1" intercept=".01"/>
+        </feComponentTransfer>
+      </filter>
+      <filter id="vm-hbloom" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="17"/></filter>
+      <filter id="vm-hsoft" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="8"/></filter>
+      <filter id="vm-htight" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="2.6"/></filter>
+      
+      <linearGradient id="vm-ht1" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#C2FFDD" stop-opacity="0.06"/><stop offset="1" stop-color="#2FD583" stop-opacity="0.03"/>
       </linearGradient>
-      <radialGradient id="vm-core">
-        <stop offset="0" stop-color="#FFFFFF"/><stop offset=".45" stop-color="#BFF8FF"/><stop offset="1" stop-color="#3CF4FF" stop-opacity="0"/>
+      <linearGradient id="vm-ht2" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#C2FFDD" stop-opacity="0.12"/><stop offset="1" stop-color="#2FD583" stop-opacity="0.11"/>
+      </linearGradient>
+      <linearGradient id="vm-ht3" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#C2FFDD" stop-opacity="0.22"/><stop offset="1" stop-color="#2FD583" stop-opacity="0.27"/>
+      </linearGradient>
+      <linearGradient id="vm-ht4" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#7CFFB5" stop-opacity="0.38"/><stop offset="1" stop-color="#2FD583" stop-opacity="0.52"/>
+      </linearGradient>
+      <linearGradient id="vm-ht5" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#7CFFB5" stop-opacity="0.6"/><stop offset="1" stop-color="#2FD583" stop-opacity="0.8"/>
+      </linearGradient>
+      <radialGradient id="vm-hin" cx=".5" cy="1.05" r=".75">
+        <stop offset="0" stop-color="#7CFFB5" stop-opacity=".55"/><stop offset="1" stop-color="#7CFFB5" stop-opacity="0"/>
       </radialGradient>
+      <linearGradient id="vm-hgloss" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#fff" stop-opacity=".2"/><stop offset=".3" stop-color="#fff" stop-opacity=".03"/><stop offset=".31" stop-color="#fff" stop-opacity="0"/>
+      </linearGradient>
+      <!-- a diagonal reflection across each pane: the cue that says glass -->
+      <linearGradient id="vm-hband" x1="0" y1="0" x2="1" y2="1">
+        <stop offset=".22" stop-color="#fff" stop-opacity="0"/><stop offset=".24" stop-color="#fff" stop-opacity=".13"/>
+        <stop offset=".36" stop-color="#fff" stop-opacity=".07"/><stop offset=".38" stop-color="#fff" stop-opacity="0"/>
+        <stop offset=".44" stop-color="#fff" stop-opacity="0"/><stop offset=".45" stop-color="#fff" stop-opacity=".08"/>
+        <stop offset=".48" stop-color="#fff" stop-opacity="0"/>
+      </linearGradient>
+      <linearGradient id="vm-hrim" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#fff" stop-opacity=".95"/><stop offset=".36" stop-color="#fff" stop-opacity=".14"/>
+        <stop offset=".72" stop-color="#fff" stop-opacity=".05"/><stop offset="1" stop-color="#7CFFB5" stop-opacity=".6"/>
+      </linearGradient>
+      <radialGradient id="vm-horb" cx=".42" cy=".38" r=".75">
+        <stop offset="0" stop-color="#2FD583" stop-opacity=".95"/><stop offset=".62" stop-color="#139B5B" stop-opacity=".92"/>
+        <stop offset="1" stop-color="#0A6B3F" stop-opacity=".96"/>
+      </radialGradient>
+      <linearGradient id="vm-hcres" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#fff" stop-opacity=".6"/><stop offset="1" stop-color="#fff" stop-opacity="0"/>
+      </linearGradient>
     </defs>
-    <circle cx="256" cy="256" r="112" fill="none" stroke="#9DB7FF" stroke-opacity=".16" stroke-width="2"/>
-    <path d="M256 144A112 112 0 1 1 146.45 279.29" fill="none" stroke="#7F6BFF" stroke-opacity=".55" stroke-width="2.5"/>
-    <g stroke="#9DB7FF" stroke-opacity=".17" stroke-linecap="round"><line x1="116.77" y1="270.63" x2="92.9" y2="273.14" stroke-width="4.5"/><line x1="128" y1="256" x2="92" y2="256" stroke-width="6"/><line x1="116.77" y1="241.37" x2="92.9" y2="238.86" stroke-width="4.5"/><line x1="119.06" y1="226.89" x2="95.58" y2="221.9" stroke-width="4.5"/><line x1="122.85" y1="212.74" x2="100.03" y2="205.32" stroke-width="4.5"/><line x1="128.1" y1="199.06" x2="106.18" y2="189.3" stroke-width="4.5"/><line x1="145.15" y1="192" x2="113.97" y2="174" stroke-width="6"/><line x1="142.74" y1="173.71" x2="123.32" y2="159.6" stroke-width="4.5"/><line x1="151.96" y1="162.32" x2="134.12" y2="146.26" stroke-width="4.5"/><line x1="162.32" y1="151.96" x2="146.26" y2="134.12" stroke-width="4.5"/><line x1="173.71" y1="142.74" x2="159.6" y2="123.32" stroke-width="4.5"/><line x1="192" y1="145.15" x2="174" y2="113.97" stroke-width="6"/><line x1="199.06" y1="128.1" x2="189.3" y2="106.18" stroke-width="4.5"/><line x1="212.74" y1="122.85" x2="205.32" y2="100.03" stroke-width="4.5"/><line x1="226.89" y1="119.06" x2="221.9" y2="95.58" stroke-width="4.5"/><line x1="241.37" y1="116.77" x2="238.86" y2="92.9" stroke-width="4.5"/></g>
-    <g stroke-linecap="round" opacity=".9" filter="url(#vm-glow)"><line x1="256" y1="128" x2="256" y2="92" stroke="#3cf4ff" stroke-width="7"/><line x1="270.63" y1="116.77" x2="273.14" y2="92.9" stroke="#3dedff" stroke-width="5.5"/><line x1="285.11" y1="119.06" x2="290.1" y2="95.58" stroke="#3fe5ff" stroke-width="5.5"/><line x1="299.26" y1="122.85" x2="306.68" y2="100.03" stroke="#40deff" stroke-width="5.5"/><line x1="312.94" y1="128.1" x2="322.7" y2="106.18" stroke="#41d7ff" stroke-width="5.5"/><line x1="320" y1="145.15" x2="338" y2="113.97" stroke="#43cfff" stroke-width="7"/><line x1="338.29" y1="142.74" x2="352.4" y2="123.32" stroke="#44c8ff" stroke-width="5.5"/><line x1="349.68" y1="151.96" x2="365.74" y2="134.12" stroke="#45c1ff" stroke-width="5.5"/><line x1="360.04" y1="162.32" x2="377.88" y2="146.26" stroke="#47b9ff" stroke-width="5.5"/><line x1="369.26" y1="173.71" x2="388.68" y2="159.6" stroke="#48b2ff" stroke-width="5.5"/><line x1="366.85" y1="192" x2="398.03" y2="174" stroke="#49abff" stroke-width="7"/><line x1="383.9" y1="199.06" x2="405.82" y2="189.3" stroke="#4ba3ff" stroke-width="5.5"/><line x1="389.15" y1="212.74" x2="411.97" y2="205.32" stroke="#4c9cff" stroke-width="5.5"/><line x1="392.94" y1="226.89" x2="416.42" y2="221.9" stroke="#4d95ff" stroke-width="5.5"/><line x1="395.23" y1="241.37" x2="419.1" y2="238.86" stroke="#4f8dff" stroke-width="5.5"/><line x1="384" y1="256" x2="420" y2="256" stroke="#5389ff" stroke-width="7"/><line x1="395.23" y1="270.63" x2="419.1" y2="273.14" stroke="#5886ff" stroke-width="5.5"/><line x1="392.94" y1="285.11" x2="416.42" y2="290.1" stroke="#5d82ff" stroke-width="5.5"/><line x1="389.15" y1="299.26" x2="411.97" y2="306.68" stroke="#627fff" stroke-width="5.5"/><line x1="383.9" y1="312.94" x2="405.82" y2="322.7" stroke="#687cff" stroke-width="5.5"/><line x1="366.85" y1="320" x2="398.03" y2="338" stroke="#6d78ff" stroke-width="7"/><line x1="369.26" y1="338.29" x2="388.68" y2="352.4" stroke="#7275ff" stroke-width="5.5"/><line x1="360.04" y1="349.68" x2="377.88" y2="365.74" stroke="#7872ff" stroke-width="5.5"/><line x1="349.68" y1="360.04" x2="365.74" y2="377.88" stroke="#7d6fff" stroke-width="5.5"/><line x1="338.29" y1="369.26" x2="352.4" y2="388.68" stroke="#826bff" stroke-width="5.5"/><line x1="320" y1="366.85" x2="338" y2="398.03" stroke="#8868ff" stroke-width="7"/><line x1="312.94" y1="383.9" x2="322.7" y2="405.82" stroke="#8d65ff" stroke-width="5.5"/><line x1="299.26" y1="389.15" x2="306.68" y2="411.97" stroke="#9261ff" stroke-width="5.5"/><line x1="285.11" y1="392.94" x2="290.1" y2="416.42" stroke="#975eff" stroke-width="5.5"/><line x1="270.63" y1="395.23" x2="273.14" y2="419.1" stroke="#9d5cff" stroke-width="5.5"/><line x1="256" y1="384" x2="256" y2="420" stroke="#a15bff" stroke-width="7"/><line x1="241.37" y1="395.23" x2="238.86" y2="419.1" stroke="#a659ff" stroke-width="5.5"/><line x1="226.89" y1="392.94" x2="221.9" y2="416.42" stroke="#ab58ff" stroke-width="5.5"/><line x1="212.74" y1="389.15" x2="205.32" y2="411.97" stroke="#b057ff" stroke-width="5.5"/><line x1="199.06" y1="383.9" x2="189.3" y2="405.82" stroke="#b556ff" stroke-width="5.5"/><line x1="192" y1="366.85" x2="174" y2="398.03" stroke="#b955ff" stroke-width="7"/><line x1="173.71" y1="369.26" x2="159.6" y2="388.68" stroke="#be54ff" stroke-width="5.5"/><line x1="162.32" y1="360.04" x2="146.26" y2="377.88" stroke="#c353ff" stroke-width="5.5"/><line x1="151.96" y1="349.68" x2="134.12" y2="365.74" stroke="#c852ff" stroke-width="5.5"/><line x1="142.74" y1="338.29" x2="123.32" y2="352.4" stroke="#cd50ff" stroke-width="5.5"/><line x1="145.15" y1="320" x2="113.97" y2="338" stroke="#d24fff" stroke-width="7"/><line x1="128.1" y1="312.94" x2="106.18" y2="322.7" stroke="#d64eff" stroke-width="5.5"/><line x1="122.85" y1="299.26" x2="100.03" y2="306.68" stroke="#db4dff" stroke-width="5.5"/><line x1="119.06" y1="285.11" x2="95.58" y2="290.1" stroke="#e04cff" stroke-width="5.5"/></g>
-    <g stroke-linecap="round"><line x1="256" y1="128" x2="256" y2="92" stroke="#3cf4ff" stroke-width="7"/><line x1="270.63" y1="116.77" x2="273.14" y2="92.9" stroke="#3dedff" stroke-width="5.5"/><line x1="285.11" y1="119.06" x2="290.1" y2="95.58" stroke="#3fe5ff" stroke-width="5.5"/><line x1="299.26" y1="122.85" x2="306.68" y2="100.03" stroke="#40deff" stroke-width="5.5"/><line x1="312.94" y1="128.1" x2="322.7" y2="106.18" stroke="#41d7ff" stroke-width="5.5"/><line x1="320" y1="145.15" x2="338" y2="113.97" stroke="#43cfff" stroke-width="7"/><line x1="338.29" y1="142.74" x2="352.4" y2="123.32" stroke="#44c8ff" stroke-width="5.5"/><line x1="349.68" y1="151.96" x2="365.74" y2="134.12" stroke="#45c1ff" stroke-width="5.5"/><line x1="360.04" y1="162.32" x2="377.88" y2="146.26" stroke="#47b9ff" stroke-width="5.5"/><line x1="369.26" y1="173.71" x2="388.68" y2="159.6" stroke="#48b2ff" stroke-width="5.5"/><line x1="366.85" y1="192" x2="398.03" y2="174" stroke="#49abff" stroke-width="7"/><line x1="383.9" y1="199.06" x2="405.82" y2="189.3" stroke="#4ba3ff" stroke-width="5.5"/><line x1="389.15" y1="212.74" x2="411.97" y2="205.32" stroke="#4c9cff" stroke-width="5.5"/><line x1="392.94" y1="226.89" x2="416.42" y2="221.9" stroke="#4d95ff" stroke-width="5.5"/><line x1="395.23" y1="241.37" x2="419.1" y2="238.86" stroke="#4f8dff" stroke-width="5.5"/><line x1="384" y1="256" x2="420" y2="256" stroke="#5389ff" stroke-width="7"/><line x1="395.23" y1="270.63" x2="419.1" y2="273.14" stroke="#5886ff" stroke-width="5.5"/><line x1="392.94" y1="285.11" x2="416.42" y2="290.1" stroke="#5d82ff" stroke-width="5.5"/><line x1="389.15" y1="299.26" x2="411.97" y2="306.68" stroke="#627fff" stroke-width="5.5"/><line x1="383.9" y1="312.94" x2="405.82" y2="322.7" stroke="#687cff" stroke-width="5.5"/><line x1="366.85" y1="320" x2="398.03" y2="338" stroke="#6d78ff" stroke-width="7"/><line x1="369.26" y1="338.29" x2="388.68" y2="352.4" stroke="#7275ff" stroke-width="5.5"/><line x1="360.04" y1="349.68" x2="377.88" y2="365.74" stroke="#7872ff" stroke-width="5.5"/><line x1="349.68" y1="360.04" x2="365.74" y2="377.88" stroke="#7d6fff" stroke-width="5.5"/><line x1="338.29" y1="369.26" x2="352.4" y2="388.68" stroke="#826bff" stroke-width="5.5"/><line x1="320" y1="366.85" x2="338" y2="398.03" stroke="#8868ff" stroke-width="7"/><line x1="312.94" y1="383.9" x2="322.7" y2="405.82" stroke="#8d65ff" stroke-width="5.5"/><line x1="299.26" y1="389.15" x2="306.68" y2="411.97" stroke="#9261ff" stroke-width="5.5"/><line x1="285.11" y1="392.94" x2="290.1" y2="416.42" stroke="#975eff" stroke-width="5.5"/><line x1="270.63" y1="395.23" x2="273.14" y2="419.1" stroke="#9d5cff" stroke-width="5.5"/><line x1="256" y1="384" x2="256" y2="420" stroke="#a15bff" stroke-width="7"/><line x1="241.37" y1="395.23" x2="238.86" y2="419.1" stroke="#a659ff" stroke-width="5.5"/><line x1="226.89" y1="392.94" x2="221.9" y2="416.42" stroke="#ab58ff" stroke-width="5.5"/><line x1="212.74" y1="389.15" x2="205.32" y2="411.97" stroke="#b057ff" stroke-width="5.5"/><line x1="199.06" y1="383.9" x2="189.3" y2="405.82" stroke="#b556ff" stroke-width="5.5"/><line x1="192" y1="366.85" x2="174" y2="398.03" stroke="#b955ff" stroke-width="7"/><line x1="173.71" y1="369.26" x2="159.6" y2="388.68" stroke="#be54ff" stroke-width="5.5"/><line x1="162.32" y1="360.04" x2="146.26" y2="377.88" stroke="#c353ff" stroke-width="5.5"/><line x1="151.96" y1="349.68" x2="134.12" y2="365.74" stroke="#c852ff" stroke-width="5.5"/><line x1="142.74" y1="338.29" x2="123.32" y2="352.4" stroke="#cd50ff" stroke-width="5.5"/><line x1="145.15" y1="320" x2="113.97" y2="338" stroke="#d24fff" stroke-width="7"/><line x1="128.1" y1="312.94" x2="106.18" y2="322.7" stroke="#d64eff" stroke-width="5.5"/><line x1="122.85" y1="299.26" x2="100.03" y2="306.68" stroke="#db4dff" stroke-width="5.5"/><line x1="119.06" y1="285.11" x2="95.58" y2="290.1" stroke="#e04cff" stroke-width="5.5"/></g>
-    <line x1="256" y1="256" x2="154.27" y2="277.62" stroke="url(#vm-hand)" stroke-width="5" stroke-linecap="round"/>
-    <circle cx="107.32" cy="287.6" r="14" fill="#F2A8FF" opacity=".9" filter="url(#vm-glow)"/>
-    <circle cx="107.32" cy="287.6" r="7.5" fill="#fff"/>
-    <circle cx="256" cy="256" r="34" fill="url(#vm-core)" opacity=".85" filter="url(#vm-glow2)"/>
-    <circle cx="256" cy="256" r="11" fill="#fff"/>
-    <circle cx="256" cy="256" r="24" fill="none" stroke="#3CF4FF" stroke-opacity=".55" stroke-width="2"/></g>
+    <!-- light the hot panes throw onto the field -->
+    <g filter="url(#vm-hbloom)">
+      <rect x="320" y="100" width="92" height="92" rx="26" fill="#2FD583" fill-opacity="0.22"/><rect x="210" y="210" width="92" height="92" rx="26" fill="#2FD583" fill-opacity="0.22"/><rect x="320" y="210" width="92" height="92" rx="26" fill="#2FD583" fill-opacity="0.44"/><rect x="100" y="320" width="92" height="92" rx="26" fill="#2FD583" fill-opacity="0.22"/><rect x="210" y="320" width="92" height="92" rx="26" fill="#2FD583" fill-opacity="0.66"/>
+      <circle cx="366" cy="366" r="58" fill="#7CFFB5" fill-opacity=".62"/>
+    </g>
+    <!-- depth: every pane casts a soft shadow -->
+    <g filter="url(#vm-hsoft)" fill="#000" fill-opacity=".5">
+      <rect x="100" y="109" width="92" height="92" rx="26"/><rect x="210" y="109" width="92" height="92" rx="26"/><rect x="320" y="109" width="92" height="92" rx="26"/><rect x="100" y="219" width="92" height="92" rx="26"/><rect x="210" y="219" width="92" height="92" rx="26"/><rect x="320" y="219" width="92" height="92" rx="26"/><rect x="100" y="329" width="92" height="92" rx="26"/><rect x="210" y="329" width="92" height="92" rx="26"/>
+      <circle cx="366" cy="376" r="50"/>
+    </g>
+    <!-- the frost: the field behind each pane, blurred and brightened -->
+    <g clip-path="url(#vm-hc)"><g filter="url(#vm-hfrost)">
+    
+    <rect x="-256" y="-256" width="1024" height="1024" fill="url(#vm-hf)"/>
+    <rect x="-256" y="-256" width="1024" height="1024" fill="url(#vm-hl)"/>
+    <rect x="-256" y="-256" width="1024" height="1024" fill="url(#vm-hg)" mask="url(#vm-hk)"/>
+    <rect x="-256" y="-256" width="1024" height="1024" fill="url(#vm-hs)"/></g></g>
+    <!-- heat, as light held in the glass -->
+    <rect x="100" y="100" width="92" height="92" rx="26" fill="url(#vm-ht1)"/><rect x="210" y="100" width="92" height="92" rx="26" fill="url(#vm-ht2)"/><rect x="320" y="100" width="92" height="92" rx="26" fill="url(#vm-ht3)"/><rect x="100" y="210" width="92" height="92" rx="26" fill="url(#vm-ht2)"/><rect x="210" y="210" width="92" height="92" rx="26" fill="url(#vm-ht3)"/><rect x="320" y="210" width="92" height="92" rx="26" fill="url(#vm-ht4)"/><rect x="100" y="320" width="92" height="92" rx="26" fill="url(#vm-ht3)"/><rect x="210" y="320" width="92" height="92" rx="26" fill="url(#vm-ht5)"/>
+    <rect x="320" y="100" width="92" height="92" rx="26" fill="url(#vm-hin)" fill-opacity="0.33"/><rect x="210" y="210" width="92" height="92" rx="26" fill="url(#vm-hin)" fill-opacity="0.33"/><rect x="320" y="210" width="92" height="92" rx="26" fill="url(#vm-hin)" fill-opacity="0.67"/><rect x="100" y="320" width="92" height="92" rx="26" fill="url(#vm-hin)" fill-opacity="0.33"/><rect x="210" y="320" width="92" height="92" rx="26" fill="url(#vm-hin)" fill-opacity="1.00"/>
+    <!-- the hottest panes glow at their inner edge, like lit acrylic -->
+    <g fill="none" stroke="#7CFFB5" stroke-width="3" filter="url(#vm-htight)">
+      <rect x="324" y="214" width="84" height="84" rx="22" stroke-opacity="0.4"/><rect x="214" y="324" width="84" height="84" rx="22" stroke-opacity="0.7"/>
+    </g>
+    <!-- gloss, a diagonal reflection, then the lit rim -->
+    <rect x="102" y="102" width="88" height="88" rx="24" fill="url(#vm-hgloss)"/><rect x="212" y="102" width="88" height="88" rx="24" fill="url(#vm-hgloss)"/><rect x="322" y="102" width="88" height="88" rx="24" fill="url(#vm-hgloss)"/><rect x="102" y="212" width="88" height="88" rx="24" fill="url(#vm-hgloss)"/><rect x="212" y="212" width="88" height="88" rx="24" fill="url(#vm-hgloss)"/><rect x="322" y="212" width="88" height="88" rx="24" fill="url(#vm-hgloss)"/><rect x="102" y="322" width="88" height="88" rx="24" fill="url(#vm-hgloss)"/><rect x="212" y="322" width="88" height="88" rx="24" fill="url(#vm-hgloss)"/>
+    <rect x="100" y="100" width="92" height="92" rx="26" fill="url(#vm-hband)"/><rect x="210" y="100" width="92" height="92" rx="26" fill="url(#vm-hband)"/><rect x="320" y="100" width="92" height="92" rx="26" fill="url(#vm-hband)"/><rect x="100" y="210" width="92" height="92" rx="26" fill="url(#vm-hband)"/><rect x="210" y="210" width="92" height="92" rx="26" fill="url(#vm-hband)"/><rect x="320" y="210" width="92" height="92" rx="26" fill="url(#vm-hband)"/><rect x="100" y="320" width="92" height="92" rx="26" fill="url(#vm-hband)"/><rect x="210" y="320" width="92" height="92" rx="26" fill="url(#vm-hband)"/>
+    <rect x="101" y="101" width="90" height="90" rx="25" fill="none" stroke="url(#vm-hrim)" stroke-width="2"/><rect x="211" y="101" width="90" height="90" rx="25" fill="none" stroke="url(#vm-hrim)" stroke-width="2"/><rect x="321" y="101" width="90" height="90" rx="25" fill="none" stroke="url(#vm-hrim)" stroke-width="2"/><rect x="101" y="211" width="90" height="90" rx="25" fill="none" stroke="url(#vm-hrim)" stroke-width="2"/><rect x="211" y="211" width="90" height="90" rx="25" fill="none" stroke="url(#vm-hrim)" stroke-width="2"/><rect x="321" y="211" width="90" height="90" rx="25" fill="none" stroke="url(#vm-hrim)" stroke-width="2"/><rect x="101" y="321" width="90" height="90" rx="25" fill="none" stroke="url(#vm-hrim)" stroke-width="2"/><rect x="211" y="321" width="90" height="90" rx="25" fill="none" stroke="url(#vm-hrim)" stroke-width="2"/>
+    <!-- the orb: deep glass lit from within, and its HUD ring -->
+    <circle cx="366" cy="366" r="50" fill="url(#vm-horb)"/>
+    <ellipse cx="357" cy="341" rx="31" ry="15" fill="url(#vm-hcres)" filter="url(#vm-htight)"/>
+    <circle cx="366" cy="366" r="49" fill="none" stroke="url(#vm-hrim)" stroke-width="2"/>
+    <g fill="#C2FFDD" filter="url(#vm-htight)" opacity=".9"><rect x="343" y="359.5" width="46" height="13" rx="6.5"/><rect x="359.5" y="343" width="13" height="46" rx="6.5"/></g>
+    <g fill="#fff"><rect x="345" y="360.5" width="42" height="11" rx="5.5"/><rect x="360.5" y="345" width="11" height="42" rx="5.5"/></g>
+    <g fill="none" stroke="#7CFFB5" stroke-linecap="round">
+      <path d="M417.61 329.86A63 63 0 1 1 308.9 339.38" stroke-width="2.4" stroke-opacity=".55"/>
+      <path d="M319.18 323.84A63 63 0 0 1 397.5 311.44" stroke-width="2.4" stroke-opacity=".28"/>
+    </g>
+    <!-- viewfinder brackets frame the grid; the orb holds the fourth corner -->
+    <g fill="none" stroke="#7CFFB5" stroke-opacity=".5" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M84 108V84H108"/><path d="M428 108V84H404"/><path d="M84 404V428H108"/>
+    </g></g>
     </symbol>
 </svg>
 

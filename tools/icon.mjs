@@ -314,7 +314,7 @@ async function gallery() {
   .smalls div { display: flex; gap: 8px; align-items: flex-end; height: 92px; padding-bottom: 22px; }
 </style></head><body>
 <h1>Virulenter · icon options</h1>
-<p class="lede">Five directions, none derived from the old mark. Each is shown as iOS, Android (and its Android 13+ themed form), macOS and Windows draw it, on a light and a dark wallpaper, down to favicon size. Apply one with <code>node tools/icon.mjs --style=…</code>.</p>
+<p class="lede"><b>Glass Heat</b>, the applied mark, is Material Heat rebuilt in glass; the five original directions follow. Each is shown as iOS, Android (and its Android 13+ themed form), macOS and Windows draw it, on a light and a dark wallpaper, down to favicon size. Apply one with <code>node tools/icon.mjs --style=…</code>.</p>
 ${STYLES.map((s, i) => card(s, i + 1)).join('')}
 </body></html>`;
   write(join(OUT, 'index.html'), html);

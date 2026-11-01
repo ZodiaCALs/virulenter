@@ -65,16 +65,21 @@ platform:
   plus layout fixes — nothing widens the page on a phone, nothing is clipped,
   sheets stack in the order they open. Every fix has a regression check.
 
-## New icon
+## New icon: Glass Heat
 
-Five directions were drawn, none derived from the old mark — **Chrono Neon**
-(futuristic, applied), **Liquid Ring** (after Apple's Liquid Glass), **Fluent
-Tally** (after Microsoft's Fluent 2), **Material Heat** (after Google's
-Material 3) and **Abacus Mono** (Swiss / Braun minimal). See
-`docs/icons/index.html`; switching is one command,
-`node tools/icon.mjs --style=<name>`, which redraws every asset on every
-platform: web, iOS touch icon, Android adaptive and themed layers, `.ico`,
-`.icns` and `.png`.
+The calendar's heat grid as panes of frosted glass on a deep instrument grid:
+the coolest panes nearly clear, the hottest holding light, glowing at their
+edges and lighting the field; the plus a glass orb lit from within, inside a
+HUD ring, with viewfinder brackets framing the grid. It is **Material Heat**
+(after Google's Material 3), picked from five new directions and rebuilt in
+glass. The notification icon, launcher shortcut and widget follow it, and
+Android 13+ themed icons keep the heat steps.
+
+The other directions — Chrono Neon, Liquid Ring (after Apple's Liquid Glass),
+Fluent Tally (after Microsoft's Fluent 2), Material Heat and Abacus Mono — are
+in `docs/icons/index.html`; `node tools/icon.mjs --style=<name>` redraws every
+asset on every platform: web, iOS touch icon, Android adaptive and themed
+layers, `.ico`, `.icns` and `.png`.
 
 ## Under the hood
 
