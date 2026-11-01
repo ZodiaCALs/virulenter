@@ -25,7 +25,7 @@ Futuristic, elegant, and mostly glass:
 - **Backdrop:** an aurora derived from your accent, a fine light grid that fades
   down the page, and one defined orb — structure for the frost to act on.
 - **Panes:** real backdrop blur ([Haze](https://github.com/chrisbanes/haze): a
-  `RenderEffect` on Android 12+, Skia on desktop), a tint, a fine grain, and a
+  `RenderEffect` on Android 12+, Skia on desktop), a smooth tint, and a
   1 dp rim lit from the top left. On Android 11 and older, where there is no
   blur, the tint thickens instead.
 - **Tight corners** (4–16 dp): the material, not the rounding, carries the look.

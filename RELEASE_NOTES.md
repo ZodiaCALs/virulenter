@@ -43,7 +43,7 @@ platform:
 - **Your data moves freely.** Import a web link, a data code or a JSON backup;
   copy a data code back into the web app. The link format is a byte-exact port
   of the web app's, tested against payloads the web app itself produced.
-- **Glass material:** real backdrop blur, a fine grain and lit rims over an
+- **Glass material:** real backdrop blur and lit rims, smooth, over an
   aurora and a light grid; tight corners; rolling numbers and a tap button that
   throws a "+1".
 
@@ -51,7 +51,7 @@ platform:
 
 - **Higher-end glass, fewer curves.** Every corner steps down a notch (cards
   12 px, sheets 16 px, buttons 8 px). Panes are now true frosted glass — a
-  lighter tint, backdrop blur, an acrylic grain and a 1 px rim lit from the top
+  lighter tint, backdrop blur and a 1 px rim lit from the top
   left — over a backdrop with a fine grid and a defined orb, so the frost reads.
   *Reduce transparency* still turns everything solid.
 - **Interactive dashboard.** A filter row (7D / 30D / 90D / 1Y, and one event)
@@ -68,7 +68,7 @@ platform:
 ## New icon: Glass Heat
 
 The calendar's heat grid as thin panes of glass on a deep green field: flat
-sheets with hairline edges and a fine satin grain, the coolest nearly clear,
+smooth sheets with hairline edges, the coolest nearly clear,
 the hottest holding mint light that glows onto the field; the plus on a disc of
 deep green glass inside a fine HUD ring, with slim viewfinder brackets framing
 the grid. It is **Material Heat**

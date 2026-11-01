@@ -162,10 +162,10 @@ const material = {
 /* ════════════════════════════════════════════════════════════════
    Glass Heat — Material Heat, rebuilt in glass (the chosen mark)
    The same heat grid and plus, as thin panes of glass on a deep, smooth
-   tonal field. Nothing reflects: each pane is a flat sheet with a hairline
-   edge and a fine satin grain, tinted by the day's heat — the coolest
-   nearly clear, the hottest holding mint light that glows onto the field
-   behind. The plus sits on a disc of deep green glass, inside a fine HUD
+   tonal field. Nothing reflects and nothing is textured: each pane is a
+   clear, smooth sheet with a hairline edge, tinted by the day's heat — the
+   coolest nearly clear, the hottest holding mint light that glows onto the
+   field behind. The plus sits on a disc of deep green glass, inside a fine HUD
    ring, and slim viewfinder brackets frame the grid.
    ════════════════════════════════════════════════════════════════ */
 const GH = {
@@ -197,7 +197,7 @@ const glassHeat = {
   id: 'glass',
   name: 'Glass Heat',
   family: 'Material 3, in glass',
-  idea: 'Material Heat as thin panes of glass on a deep field: hairline edges, a satin grain, and more light held the hotter the day; the plus on a disc of deep green glass.',
+  idea: 'Material Heat as thin, smooth panes of glass on a deep field: hairline edges, and more light held the hotter the day; the plus on a disc of deep green glass.',
   plate: (p) => `
     <defs>
       <radialGradient id="${p}hf" gradientUnits="userSpaceOnUse" cx="256" cy="200" r="400">
@@ -218,13 +218,7 @@ const glassHeat = {
       </linearGradient>`;
     return `
     <defs>
-      <clipPath id="${p}hc">${ts.map((t) => pane(t, '')).join('')}<circle cx="${CKX}" cy="${CKY}" r="${FAB_R}"/></clipPath>
       <filter id="${p}hbloom" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="18"/></filter>
-      <!-- satin: a fine, even grain in the glass, white on the dark field -->
-      <filter id="${p}hgrain" filterUnits="userSpaceOnUse" x="0" y="0" width="512" height="512">
-        <feTurbulence type="fractalNoise" baseFrequency="1.1" numOctaves="2" seed="11" stitchTiles="stitch"/>
-        <feColorMatrix type="matrix" values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  .1 0 0 0 -.025"/>
-      </filter>
       ${Object.entries(GLASS_TINT).map(([id, stops]) => tint(id, stops)).join('')}
       <linearGradient id="${p}hrim" x1="0" y1="0" x2="1" y2="1">
         <stop offset="0" stop-color="#fff" stop-opacity=".5"/><stop offset=".4" stop-color="#fff" stop-opacity=".1"/>
@@ -236,10 +230,9 @@ const glassHeat = {
       ${hot.map((t) => pane(t, `fill="${GH.leaf}" fill-opacity="${((t.h - 2) * 0.18).toFixed(2)}"`)).join('')}
       <circle cx="${CKX}" cy="${CKY}" r="${FAB_R + 6}" fill="${GH.mint}" fill-opacity=".5"/>
     </g>
-    <!-- thin sheets of glass: a tint, a satin grain, a hairline edge -->
+    <!-- thin sheets of glass: a smooth tint and a hairline edge -->
     ${ts.map((t) => pane(t, `fill="url(#${p}ht${t.h})"`)).join('')}
     <circle cx="${CKX}" cy="${CKY}" r="${FAB_R}" fill="url(#${p}htdisc)"/>
-    <rect width="512" height="512" filter="url(#${p}hgrain)" clip-path="url(#${p}hc)"/>
     ${ts.map((t) => pane(t, `fill="none" stroke="url(#${p}hrim)" stroke-width="1.3"`, 0.65)).join('')}
     <circle cx="${CKX}" cy="${CKY}" r="${FAB_R - 0.65}" fill="none" stroke="url(#${p}hrim)" stroke-width="1.3"/>
     <g fill="#fff">${plus(CKX, CKY, 42, 11)}</g>
