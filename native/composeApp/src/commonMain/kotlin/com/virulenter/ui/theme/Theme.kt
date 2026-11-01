@@ -96,7 +96,6 @@ data class Glass(
     val aura3: Color,
     val deemph: Color,
     val heat: List<Color>,
-    val noise: Float,
 ) {
     /** An event colour made readable as text on this theme's panes. */
     fun ink(c: Color): Color = readable(c, if (dark) Color(0xFF151A24) else Color(0xFFF6F7FA), 4.5f)
@@ -145,7 +144,6 @@ fun glassFor(look: Look, dark: Boolean): Glass {
             lerp(heatBase, accent, 0.75f),
             accent,
         ),
-        noise = if (dark) 0.07f else 0.09f,
     )
 }
 

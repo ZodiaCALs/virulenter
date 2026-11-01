@@ -11,13 +11,7 @@
     <rect x="-256" y="-256" width="1024" height="1024" fill="url(#t-hf)"/>
     <rect x="-256" y="-256" width="1024" height="1024" fill="url(#t-hl)"/>
     <defs>
-      <clipPath id="t-hc"><rect x="100" y="100" width="92" height="92" rx="26" /><rect x="210" y="100" width="92" height="92" rx="26" /><rect x="320" y="100" width="92" height="92" rx="26" /><rect x="100" y="210" width="92" height="92" rx="26" /><rect x="210" y="210" width="92" height="92" rx="26" /><rect x="320" y="210" width="92" height="92" rx="26" /><rect x="100" y="320" width="92" height="92" rx="26" /><rect x="210" y="320" width="92" height="92" rx="26" /><circle cx="366" cy="366" r="50"/></clipPath>
       <filter id="t-hbloom" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="18"/></filter>
-      <!-- satin: a fine, even grain in the glass, white on the dark field -->
-      <filter id="t-hgrain" filterUnits="userSpaceOnUse" x="0" y="0" width="512" height="512">
-        <feTurbulence type="fractalNoise" baseFrequency="1.1" numOctaves="2" seed="11" stitchTiles="stitch"/>
-        <feColorMatrix type="matrix" values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  .1 0 0 0 -.025"/>
-      </filter>
       
       <linearGradient id="t-ht1" x1="0" y1="0" x2="1" y2="1">
         <stop offset="0" stop-color="#C2FFDD" stop-opacity="0.07"/><stop offset="1" stop-color="#2FD583" stop-opacity="0.05"/>
@@ -47,10 +41,9 @@
       <rect x="320" y="100" width="92" height="92" rx="26" fill="#2FD583" fill-opacity="0.18"/><rect x="210" y="210" width="92" height="92" rx="26" fill="#2FD583" fill-opacity="0.18"/><rect x="320" y="210" width="92" height="92" rx="26" fill="#2FD583" fill-opacity="0.36"/><rect x="100" y="320" width="92" height="92" rx="26" fill="#2FD583" fill-opacity="0.18"/><rect x="210" y="320" width="92" height="92" rx="26" fill="#2FD583" fill-opacity="0.54"/>
       <circle cx="366" cy="366" r="56" fill="#7CFFB5" fill-opacity=".5"/>
     </g>
-    <!-- thin sheets of glass: a tint, a satin grain, a hairline edge -->
+    <!-- thin sheets of glass: a smooth tint and a hairline edge -->
     <rect x="100" y="100" width="92" height="92" rx="26" fill="url(#t-ht1)"/><rect x="210" y="100" width="92" height="92" rx="26" fill="url(#t-ht2)"/><rect x="320" y="100" width="92" height="92" rx="26" fill="url(#t-ht3)"/><rect x="100" y="210" width="92" height="92" rx="26" fill="url(#t-ht2)"/><rect x="210" y="210" width="92" height="92" rx="26" fill="url(#t-ht3)"/><rect x="320" y="210" width="92" height="92" rx="26" fill="url(#t-ht4)"/><rect x="100" y="320" width="92" height="92" rx="26" fill="url(#t-ht3)"/><rect x="210" y="320" width="92" height="92" rx="26" fill="url(#t-ht5)"/>
     <circle cx="366" cy="366" r="50" fill="url(#t-htdisc)"/>
-    <rect width="512" height="512" filter="url(#t-hgrain)" clip-path="url(#t-hc)"/>
     <rect x="100.65" y="100.65" width="90.7" height="90.7" rx="25.35" fill="none" stroke="url(#t-hrim)" stroke-width="1.3"/><rect x="210.65" y="100.65" width="90.7" height="90.7" rx="25.35" fill="none" stroke="url(#t-hrim)" stroke-width="1.3"/><rect x="320.65" y="100.65" width="90.7" height="90.7" rx="25.35" fill="none" stroke="url(#t-hrim)" stroke-width="1.3"/><rect x="100.65" y="210.65" width="90.7" height="90.7" rx="25.35" fill="none" stroke="url(#t-hrim)" stroke-width="1.3"/><rect x="210.65" y="210.65" width="90.7" height="90.7" rx="25.35" fill="none" stroke="url(#t-hrim)" stroke-width="1.3"/><rect x="320.65" y="210.65" width="90.7" height="90.7" rx="25.35" fill="none" stroke="url(#t-hrim)" stroke-width="1.3"/><rect x="100.65" y="320.65" width="90.7" height="90.7" rx="25.35" fill="none" stroke="url(#t-hrim)" stroke-width="1.3"/><rect x="210.65" y="320.65" width="90.7" height="90.7" rx="25.35" fill="none" stroke="url(#t-hrim)" stroke-width="1.3"/>
     <circle cx="366" cy="366" r="49.35" fill="none" stroke="url(#t-hrim)" stroke-width="1.3"/>
     <g fill="#fff"><rect x="345" y="360.5" width="42" height="11" rx="5.5"/><rect x="360.5" y="345" width="11" height="42" rx="5.5"/></g>

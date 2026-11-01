@@ -30,7 +30,7 @@ import kotlin.math.min
  * light grid that fades down the page and one defined orb — structure for
  * the frost to act on. Over it, panes of frosted glass: the backdrop blurred
  * (Haze: RenderEffect on Android 12+, Skia on desktop; a denser tint where
- * blur is unavailable), a tint, a fine grain, and a 1px rim lit from the top
+ * blur is unavailable), a smooth tint, and a 1px rim lit from the top
  * left. Corners stay tight; the material carries the look.
  */
 
@@ -91,7 +91,7 @@ fun rimBrush(g: Glass): Brush =
         start = Offset.Zero, end = Offset.Infinite,
     )
 
-/** The frost: blur of the backdrop plus tint and grain, or a dense tint without a backdrop. */
+/** The frost: blur of the backdrop plus a smooth tint, or a dense tint without a backdrop. */
 fun Modifier.frost(g: Glass, haze: HazeState?, strong: Boolean = false, tint: Color? = null): Modifier {
     val fill = tint ?: if (strong) g.paneStrong else g.pane
     return if (haze != null) {
@@ -101,7 +101,7 @@ fun Modifier.frost(g: Glass, haze: HazeState?, strong: Boolean = false, tint: Co
                 backgroundColor = g.bg,
                 tint = HazeTint(fill),
                 blurRadius = if (strong) 30.dp else 22.dp,
-                noiseFactor = g.noise,
+                noiseFactor = 0f,   // smooth glass: no grain
                 /* without blur (Android 11 and older) the tint must hide the backdrop on its own */
                 fallbackTint = HazeTint(fill.copy(alpha = max(fill.alpha, if (g.dark) 0.86f else 0.9f))),
             ),

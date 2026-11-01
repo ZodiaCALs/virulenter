@@ -6,7 +6,7 @@
    (body::before), with a fine light grid and one defined orb over it
    (body::after) — crisp structure, so frost has something to act on.
    Every surface over it is a pane of frosted glass (--pane-bg plus
-   --blur-pane): a tint, an acrylic grain, a sheen, and a 1px rim lit
+   --blur-pane): a tint, a soft sheen, and a 1px rim lit
    from the top left (the "glass rims" block at the end of stats.css).
    Corners are kept tight (4-16px): the material, not the rounding,
    carries the look. Reduce-transparency turns all of it solid.
@@ -60,16 +60,15 @@
   --deemph: #c8ceda;
   --deemph-on: #a3abba;
   --halo: rgba(255, 255, 255, .92);
-  /* the glass recipe: a tinted pane frosted over the backdrop, with an
-     acrylic grain and a sheen; a gradient rim (end of stats.css) gives it
-     a lit edge, brightest where the light comes from */
+  /* the glass recipe: a tinted pane frosted over the backdrop, smooth,
+     with a soft sheen; a gradient rim (end of stats.css) gives it a lit
+     edge, brightest where the light comes from */
   --rim-1: rgba(255, 255, 255, .98);
   --rim-2: rgba(255, 255, 255, .16);
   --rim-3: rgba(255, 255, 255, .55);
-  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 .055 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
   --grid-line: rgba(30, 41, 80, .055);
   --blur-pane: saturate(1.8) blur(22px);
-  --pane-bg: var(--grain) 0 0 / 180px 180px, linear-gradient(160deg, var(--pane-sheen), transparent 42%), var(--pane);
+  --pane-bg: linear-gradient(160deg, var(--pane-sheen), transparent 42%), var(--pane);
   --hairline: rgba(15, 23, 42, .08);
   --hairline-2: rgba(15, 23, 42, .14);
   --text: #0e1525;
@@ -174,7 +173,6 @@
     --rim-1: rgba(255, 255, 255, .34);
     --rim-2: rgba(255, 255, 255, .035);
     --rim-3: rgba(255, 255, 255, .14);
-    --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 .065 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
     --grid-line: rgba(255, 255, 255, .042);
     color-scheme: dark;
   }
@@ -223,7 +221,6 @@
   --rim-1: rgba(255, 255, 255, .34);
   --rim-2: rgba(255, 255, 255, .035);
   --rim-3: rgba(255, 255, 255, .14);
-  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 .065 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
   --grid-line: rgba(255, 255, 255, .042);
   color-scheme: dark;
 }

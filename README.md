@@ -153,7 +153,7 @@ with Compose Multiplatform, and native on each platform:
   with a live clock, launcher shortcuts; on desktop a tray menu and Ctrl/⌘ 1–9.
 - **Goals**, the calendar heat grid, the statistics dashboard with interactive
   charts, appearance, import/export and undo — shared by every platform.
-- A glass material with real backdrop blur, grain and lit rims; tight corners.
+- A glass material with real backdrop blur and lit rims, smooth; tight corners.
 
 Data moves both ways with the web app: import a web link, a data code or a JSON
 backup; copy a data code back. The link codec is a byte-exact port of
@@ -452,7 +452,7 @@ is the difference between holding a year and holding six weeks.
   and a **53-week activity heatmap** with the same tooltips.
 
 ### Appearance
-- **Frosted glass**: panes with backdrop blur, an acrylic grain and a 1px rim
+- **Frosted glass**: smooth panes with backdrop blur and a 1px rim
   lit from the top left, over an aurora drawn from your accent, a fine light
   grid and one defined orb. Corners are tight (4–16px). Turn on *Reduce
   transparency* in the system settings and every surface goes solid.
@@ -481,7 +481,7 @@ in spreadsheet software.
 
 **Glass Heat** — the calendar's heat grid as thin panes of glass on a deep,
 smooth green field. Nothing reflects: each pane is a flat sheet with a hairline
-edge and a fine satin grain, tinted by the day's heat — the coolest nearly
+edge and nothing else, tinted by the day's heat — the coolest nearly
 clear, the hottest holding mint light that glows onto the field behind. The
 plus sits on a disc of deep green glass inside a fine HUD ring, and slim
 viewfinder brackets frame the grid.
@@ -495,7 +495,7 @@ form), macOS and Windows show them, on light and dark wallpapers
 
 | style | after | idea |
 |---|---|---|
-| **Glass Heat** *(applied)* | Material 3, in glass | the heat grid as thin glass panes — hairline edges, a satin grain, heat as held light |
+| **Glass Heat** *(applied)* | Material 3, in glass | the heat grid as thin, smooth glass panes — hairline edges, heat as held light |
 | **Chrono Neon** | futuristic | a chronograph bezel on obsidian glass; the count sweeps round it in light |
 | **Liquid Ring** | Apple · Liquid Glass | a clear glass ring three-quarters full of light |
 | **Fluent Tally** | Microsoft · Fluent 2 | four strokes and the strike, luminous layered gradients |
