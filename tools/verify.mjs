@@ -12,11 +12,12 @@ import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readFileSync, existsSync
 import { tmpdir } from 'node:os';
 import { join, resolve, dirname, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { findChrome } from './chrome.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');   // project root
 const SHOTS = join(ROOT, 'verify', 'shots');
 const APP = join(ROOT, 'app');
-const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+const CHROME = findChrome();
 mkdirSync(SHOTS, { recursive: true });
 
 /* Package registries and chat clients aside, the PWA layer (manifest, service
@@ -167,6 +168,9 @@ await send('Page.enable');
 await send('Runtime.enable');
 await send('Log.enable');
 await send('Emulation.setDeviceMetricsOverride', { width: 430, height: 900, deviceScaleFactor: 2, mobile: true });
+/* the accent assertions below are for the light theme; pin it so a dark
+   system setting on the test machine cannot change the derived colours */
+await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'light' }] });
 
 await send('Page.navigate', { url: target });
 await ready();
@@ -300,7 +304,7 @@ const cal = await evaluate(`(() => {
     todayClass: cell && cell.className,
     todayBadge: cell && cell.querySelector('.cal-n') && cell.querySelector('.cal-n').textContent,
     dayPanel: document.querySelector('#dayPanel').innerText.replace(/\\n+/g, ' | ').slice(0, 140),
-    week: document.querySelector('#calWeek').innerText.replace(/\\n/g, ' ')
+    week: document.querySelector('#calWeek').textContent.replace(/(\\w)(?=[A-Z])/g, '$1 ')
   };
 })()`);
 check('calendar renders a Monday-first month', cal.cells >= 28 && cal.cells <= 42 && cal.week.startsWith('Mon'), JSON.stringify({ cells: cal.cells, week: cal.week }));
@@ -337,7 +341,7 @@ check('empty day says so', /No taps on this day/.test(emptyDay.panel), emptyDay.
 /* ── 10. add a second event and confirm independent counters ── */
 const twoEvents = await evaluate(`(() => {
   V.views.toggleTab('home');
-  document.querySelector('#fab').click();
+  document.querySelector('#btnAddTop').click();
   return new Promise(res => setTimeout(() => {
     document.querySelector('#fName').value = 'Workout';
     document.querySelector('#eventForm').dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
@@ -366,22 +370,39 @@ const merged = await evaluate(`(() => {
 check('calendar totals merge all events for a day',
   merged.todayTotal === 3 && merged.entries === 3 && merged.names.length === 3, JSON.stringify(merged));
 
-/* ── 12. too-long payload is reported, not silently dropped ── */
+/* ── 12. a long log keeps saving; only a log past the ceiling warns ──
+   The bar used to stop updating at MAX_URL (2 000 characters, ~280 taps),
+   so every later tap was lost on reload. Past MAX_URL the link is only
+   discouraged for sharing; the address bar keeps up until MAX_BAR. */
 const longData = await evaluate(`(() => {
   const e = V.store.events[0];
-  const before = V.store.urlOk;
-  for (let i = 0; i < 700; i++) e.log.push(Date.now() - i * 60000);
-  const ok = V.app.persist();
+  const keep = e.log.slice();
+  for (let i = 0; i < 700; i++) e.log.push(Date.now() - (i + 5) * 60000);
+  e.log.sort((a, b) => a - b);
+  const okLong = V.app.persist();
+  const hash = (location.hash.match(/d=([A-Za-z0-9\\-_]+)/) || [])[1] || '';
+  const decoded = hash ? V.codec.unpackBytes(V.codec.b64ToBytes(hash)) : null;
+  const long = { ok: okLong, urlOk: V.store.urlOk, len: location.href.length, fragment: /#d=/.test(location.href),
+                 noQuery: !/[?]d=/.test(location.href), tapsInBar: decoded ? decoded.events[0].log.length : -1,
+                 live: e.log.length, noticeShown: !document.querySelector('#notice').hidden };
+  for (let i = 0; i < 6000; i++) e.log.push(Date.now() - (i + 800) * 3600e3);
+  e.log.sort((a, b) => a - b);
+  const okHuge = V.app.persist();
   const notice = document.querySelector('#notice');
-  const res = { before, ok, urlOk: V.store.urlOk, len: V.store.urlLength(),
-                noticeShown: !notice.hidden, noticeText: notice.innerText.slice(0, 80) };
-  e.log = e.log.slice(0, 2);
+  const huge = { ok: okHuge, urlOk: V.store.urlOk, len: V.store.urlLength(), noticeShown: !notice.hidden,
+                 noticeText: notice.innerText.slice(0, 60) };
+  e.log = keep;
   V.app.persist();
-  return res;
+  V.views.renderHome();
+  return { long, huge, restored: V.store.urlOk && document.querySelector('#notice').hidden };
 })()`);
-check('oversized log warns instead of overflowing the address bar',
-  longData.ok === false && longData.urlOk === false && longData.noticeShown &&
-  longData.len > 2000, JSON.stringify(longData));
+check('a log past 2 000 characters keeps saving in the fragment',
+  longData.long.ok && longData.long.urlOk && longData.long.len > 2000 && longData.long.fragment &&
+  longData.long.noQuery && longData.long.tapsInBar === longData.long.live && !longData.long.noticeShown,
+  JSON.stringify(longData.long));
+check('a log past the address-bar ceiling warns instead of failing silently',
+  longData.huge.ok === false && longData.huge.urlOk === false && longData.huge.noticeShown &&
+  longData.huge.len > 32000 && longData.restored, JSON.stringify(longData.huge));
 
 /* ── 13. export → erase → import round trip ─────────────── */
 const roundTrip = await evaluate(`(() => {
@@ -548,7 +569,14 @@ const manifest = await evaluate(`(async () => {
   };
 })()`, true);
 const isHttp = target.startsWith('http');
-if (isHttp) {
+if (IS_APK_ASSETS) {
+  /* the APK is installed by Android: no manifest, no install icons, and
+     nothing on the page pointing at them */
+  const links = await evaluate(`document.querySelectorAll('link[rel~=icon], link[rel=apple-touch-icon], link[rel=manifest]').length`);
+  check('the Android build leaves out the install manifest and icons',
+    manifest.linked === false && links === 0 && !existsSync(join(SERVE_ROOT, 'icons')) &&
+    !existsSync(join(SERVE_ROOT, 'manifest.webmanifest')), JSON.stringify({ manifest, links }));
+} else if (isHttp) {
   check('web app manifest is linked and complete',
     manifest.linked && manifest.ok && manifest.name === 'Virulenter' &&
     manifest.display === 'standalone' && manifest.maskable && manifest.icons >= 4 && manifest.iconsOk,
@@ -702,51 +730,72 @@ check('year strip renders every day of the year',
   jump.yearStrip >= 365 && jump.yearStrip <= 366, JSON.stringify({ yearStrip: jump.yearStrip }));
 
 /* ── 19g. statistics view ───────────────────────────────── */
-const stats = await evaluate(`(() => {
+const stats = await evaluate(`(async () => {
   V.views.toggleTab('stats');
+  await new Promise((r) => setTimeout(r, 300));
   const txt = s => (document.querySelector(s) || {}).innerText || '';
   const bars = s => document.querySelectorAll(s + ' .bar').length;
-  return {
+  const out = {
     visible: !document.querySelector('#view-stats').hidden,
     homeHidden: document.querySelector('#view-home').hidden,
     hero: document.querySelectorAll('#statHero .sh').length,
     heroText: txt('#statHero').replace(/\\n+/g, ' | '),
     streaks: txt('#statStreak').replace(/\\n+/g, ' | '),
-    d30: bars('#stat30'), months: bars('#statMonths'),
-    weekday: bars('#statWeekday'), hours: bars('#statHour'),
+    d30: bars('#statTrend'), weekday: bars('#statWeekday'), hours: bars('#statHour'),
     rows: document.querySelectorAll('#statEvents tbody tr').length,
     firstRow: (document.querySelector('#statEvents tbody tr') || {}).innerText || '',
     heat: document.querySelectorAll('#statHeat .hc').length,
-    heatFilled: document.querySelectorAll('#statHeat .hc[title]').length
+    heatDays: document.querySelectorAll('#statHeat .hc[data-date]').length
   };
-})()`);
+  for (const r of ['7d', '90d', '1y']) {
+    document.querySelector('#statRange [data-range="' + r + '"]').click();
+    out['r' + r] = bars('#statTrend');
+    out['t' + r] = txt('#statTrendTitle');
+  }
+  document.querySelector('#statRange [data-range="30d"]').click();
+  return out;
+})()`, true);
 check('statistics view renders every panel',
   stats.visible && stats.homeHidden && stats.hero >= 4 && stats.d30 === 30 &&
-  stats.months === 12 && stats.weekday === 7 && stats.hours === 24,
-  JSON.stringify({ hero: stats.hero, d30: stats.d30, months: stats.months, weekday: stats.weekday, hours: stats.hours }));
+  stats.weekday === 7 && stats.hours === 24,
+  JSON.stringify({ hero: stats.hero, d30: stats.d30, weekday: stats.weekday, hours: stats.hours }));
+check('the range filter rebuckets the trend: 7 days, 13 weeks, 12 months',
+  stats.r7d === 7 && stats.r90d === 13 && stats.r1y === 12 &&
+  /day/.test(stats.t7d) && /week/.test(stats.t90d) && /month/.test(stats.t1y),
+  JSON.stringify({ r7d: stats.r7d, r90d: stats.r90d, r1y: stats.r1y, titles: [stats.t7d, stats.t90d, stats.t1y] }));
 check('streak and per-event figures are computed',
   /current/.test(stats.streaks) && /longest/.test(stats.streaks) &&
   stats.rows === 2 && /Coffee, large/.test(stats.firstRow),
   JSON.stringify({ streaks: stats.streaks.slice(0, 60), rows: stats.rows }));
 check('activity heat grid renders a day per cell',
-  stats.heat >= 365 && stats.heatFilled >= 3, JSON.stringify({ heat: stats.heat, filled: stats.heatFilled }));
+  stats.heat >= 365 && stats.heatDays >= 365, JSON.stringify({ heat: stats.heat, days: stats.heatDays }));
 
-/* ── 19h. settings tab routes to the sheet ──────────────── */
+/* ── 19h. settings tab opens a sheet over the current view ──
+   It used to swap the Events view in underneath, leave the Settings tab lit
+   after closing and hide the + button. Now the view underneath is the one
+   you were on, and closing hands the highlight back to its tab. */
 const settingsTab = await evaluate(`(() => {
+  const before = V.app.view;
   document.querySelector('.tab[data-view="settings"]').click();
   const opened = !document.querySelector('#dataOverlay').hidden;
   const tabOn = document.querySelector('.tab[data-view="settings"]').classList.contains('is-on');
-  const homeVisible = !document.querySelector('#view-home').hidden;
+  const sameViewUnder = !document.querySelector('#view-' + before).hidden;
   document.querySelector('#dataOverlay .txt-btn[data-close]').click();
   return new Promise(res => setTimeout(() => res({
-    opened, tabOn, homeVisible,
+    before, opened, tabOn, sameViewUnder,
     closed: document.querySelector('#dataOverlay').hidden,
-    homeStillVisible: !document.querySelector('#view-home').hidden
+    stillThere: !document.querySelector('#view-' + before).hidden,
+    litAfter: (document.querySelector('.tab.is-on') || {}).dataset.view,
+    appView: V.app.view,
+    addButton: !document.querySelector('#btnAddTop').hidden
   }), 300));
 })()`, true);
-check('settings tab opens the settings sheet without blanking the view',
-  settingsTab.opened && settingsTab.tabOn && settingsTab.homeVisible &&
-  settingsTab.closed && settingsTab.homeStillVisible, JSON.stringify(settingsTab));
+check('settings tab opens the settings sheet over the current view',
+  settingsTab.opened && settingsTab.tabOn && settingsTab.sameViewUnder &&
+  settingsTab.closed && settingsTab.stillThere, JSON.stringify(settingsTab));
+check('closing settings relights the tab you came from',
+  settingsTab.litAfter === settingsTab.before && settingsTab.appView === settingsTab.before && settingsTab.addButton,
+  JSON.stringify(settingsTab));
 
 /* ── 19i. export buttons exist and are wired ────────────── */
 const exportButtons = await evaluate(`(() => {
@@ -908,14 +957,663 @@ const capCheck = await evaluate(`(() => {
            bigLen: many.length, bigQuery: many.indexOf('?d=') >= 0,
            bigDecodes: V.codec.decode(many).events[0].log.length };
 })()`);
-check('link form switches to ?d= only when the fragment gets too long',
-  capCheck.smallShort && capCheck.bigQuery && capCheck.bigDecodes === 400, JSON.stringify(capCheck));
+/* A fragment is never sent to the server; a long ?d= query is, and most
+   hosts answer "414 URI Too Long". So the link stays in the fragment. */
+check('long sessions stay in the fragment, which no server ever sees',
+  capCheck.smallShort && !capCheck.bigQuery && capCheck.bigLen > 2000 && capCheck.bigDecodes === 400, JSON.stringify(capCheck));
+
+/* ══ regressions: one check per bug fixed in the UI review ════════════
+   Each of these failed before the fix. They run on a fresh page at a
+   360px phone width — the size where most of the layout bugs showed. */
+await send('Emulation.setDeviceMetricsOverride', { width: 360, height: 740, deviceScaleFactor: 2, mobile: true });
+await send('Page.navigate', { url: target.split('#')[0].split('?')[0] });
+await ready();
+await new Promise((r) => setTimeout(r, 300));
+await evaluate(`(() => {
+  const D = V.date;
+  V.store.events = [];
+  const mk = (name, color, ago, days, times) => {
+    const e = V.store.create({ name, color, start: D.toISO(D.addDays(D.today(), -ago)) });
+    days.forEach((d) => {
+      for (let i = 0; i < times; i++) {
+        const t = D.addDays(D.today(), -d);
+        t.setHours(8 + i * 3, 10 + i, 0, 0);
+        e.log.push(Math.min(t.getTime(), Date.now() - (i + 1) * 60000));
+      }
+    });
+    e.log.sort((a, b) => a - b);
+  };
+  mk('Coffee', '#f0872b', 62, [0, 1, 2, 3, 5, 8, 13, 21, 34, 55], 1);
+  mk('Workout', '#0f9d58', 40, [1, 2, 3, 5, 6, 8, 9, 12], 1);
+  mk('Cigarette with a long name that has to truncate', '#d92d4b', 30, [0, 1, 2, 3, 4, 5, 7, 8, 10, 12, 15], 3);
+  V.app.persist();
+  V.views.renderHome();
+})()`);
+
+/* invisible chart tooltips once stretched the page on phones, so mobile
+   Chrome widened the layout viewport and pushed the top bar's + off-screen;
+   two-digit axis labels were clipped to "1ꞩ" */
+const layout = await evaluate(`(async () => {
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const out = {};
+  for (const v of ['home', 'calendar', 'stats']) {
+    V.views.toggleTab(v);
+    window.scrollTo(0, 0);
+    await wait(500);
+    const add = document.querySelector('#btnAddTop').getBoundingClientRect();
+    const labels = [];
+    document.querySelectorAll('#view-' + v + ' .chart svg').forEach((svg) => {
+      const sr = svg.getBoundingClientRect();
+      svg.querySelectorAll('text').forEach((t) => {
+        const r = t.getBoundingClientRect();
+        if (r.width && (r.left < sr.left - 1 || r.right > sr.right + 1)) labels.push('outside: ' + t.textContent);
+      });
+      const xs = [...svg.querySelectorAll('.tick.x')].map((t) => t.getBoundingClientRect()).sort((a, b) => a.left - b.left);
+      for (let i = 1; i < xs.length; i++) if (xs[i].left < xs[i - 1].right + 2) labels.push('overlap');
+    });
+    out[v] = {
+      innerW: innerWidth, docW: document.documentElement.scrollWidth, addRight: Math.round(add.right),
+      clippedCaps: labels
+    };
+  }
+  return out;
+})()`, true);
+check('no view widens the page on a 360px phone (the top bar stays on screen)',
+  Object.values(layout).every((o) => o.innerW === 360 && o.docW <= 360 && o.addRight <= 360), JSON.stringify(layout));
+check('chart labels are never clipped or overlapping',
+  Object.values(layout).every((o) => o.clippedCaps.length === 0), JSON.stringify(layout.stats));
+
+const tip = await evaluate(`(async () => {
+  V.views.toggleTab('stats');
+  await new Promise((r) => setTimeout(r, 300));
+  const chart = document.querySelector('#statTrend');
+  V.charts.activate(chart, chart._geo.n - 1, 'mouse');
+  await new Promise((r) => setTimeout(r, 400));
+  const el = document.querySelector('.chart-tip');
+  const r = el.getBoundingClientRect();
+  const out = { left: Math.round(r.left), right: Math.round(r.right), vw: document.documentElement.clientWidth,
+                docW: document.documentElement.scrollWidth, text: el.textContent, shown: el.classList.contains('is-on') };
+  V.charts.clear();
+  return out;
+})()`, true);
+check('a chart tooltip at the screen edge stays inside the screen',
+  tip.shown && tip.left >= 0 && tip.right <= tip.vw && tip.docW <= tip.vw && /tap/.test(tip.text), JSON.stringify(tip));
+
+/* both heat grids were 7 rows × 53 weeks, scrolled to January: on a phone
+   not one active day was visible */
+const grids = await evaluate(`(async () => {
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  V.views.toggleTab('calendar');
+  await wait(300);
+  const strip = document.querySelector('#calYearGrid');
+  const sr = strip.getBoundingClientRect();
+  const active = [...strip.querySelectorAll('.hc')].filter((c) => /v[1-4]/.test(c.className));
+  const visible = active.filter((c) => { const r = c.getBoundingClientRect(); return r.left >= sr.left - 1 && r.right <= sr.right + 1; }).length;
+  V.views.toggleTab('stats');
+  await wait(400);
+  const sc = document.querySelector('#statHeatScroll');
+  const scr = sc.getBoundingClientRect();
+  const today = document.querySelector('#statHeat .hc.today').getBoundingClientRect();
+  return { rows: strip.querySelectorAll('.ym').length, stripFits: strip.scrollWidth <= strip.clientWidth + 1,
+           active: active.length, visible, heatScrolls: sc.scrollWidth > sc.clientWidth,
+           todayInView: today.left >= scr.left - 1 && today.right <= scr.right + 1 };
+})()`, true);
+check('the year strip fits a phone: 12 month rows, every active day visible',
+  grids.rows === 12 && grids.stripFits && grids.active > 0 && grids.visible === grids.active, JSON.stringify(grids));
+check('the activity grid opens scrolled to today', grids.todayInView, JSON.stringify(grids));
+
+/* a floating + button used to cover the last card's controls */
+const lastCard = await evaluate(`(async () => {
+  V.views.toggleTab('home');
+  window.scrollTo(0, document.documentElement.scrollHeight);
+  await new Promise((r) => setTimeout(r, 400));
+  const btns = [...document.querySelectorAll('#eventList .tap-btn')];
+  const btn = btns[btns.length - 1];
+  const b = btn.getBoundingClientRect();
+  const hit = document.elementFromPoint(b.left + b.width * 0.85, b.top + b.height / 2);
+  const line = [...document.querySelectorAll('#eventList .ev-last')].pop().getBoundingClientRect();
+  const hit2 = document.elementFromPoint(line.right - 10, line.top + line.height / 2);
+  return { buttonOnTop: !!(hit && hit.closest('.tap-btn') === btn), lastLineOnTop: !!(hit2 && hit2.closest('.ev-last')),
+           fab: !!document.querySelector('#fab') };
+})()`, true);
+check('nothing floats over the last card when scrolled to the end',
+  lastCard.buttonOnTop && lastCard.lastLineOnTop && !lastCard.fab, JSON.stringify(lastCard));
+
+/* Appearance opened *underneath* Settings: same z-index, earlier in the DOM */
+const stacking = await evaluate(`(async () => {
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  document.querySelector('.tab[data-view="settings"]').click();
+  await wait(350);
+  document.querySelector('#btnAppearance').click();
+  await wait(450);
+  const sheet = document.querySelector('#lookSheet').getBoundingClientRect();
+  const hit = document.elementFromPoint(sheet.left + sheet.width / 2, sheet.top + Math.min(160, sheet.height / 2));
+  const firstOpen = document.querySelector('.overlay:not([hidden])');
+  const res = { onTop: hit && hit.closest('.overlay') && hit.closest('.overlay').id, firstOpenInDom: firstOpen && firstOpen.id };
+  document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  await wait(350);
+  res.afterEscape = { look: !document.querySelector('#lookOverlay').hidden, data: !document.querySelector('#dataOverlay').hidden };
+  document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  await wait(350);
+  res.allClosed = !document.querySelector('.overlay:not([hidden])');
+  res.appInert = document.querySelector('#app').hasAttribute('inert');
+  return res;
+})()`, true);
+check('Appearance opens on top of Settings (and is what Back closes first)',
+  stacking.onTop === 'lookOverlay' && stacking.firstOpenInDom === 'lookOverlay', JSON.stringify(stacking));
+check('Escape closes one sheet at a time, then the page is usable again',
+  stacking.afterEscape.look === false && stacking.afterEscape.data === true && stacking.allClosed && !stacking.appInert,
+  JSON.stringify(stacking));
+
+const race = await evaluate(`(async () => {
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  V.app.openDataSheet();
+  await wait(50);
+  V.ui.closeSheet(V.app.dataOverlay);
+  await wait(60);
+  V.app.openDataSheet();
+  await wait(400);
+  const open = !V.app.dataOverlay.hidden && !V.app.dataOverlay.classList.contains('closing');
+  V.ui.closeSheet(V.app.dataOverlay);
+  await wait(300);
+  return { open };
+})()`, true);
+check('re-opening a sheet during its close animation keeps it open', race.open, JSON.stringify(race));
+
+/* every opened sheet took a higher z-index and nothing reset it, so after
+   a long session the sheets climbed over the toasts — and their Undo */
+const zcreep = await evaluate(`(async () => {
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  V.ui._z = 5000;
+  V.app.openJump();
+  await wait(100);
+  V.ui.closeSheet(V.app.jumpOverlay);
+  await wait(300);
+  V.app.openJump();
+  await wait(100);
+  const overlayZ = Number(getComputedStyle(V.app.jumpOverlay).zIndex);
+  const toastZ = Number(getComputedStyle(document.querySelector('#toastWrap')).zIndex);
+  V.ui.closeSheet(V.app.jumpOverlay);
+  await wait(300);
+  return { overlayZ, toastZ };
+})()`, true);
+check('toasts stay above sheets however many have been opened', zcreep.toastZ > zcreep.overlayZ, JSON.stringify(zcreep));
+
+/* a start before 2020 was written as 2020-01-01 while taps were measured
+   from the real start, moving every tap forward by the difference */
+const codecFix = await evaluate(`(() => {
+  const tapAt = new Date(2026, 9, 15, 10, 30).getTime();
+  const back = V.codec.decode(V.codec.encode({ events: [{ id: 'x', name: 'Old', color: '#2f6bff', start: '2019-12-01', log: [tapAt] }] }));
+  const got = back.events[0];
+  const themed = V.codec.decode(V.codec.encode({ events: [], look: { accent: 'teal', font: 'serif', custom: null, theme: 'dark' } }));
+  const plain = V.codec.packBytes({ events: [], look: { accent: 'blue', font: 'system', custom: null, theme: 'system' } });
+  const old = V.codec.unpackBytes(new Uint8Array([2, 0, 0]));
+  return { tapDay: V.date.toISO(new Date(got.log[0])), tapTime: V.date.fmtTime(got.log[0]), start: got.start,
+           theme: themed.look.theme, accent: themed.look.accent, font: themed.look.font,
+           plainBytes: plain.length, oldTheme: old.look.theme };
+})()`);
+check('a start date before 2020 no longer moves the taps',
+  codecFix.tapDay === '2026-10-15' && codecFix.tapTime === '10:30' && codecFix.start === '2020-01-01', JSON.stringify(codecFix));
+check('the theme travels in the link, and links from before it still read',
+  codecFix.theme === 'dark' && codecFix.accent === 'teal' && codecFix.font === 'serif' &&
+  codecFix.plainBytes === 3 && codecFix.oldTheme === 'system', JSON.stringify(codecFix));
+
+const logic = await evaluate(`(() => {
+  const D = V.date;
+  const realNow = Date.now;
+  const now = new Date(2026, 9, 31, 8, 0).getTime();
+  Date.now = () => now;
+  let rel;
+  try { rel = { h36: D.fmtRelative(now - 36 * 3600e3), h20: D.fmtRelative(now - 20 * 3600e3), h3: D.fmtRelative(now - 3 * 3600e3) }; }
+  finally { Date.now = realNow; }
+  const lv = V.views.levels({ a: 1, b: 2, c: 3, d: 5, e: 8, f: 13 });
+  const used = [...new Set([1, 2, 3, 5, 8, 13].map((n) => V.views.levelOf(n, lv)))].sort().join('');
+  const small = [1, 2, 3, 4].map((n) => V.views.levelOf(n, V.views.levels({ a: 1, b: 4 }))).join('');
+  const ev = { name: 'p', start: D.toISO(D.today()), log: [D.addDays(D.today(), -9).getTime() + 3600e3, Date.now()] };
+  const rate = Math.round(V.store.perDay(ev) * 100) / 100;
+  const saved = { events: V.store.events, sort: V.store.sort, query: V.store.query };
+  V.store.events = [
+    { id: 'n1', name: 'Zed', color: '#2f6bff', start: '2026-01-01', log: [] },
+    { id: 'n2', name: 'Alpha', color: '#2f6bff', start: '2026-01-01', log: [] },
+    { id: 't1', name: 'Late', color: '#2f6bff', start: '2026-01-01', log: [new Date(2026, 4, 1, 10).getTime()] },
+    { id: 't2', name: 'Early', color: '#2f6bff', start: '2026-01-01', log: [new Date(2026, 1, 1, 10).getTime()] }
+  ];
+  V.store.sort = 'oldest';
+  V.store.query = '';
+  const order = V.store.list().map((e) => e.name).join(',');
+  V.store.events = saved.events; V.store.sort = saved.sort; V.store.query = saved.query;
+  return { rel, used, small, rate, order };
+})()`);
+check('"yesterday" means the calendar day before, not 24 to 48 hours ago',
+  logic.rel.h36 === '2 days ago' && logic.rel.h20 === 'yesterday 12:00' && logic.rel.h3 === '3 hours ago', JSON.stringify(logic.rel));
+check('all four heat levels are reachable, the lightest included',
+  logic.used === '1234' && logic.small === '1234', JSON.stringify(logic));
+check('the average counts from the first tap when it precedes the start date', logic.rate === 0.2, JSON.stringify(logic));
+check('the "Oldest" sort orders never-tapped events consistently', logic.order === 'Early,Late,Alpha,Zed', JSON.stringify(logic));
+
+/* window.confirm() is answered with an instant "false" inside the Android
+   WebView, and here Cancel used to mean "replace everything" */
+const loading = await evaluate(`(async () => {
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const realConfirm = window.confirm;
+  let nativeAsked = 0;
+  window.confirm = () => { nativeAsked++; return true; };
+  const names = () => V.store.events.map((e) => e.name).sort().join(',');
+  const taps = () => V.store.events.reduce((n, e) => n + e.log.length, 0);
+  const before = names();
+  const A = V.codec.encode({ events: [{ id: 'a', name: 'Pasted A', color: '#2f6bff', start: '2026-01-01', log: [Date.now() - 5000] }] });
+  const B = V.codec.encode({ events: [{ id: 'b', name: 'Pasted B', color: '#0ea5a0', start: '2026-01-01', log: [Date.now() - 4000] }] });
+  const link = 'https://example.com/virulenter/?d=' + A + '&d=' + B;
+  const res = {};
+  try {
+    let p = V.app.loadPayload(link, 'paste');
+    await wait(400);
+    res.dialogShown = !document.querySelector('#confirmOverlay').hidden;
+    res.choices = [...document.querySelectorAll('#confirmActions .btn')].map((b) => b.textContent);
+    [...document.querySelectorAll('#confirmActions .btn')].pop().click();
+    await p; await wait(300);
+    res.afterCancel = names() === before;
+    p = V.app.loadPayload(link, 'paste');
+    await wait(400);
+    document.querySelector('#confirmActions .btn').click();
+    await p; await wait(300);
+    const after = V.store.events.map((e) => e.name);
+    res.merged = after.includes('Pasted A') && after.includes('Pasted B');
+    /* a session's taps carry milliseconds; the backup taken now must merge
+       back without duplicating a single tap */
+    const json = V.store.serialize();
+    const count = V.store.events.length, tapCount = taps();
+    p = V.app.loadPayload(json, 'paste');
+    await wait(400);
+    document.querySelector('#confirmActions .btn').click();
+    await p; await wait(300);
+    res.selfMerge = { events: V.store.events.length === count, taps: taps() === tapCount };
+  } finally {
+    window.confirm = realConfirm;
+  }
+  res.nativeAsked = nativeAsked;
+  return res;
+})()`, true);
+check('loading data asks in-page: Merge, Replace or Cancel — and Cancel changes nothing',
+  loading.dialogShown && loading.choices.length === 3 && loading.afterCancel && loading.nativeAsked === 0, JSON.stringify(loading));
+check('a pasted link with several d= payloads loads all of them', loading.merged, JSON.stringify(loading));
+check('a backup merged into its own data duplicates no event and no tap',
+  loading.selfMerge && loading.selfMerge.events && loading.selfMerge.taps, JSON.stringify(loading));
+
+const deletion = await evaluate(`(async () => {
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const realConfirm = window.confirm;
+  let nativeAsked = 0;
+  window.confirm = () => { nativeAsked++; return true; };
+  try {
+    const e = V.store.events[0];
+    const n = V.store.events.length;
+    V.app.openForm(e.id);
+    await wait(300);
+    document.querySelector('#btnDeleteEvent').click();
+    await wait(400);
+    const dialog = !document.querySelector('#confirmOverlay').hidden;
+    document.querySelector('#confirmActions .btn.danger').click();
+    await wait(400);
+    const deleted = !V.store.get(e.id) && V.store.events.length === n - 1;
+    const undo = [...document.querySelectorAll('.toast-act')].pop();
+    if (undo) undo.click();
+    await wait(200);
+    return { dialog, deleted, undone: !!V.store.get(e.id) && V.store.events.length === n,
+             formClosed: document.querySelector('#formOverlay').hidden, nativeAsked };
+  } finally { window.confirm = realConfirm; }
+})()`, true);
+check('deleting an event asks in-page (so it works in the Android app) and can be undone',
+  deletion.dialog && deletion.deleted && deletion.undone && deletion.formClosed && deletion.nativeAsked === 0, JSON.stringify(deletion));
+
+/* the add button said "at 16:37" but logged 12:00, logged a future day as
+   today, and always picked the first card in the list */
+const dayAdd = await evaluate(`(async () => {
+  const D = V.date;
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  V.views.toggleTab('calendar');
+  const past = D.toISO(D.addDays(D.today(), -3));
+  const future = D.toISO(D.addDays(D.today(), 3));
+  V.views.dayTime = '07:45';
+  V.views.goTo(D.parseISO(past).getFullYear(), D.parseISO(past).getMonth(), past);
+  await wait(100);
+  const chips = [...document.querySelectorAll('#dayPanel [data-addon]')];
+  const target = V.store.events[V.store.events.length - 1];
+  const before = target.log.length;
+  chips.find((c) => c.dataset.event === target.id).click();
+  await wait(100);
+  const added = target.log.filter((t) => D.dayKey(t) === past && D.fmtTime(t) === '07:45').length;
+  V.views.dayTime = null;
+  V.views.goTo(D.parseISO(future).getFullYear(), D.parseISO(future).getMonth(), future);
+  await wait(100);
+  const futureChips = document.querySelectorAll('#dayPanel [data-addon]').length;
+  const futureTs = V.app.timestampForDay(future);
+  V.views.goToday();
+  return { chips: chips.length, events: V.store.events.length, added, grew: target.log.length === before + 1, futureChips, futureTs };
+})()`, true);
+check('a past tap goes to the event you pick, at the time shown',
+  dayAdd.chips === dayAdd.events && dayAdd.added === 1 && dayAdd.grew, JSON.stringify(dayAdd));
+check('a day that has not happened yet cannot be logged', dayAdd.futureChips === 0 && dayAdd.futureTs === null, JSON.stringify(dayAdd));
+
+const undoTap = await evaluate(`(async () => {
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  V.views.toggleTab('calendar');
+  V.views.goToday();
+  const del = document.querySelector('#dayPanel [data-untap]');
+  const e = V.store.get(del.dataset.untap), ts = Number(del.dataset.ts);
+  const before = e.log.length;
+  del.click();
+  await wait(100);
+  const removed = e.log.length === before - 1;
+  [...document.querySelectorAll('.toast-act')].pop().click();
+  await wait(100);
+  return { removed, restored: e.log.length === before && e.log.includes(ts) };
+})()`, true);
+check('removing a tap offers Undo, which puts it back', undoTap.removed && undoTap.restored, JSON.stringify(undoTap));
+
+const noticeFix = await evaluate(`(() => {
+  V.store.mergeNotice = 2;
+  V.views.renderHome();
+  const box = document.querySelector('#notice');
+  const shown = !box.hidden;
+  box.querySelector('[data-notice-close]').click();
+  V.store.create({ name: 'After the notice', color: '#2f6bff', start: '2026-01-01' });
+  V.views.renderHome();
+  return { shown, stays: box.hidden };
+})()`);
+check('a dismissed notice stays dismissed', noticeFix.shown && noticeFix.stays, JSON.stringify(noticeFix));
+
+const theme = await evaluate(`(async () => {
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const root = document.documentElement;
+  const initial = root.getAttribute('data-theme');
+  document.querySelector('#lookTheme [data-mode="dark"]').click();
+  await wait(50);
+  const dark = { attr: root.getAttribute('data-theme'), bg: getComputedStyle(root).getPropertyValue('--bg').trim(),
+                 link: V.codec.decode(location.href).look.theme, meta: document.querySelector('#metaTheme').content };
+  document.querySelector('#lookTheme [data-mode="system"]').click();
+  await wait(50);
+  return { initial, dark, back: root.getAttribute('data-theme'), linkBack: V.codec.decode(location.href).look.theme };
+})()`, true);
+check('the dark theme applies and rides in the link; System follows the device',
+  theme.initial === 'light' && theme.dark.attr === 'dark' && theme.dark.bg === '#0b0d12' && theme.dark.link === 'dark' &&
+  theme.back === 'light' && theme.linkBack === 'system', JSON.stringify(theme));
+
+/* no figure is cut short: the stats hero once ellipsized "Thu 3 Sep" to
+   "Thu 3 S…" on wide screens. Event names truncate by design. */
+const TRUNCATED = `(async () => {
+  const out = {};
+  for (const v of ['home', 'calendar', 'stats']) {
+    V.views.toggleTab(v);
+    await new Promise((r) => setTimeout(r, 250));
+    const cut = [...document.querySelectorAll('#view-' + v + ' *')].filter((el) => {
+      if (!el.offsetParent) return false;
+      const cs = getComputedStyle(el);
+      return cs.textOverflow === 'ellipsis' && el.scrollWidth > el.clientWidth + 1 &&
+        !el.closest('.ev-name, .name, .name-cell, .chip span, .fchip span');
+    }).map((el) => el.className + ': ' + el.textContent.trim().slice(0, 30));
+    if (cut.length) out[v] = cut;
+  }
+  return out;
+})()`;
+const cutPhone = await evaluate(TRUNCATED, true);
+await send('Emulation.setDeviceMetricsOverride', { width: 900, height: 1000, deviceScaleFactor: 1, mobile: false });
+await new Promise((r) => setTimeout(r, 300));
+const cutWide = await evaluate(TRUNCATED, true);
+check('no figure or label is truncated, on a phone or a wide screen',
+  !Object.keys(cutPhone).length && !Object.keys(cutWide).length, JSON.stringify({ phone: cutPhone, wide: cutWide }));
+
+/* ── the charts: keyboard, tooltip, filter, table twin, heat cells ── */
+await send('Emulation.setDeviceMetricsOverride', { width: 430, height: 900, deviceScaleFactor: 2, mobile: true });
+await new Promise((r) => setTimeout(r, 300));
+const charts = await evaluate(`(async () => {
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const D = V.date;
+  V.views.toggleTab('stats');
+  await wait(400);
+  const el = document.querySelector('#statTrend');
+  const out = {};
+  /* keyboard: End reads the newest column, Enter opens it */
+  el.focus();
+  el.dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true }));
+  await wait(100);
+  const tip = document.querySelector('.chart-tip');
+  out.shown = tip.classList.contains('is-on');
+  out.tipText = tip.innerText.replace(/\\n+/g, ' | ');
+  el.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }));
+  out.live = el.querySelector('.sr-only').textContent;
+  el.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+  el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+  await wait(300);
+  out.view = V.app.view;
+  out.sel = V.views.cal.sel;
+  out.today = D.toISO(D.today());
+  /* the event filter rescopes every figure, and recolours the series */
+  V.views.toggleTab('stats');
+  await wait(300);
+  const coffee = V.store.events.find((e) => e.name === 'Coffee');
+  const since = D.stripTime(D.addDays(D.today(), -29));
+  out.coffee30 = coffee.log.filter((t) => t >= since).length;
+  document.querySelector('#statOnly [data-only="' + coffee.id + '"]').click();
+  await wait(200);
+  out.filtered = {
+    hero: Number(document.querySelector('#statHero .lead b').textContent),
+    rows: document.querySelectorAll('#statEvents tbody tr').length,
+    series: getComputedStyle(document.querySelector('#statTrend')).getPropertyValue('--series').trim(),
+    tone: V.ui.tone(coffee.color).c
+  };
+  document.querySelector('#statOnly [data-only=""]').click();
+  await wait(200);
+  /* the table twin */
+  const toggle = document.querySelector('[data-table-for="statTrend"]');
+  toggle.click();
+  out.tableRows = document.querySelectorAll('#statTrend table tbody tr').length;
+  out.pressed = toggle.getAttribute('aria-pressed');
+  toggle.click();
+  out.barsBack = document.querySelectorAll('#statTrend .bar').length;
+  /* heat cells answer the same tooltip */
+  const cell = [...document.querySelectorAll('#statHeat .hc[data-n]')].filter((c) => +c.dataset.n > 0).pop();
+  cell.dispatchEvent(new PointerEvent('pointerover', { pointerType: 'mouse', bubbles: true }));
+  out.heatTip = tip.classList.contains('is-on') ? tip.innerText.split('\\n')[0] : '(hidden)';
+  out.heatWant = D.fmtDayLong(cell.dataset.date);
+  V.charts.clear();
+  return out;
+})()`, true);
+check('a chart answers the keyboard: arrows read each column, Enter opens it in the calendar',
+  charts.shown && /\d+ taps?/.test(charts.tipText) && /: \d+ taps?\./.test(charts.live) &&
+  charts.view === 'calendar' && charts.sel === charts.today, JSON.stringify(charts));
+check('the tooltip leads with the value and splits it by event',
+  /Coffee/.test(charts.tipText) && /Cigarette/.test(charts.tipText), charts.tipText);
+check('the event filter rescopes the figures and recolours the series',
+  charts.filtered.hero === charts.coffee30 && charts.filtered.rows === 1 && charts.filtered.series === charts.filtered.tone,
+  JSON.stringify({ coffee30: charts.coffee30, filtered: charts.filtered }));
+check('every chart has a table view of the same numbers',
+  charts.tableRows === 30 && charts.pressed === 'true' && charts.barsBack === 30,
+  JSON.stringify({ tableRows: charts.tableRows, pressed: charts.pressed, barsBack: charts.barsBack }));
+check('heat cells show their day on hover', charts.heatTip === charts.heatWant, JSON.stringify({ got: charts.heatTip, want: charts.heatWant }));
+
+/* glass gives way to solid surfaces for anyone who asks the system for
+   less transparency */
+await send('Emulation.setEmulatedMedia', { features: [
+  { name: 'prefers-color-scheme', value: 'light' }, { name: 'prefers-reduced-transparency', value: 'reduce' }] });
+const MATERIAL = `(() => {
+  const pane = document.querySelector('.summary');
+  const cs = getComputedStyle(pane), rim = getComputedStyle(pane, '::before');
+  const bar = (sel) => { const b = getComputedStyle(document.querySelector(sel));
+    return { fill: b.backgroundColor, blur: b.backdropFilter || b.webkitBackdropFilter || 'none' }; };
+  return { pane: cs.backgroundColor, blur: cs.backdropFilter || cs.webkitBackdropFilter || 'none',
+           rim: rim.display === 'none' ? 'none' : rim.content, radius: parseFloat(cs.borderTopLeftRadius),
+           backdrop: getComputedStyle(document.body, '::before').backgroundImage,
+           after: getComputedStyle(document.body, '::after').content,
+           top: bar('.topbar'), tabs: bar('.tabbar') };
+})()`;
+const solid = await evaluate(`(() => { V.views.toggleTab('home'); return ${MATERIAL}; })()`);
+await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'light' }] });
+const plainGlass = await evaluate(MATERIAL);
+/* the frost is measured over a background, where there is something to frost */
+const glass = await evaluate(`(() => { V.store.setBackground('mist'); V.app.lookChanged(); return ${MATERIAL}; })()`);
+await evaluate(`(() => { V.store.setBackground('none'); V.app.lookChanged(); })()`);
+check('glass turns solid under "reduce transparency"',
+  /^rgb\(255, 255, 255\)$/.test(solid.pane) && solid.blur === 'none' && solid.rim === 'none' &&
+  solid.top.blur === 'none' && /^rgba\(255, 255, 255, 0\.\d+\)$/.test(glass.pane),
+  JSON.stringify({ reduced: solid, normal: glass }));
+/* the material itself: panes are frosted, carry a lit rim, and keep to
+   the squarer corner scale (cards 12px at most) */
+check('panes are frosted glass with a lit rim and tight corners',
+  /blur\(/.test(glass.blur) && glass.rim !== 'none' && glass.radius > 0 && glass.radius <= 12,
+  JSON.stringify(glass));
+check('the top and bottom bars are the same glass as the cards',
+  glass.top.fill === glass.pane && glass.tabs.fill === glass.pane &&
+  glass.top.blur === glass.blur && glass.tabs.blur === glass.blur,
+  JSON.stringify({ pane: glass.pane, blur: glass.blur, top: glass.top, tabs: glass.tabs }));
+/* with no background a card has only the flat page behind it: no blur
+   pass there, while the bars still frost what scrolls beneath them */
+check('with no background, cards skip the blur pass and the bars keep theirs',
+  plainGlass.blur === 'none' && plainGlass.pane === glass.pane && plainGlass.rim !== 'none' &&
+  plainGlass.top.blur === glass.blur && plainGlass.tabs.blur === glass.blur,
+  JSON.stringify({ plain: plainGlass.blur, top: plainGlass.top, tabs: plainGlass.tabs }));
+
+/* backgrounds: plain by default; a preset by choice, carried in the link;
+   an uploaded picture kept in IndexedDB on this device only */
+const bgs = await evaluate(`(async () => {
+  const root = document.documentElement, out = {};
+  const before = () => getComputedStyle(document.body, '::before').backgroundImage;
+  V.store.resetLook(); V.app.lookChanged();
+  out.plain = { attr: root.getAttribute('data-bg'), image: before(), after: getComputedStyle(document.body, '::after').content };
+  V.store.setBackground('ocean'); V.app.lookChanged();
+  out.ocean = { attr: root.getAttribute('data-bg'), image: before().slice(0, 40) };
+  out.roundTrip = V.codec.decode(V.codec.encode(V.store.snapshot())).look.bg;
+  out.inLink = V.codec.decode(location.href).look.bg;
+  /* a 4×3 picture through the real upload path */
+  const c = document.createElement('canvas'); c.width = 4; c.height = 3;
+  const g = c.getContext('2d'); g.fillStyle = '#3a8'; g.fillRect(0, 0, 4, 3);
+  const blob = await new Promise((r) => c.toBlob(r, 'image/png'));
+  out.uploaded = await V.app.uploadBackground(new File([blob], 'bg.png', { type: 'image/png' }));
+  const stored = await V.backdrop.load();
+  V.app.openLook();
+  out.image = { attr: root.getAttribute('data-bg'), css: root.style.getPropertyValue('--bg-image').slice(0, 10),
+    layer: /url\\(/.test(before()), storedType: stored && stored.type, has: V.backdrop.has,
+    tile: document.querySelector('#lookBg [data-bg="image"]').classList.contains('has-image'),
+    remove: !document.querySelector('#bgRemove').hidden, link: V.codec.decode(location.href).look.bg,
+    local: localStorage.length + sessionStorage.length };
+  await V.app.removeBackground();
+  out.removed = { attr: root.getAttribute('data-bg'), stored: await V.backdrop.load(), has: V.backdrop.has,
+    remove: !document.querySelector('#bgRemove').hidden };
+  V.ui.closeSheet(V.app.lookOverlay);
+  await new Promise((r) => setTimeout(r, 300));
+  return out;
+})()`, true);
+check('the background is plain until one is chosen',
+  bgs.plain.attr === 'none' && bgs.plain.image === 'none' && bgs.plain.after === 'none', JSON.stringify(bgs.plain));
+check('a preset background applies and travels in the link',
+  bgs.ocean.attr === 'ocean' && /gradient/.test(bgs.ocean.image) && bgs.roundTrip === 'ocean' && bgs.inLink === 'ocean',
+  JSON.stringify({ ocean: bgs.ocean, roundTrip: bgs.roundTrip, inLink: bgs.inLink }));
+check('an uploaded image is kept in IndexedDB, never in the link or localStorage',
+  bgs.uploaded === true && bgs.image.attr === 'image' && bgs.image.css === 'url("blob:' && bgs.image.layer &&
+  bgs.image.storedType === 'image/jpeg' && bgs.image.has && bgs.image.tile && bgs.image.remove &&
+  bgs.image.link === 'image' && bgs.image.local === 0,
+  JSON.stringify(bgs.image));
+check('removing the image clears the store and the page',
+  bgs.removed.attr === 'none' && bgs.removed.stored === null && !bgs.removed.has && !bgs.removed.remove,
+  JSON.stringify(bgs.removed));
+
+/* a tab shown again is not rebuilt unless something it draws changed */
+const reuse = await evaluate(`(async () => {
+  const wait = () => new Promise((r) => setTimeout(r, 80));
+  const hero = () => document.querySelector('#statHero');
+  const cal = () => document.querySelector('#calGrid').firstElementChild;
+  V.views.toggleTab('stats'); await wait();
+  const h1 = hero().firstElementChild;
+  V.views.toggleTab('calendar'); await wait();
+  const c1 = cal();
+  V.views.toggleTab('home'); await wait();
+  V.views.toggleTab('stats'); await wait();
+  const sameStats = hero().firstElementChild === h1;
+  V.views.toggleTab('calendar'); await wait();
+  const sameCal = cal() === c1;
+  V.views.toggleTab('home'); await wait();
+  const e = V.store.events[0], before = V.store.count(e);
+  document.querySelector('[data-tap="' + e.id + '"]').click(); await wait();
+  V.views.toggleTab('stats'); await wait();
+  const rebuilt = hero().firstElementChild !== h1;
+  const shows = hero().textContent.replace(/\\s+/g, ' ').slice(0, 60);
+  V.views.toggleTab('calendar'); await wait();
+  const calRebuilt = cal() !== c1;
+  V.views.toggleTab('home'); await wait();
+  V.app.removeTap(e.id, e.log[e.log.length - 1]);
+  return { sameStats, sameCal, rebuilt, calRebuilt, counted: V.store.count(e) === before, shows };
+})()`, true);
+check('a revisited tab is reused as drawn, and rebuilt once its data changes',
+  reuse.sameStats && reuse.sameCal && reuse.rebuilt && reuse.calRebuilt && reuse.counted, JSON.stringify(reuse));
+
+const fit = await evaluate(`(() => {
+  const f = V.backdrop.fit;
+  const here = { k: f(6000, 4000), small: f(800, 600) };
+  /* the same photo on a 1280 × 800 laptop screen at 1× */
+  Object.defineProperty(screen, 'width', { value: 1280, configurable: true });
+  Object.defineProperty(screen, 'height', { value: 800, configurable: true });
+  const dpr = Object.getOwnPropertyDescriptor(window, 'devicePixelRatio');
+  Object.defineProperty(window, 'devicePixelRatio', { value: 1, configurable: true });
+  const laptop = f(6000, 4000);
+  delete screen.width; delete screen.height;
+  if (dpr) Object.defineProperty(window, 'devicePixelRatio', dpr); else delete window.devicePixelRatio;
+  return { here, laptop };
+})()`);
+check('an uploaded picture is kept at the size the screen shows, never enlarged',
+  Math.abs(fit.here.k - 0.4) < 1e-9 && fit.here.small === 1 && Math.abs(fit.laptop - 0.32) < 1e-9,
+  JSON.stringify(fit));
+
+/* switching pages: the new view slides in from its tab's side, and the
+   highlight glides to the tab */
+const slide = await evaluate(`(async () => {
+  const cls = (v) => ['enter-next', 'enter-prev', 'enter'].filter((c) => document.querySelector('#view-' + v).classList.contains(c)).join();
+  const glideAt = () => {
+    const g = document.querySelector('#tabGlide'), bar = g.parentNode.getBoundingClientRect();
+    const ic = document.querySelector('.tab.is-on .tab-ic').getBoundingClientRect();
+    const m = new DOMMatrix(getComputedStyle(g).transform);
+    return Math.abs(bar.left + m.m41 - ic.left) < 1.5 && Math.abs(bar.top + m.m42 - ic.top) < 1.5;
+  };
+  const wait = () => new Promise((r) => setTimeout(r, 700));
+  const out = {};
+  V.views.toggleTab('home'); await wait();
+  V.views.toggleTab('stats'); out.toStats = cls('stats'); await wait(); out.glideStats = glideAt();
+  V.views.toggleTab('calendar'); out.toCalendar = cls('calendar'); await wait(); out.glideCalendar = glideAt();
+  V.views.toggleTab('home'); out.toHome = cls('home'); await wait(); out.glideHome = glideAt();
+  out.homeOnly = !document.querySelector('#view-home').hidden && document.querySelector('#view-stats').hidden;
+  out.wide = document.documentElement.scrollWidth <= document.documentElement.clientWidth;
+  return out;
+})()`, true);
+check('pages slide in from the side of their tab, and the highlight glides there',
+  slide.toStats === 'enter-next' && slide.toCalendar === 'enter-prev' && slide.toHome === 'enter-prev' &&
+  slide.glideStats && slide.glideCalendar && slide.glideHome && slide.homeOnly && slide.wide,
+  JSON.stringify(slide));
+
+/* iOS rounds the corners of the touch icon itself: a pre-rounded icon
+   showed as a rounded square with dark corners */
+if (isHttp && !IS_APK_ASSETS) {
+  const touchIcon = await evaluate(`(async () => {
+    const img = new Image();
+    img.src = document.querySelector('link[rel=apple-touch-icon]').href;
+    await img.decode();
+    const c = document.createElement('canvas');
+    c.width = img.width; c.height = img.height;
+    const g = c.getContext('2d');
+    g.drawImage(img, 0, 0);
+    const corner = g.getImageData(0, 0, 1, 1).data[3];
+    return { size: img.width + 'x' + img.height, cornerAlpha: corner };
+  })()`, true);
+  check('the iOS touch icon is a full-bleed 180px square', touchIcon.size === '180x180' && touchIcon.cornerAlpha === 255,
+    JSON.stringify(touchIcon));
+}
 
 /* ── 22. no console errors ──────────────────────────────── */
 const IGNORE = [
   /* registering a worker that the APK deliberately does not ship */
   /sw\.js/,
-  /bad HTTP response code \(404\) was received when fetching the script/i
+  /bad HTTP response code \(404\) was received when fetching the script/i,
+  /* a desktop browser asks for /favicon.ico when a page names no icon; the
+     WebView never does, and the APK's page names none on purpose */
+  /\/favicon\.ico/
 ];
 const errors = logs
   .filter((l) => l.type === 'exception' || l.type === 'error' || l.type === 'log:error')

@@ -9,9 +9,13 @@ window.V = window.V || {};
 
   var U = V.util, D = V.date, Codec = V.codec;
 
+  function defaultLook() {
+    return { accent: V.DEFAULTS.accent, font: V.DEFAULTS.font, custom: null, theme: V.DEFAULTS.theme, bg: V.DEFAULTS.bg };
+  }
+
   var Store = V.store = {
     events: [],
-    look: { accent: V.DEFAULTS.accent, font: V.DEFAULTS.font, custom: null },
+    look: defaultLook(),
     dirty: false,          // true once the user has changed something
     sort: 'recent',        // recent | name | count | oldest
     query: '',
@@ -48,9 +52,12 @@ window.V = window.V || {};
       }
 
       Store.events = loaded ? loaded.events : [];
-      Store.look = (loaded && loaded.look) || { accent: V.DEFAULTS.accent, font: V.DEFAULTS.font, custom: null };
+      Store.look = (loaded && loaded.look) || defaultLook();
       Store.mergeNotice = merged;
       Store.decodeFailed = failed && !loaded;
+      /* some payloads read and some did not: say so rather than quietly
+         showing a partial log */
+      Store.partialFailure = failed && !!loaded;
       return Store.events;
     },
 
@@ -66,19 +73,35 @@ window.V = window.V || {};
             byId[incoming.id] = incoming;
             return;
           }
-          /* same event: union of timestamps, deduplicated */
-          var seen = {};
-          cur.log.forEach(function (t) { seen[t] = true; });
-          incoming.log.forEach(function (t) { if (!seen[t]) cur.log.push(t); });
+          /* same event: union of the taps, compared to the minute — the
+             precision a link stores — and as a multiset, so two real taps
+             in one minute survive while a tap seen on both sides is kept
+             once. (Comparing exact milliseconds duplicated every tap of a
+             session when its backup was merged back after a reload.) */
+          var have = {}, seen = {};
+          cur.log.forEach(function (t) { var k = Math.floor(t / 60000); have[k] = (have[k] || 0) + 1; });
+          incoming.log.forEach(function (t) {
+            var k = Math.floor(t / 60000);
+            seen[k] = (seen[k] || 0) + 1;
+            if (seen[k] > (have[k] || 0)) cur.log.push(t);
+          });
           cur.log.sort(function (a, b) { return a - b; });
           if (!cur.name && incoming.name) cur.name = incoming.name;
         });
-        /* the first payload's appearance wins; later ones only fill gaps */
+        /* the first payload's appearance wins; later ones only fill the
+           settings it left at their defaults. Always a fresh object, so the
+           caller decides whether to adopt it. */
         if (other.look && target.look) {
-          if (other.look.custom && !target.look.custom) target.look = other.look;
-          else if (other.look.accent !== V.DEFAULTS.accent && target.look.accent === V.DEFAULTS.accent) {
-            target.look.accent = other.look.accent;
+          var t = target.look, o = other.look;
+          var look = { accent: t.accent, font: t.font, custom: t.custom || null, theme: t.theme || V.DEFAULTS.theme, bg: t.bg || V.DEFAULTS.bg };
+          if (!t.custom && t.accent === V.DEFAULTS.accent) {
+            look.accent = o.accent || look.accent;
+            look.custom = o.custom || null;
           }
+          if (t.font === V.DEFAULTS.font && o.font) look.font = o.font;
+          if (look.theme === V.DEFAULTS.theme && o.theme) look.theme = o.theme;
+          if (look.bg === V.DEFAULTS.bg && o.bg) look.bg = o.bg;
+          target.look = look;
         }
       });
       return target;
@@ -99,48 +122,74 @@ window.V = window.V || {};
     },
 
     importJSON: function (text, mode) {
-      var parsed;
-      try { parsed = JSON.parse(text); } catch (e) { return { ok: false, error: 'That is not valid JSON.' }; }
-      var list = Array.isArray(parsed) ? parsed : (parsed && Array.isArray(parsed.events) ? parsed.events : null);
-      if (!list) return { ok: false, error: 'No events found in that data.' };
-      var state = Codec.unpackBytes(Codec.packBytes({ events: list, look: parsed && parsed.look }));
+      try { JSON.parse(text); } catch (e) { return { ok: false, error: 'That is not valid JSON.' }; }
+      /* keeps the original ids, so repeated merge-imports stay idempotent */
+      var state = Codec.decodeJSON(text);
       if (!state) return { ok: false, error: 'No events found in that data.' };
-      /* keep the original ids so repeated merge-imports stay idempotent */
-      list.forEach(function (raw, i) {
-        if (state.events[i] && raw && raw.id) state.events[i].id = String(raw.id);
-      });
+      Store.apply(state, mode);
+      return { ok: true, count: state.events.length };
+    },
+
+    /* adopt a decoded state: replace everything, or merge by event id */
+    apply: function (state, mode) {
       if (mode === 'replace') {
         Store.events = state.events;
-        if (parsed && parsed.look) Store.look = state.look;
+        if (state.look && state.hasLook !== false) Store.look = state.look;
       } else {
         var target = { events: Store.events, look: Store.look };
         Store.mergeInto(target, [state]);
         Store.events = target.events;
+        Store.look = target.look;
       }
       Store.dirty = true;
-      return { ok: true, count: state.events.length };
     },
 
     /* ── appearance ─────────────────────────────────────── */
-    setAccent: function (id) {
-      Store.look = { accent: id, font: Store.look.font, custom: null };
+    withLook: function (patch) {
+      var cur = Store.look || defaultLook();
+      var next = { accent: cur.accent, font: cur.font, custom: cur.custom || null, theme: cur.theme || V.DEFAULTS.theme, bg: cur.bg || V.DEFAULTS.bg };
+      Object.keys(patch).forEach(function (k) { next[k] = patch[k]; });
+      Store.look = next;
       Store.dirty = true;
-      return Store.look;
+      return next;
+    },
+
+    setAccent: function (id) {
+      if (!V.ACCENTS.some(function (a) { return a.id === id; })) return null;
+      return Store.withLook({ accent: id, custom: null });
     },
 
     setCustomAccent: function (hex) {
       if (!Codec.hexToRgb(hex)) return null;
-      Store.look = { accent: Store.look.accent, font: Store.look.font, custom: Codec.rgbToHex(Codec.hexToRgb(hex)) };
+      return Store.withLook({ custom: Codec.rgbToHex(Codec.hexToRgb(hex)) });
+    },
+
+    setFont: function (id) {
+      if (!V.FONTS.some(function (f) { return f.id === id; })) return null;
+      return Store.withLook({ font: id });
+    },
+
+    setTheme: function (id) {
+      if (V.THEMES.indexOf(id) < 0) return null;
+      return Store.withLook({ theme: id });
+    },
+
+    setBackground: function (id) {
+      if (!V.BACKGROUNDS.some(function (b) { return b.id === id; })) return null;
+      return Store.withLook({ bg: id });
+    },
+
+    resetLook: function () {
+      Store.look = defaultLook();
       Store.dirty = true;
       return Store.look;
     },
 
-    setFont: function (id) {
-      var known = V.FONTS.some(function (f) { return f.id === id; });
-      if (!known) return null;
-      Store.look = { accent: Store.look.accent, font: id, custom: Store.look.custom };
-      Store.dirty = true;
-      return Store.look;
+    isDefaultLook: function (look) {
+      look = look || Store.look;
+      return look.accent === V.DEFAULTS.accent && look.font === V.DEFAULTS.font &&
+             !look.custom && (look.theme || V.DEFAULTS.theme) === V.DEFAULTS.theme &&
+             (look.bg || V.DEFAULTS.bg) === V.DEFAULTS.bg;
     },
 
     /* ── mutate ─────────────────────────────────────────── */
@@ -149,12 +198,19 @@ window.V = window.V || {};
       return null;
     },
 
+    /* a start date the link can actually carry (see V.MIN_START) */
+    clampStart: function (iso) {
+      var d = D.parseISO(iso) || D.today();
+      var min = D.parseISO(V.MIN_START);
+      return D.toISO(d < min ? min : d);
+    },
+
     create: function (data) {
       var e = {
         id: U.uid(),
         name: String(data.name || 'Untitled').trim().slice(0, 48) || 'Untitled',
         color: /^#[0-9a-f]{6}$/i.test(data.color || '') ? data.color : V.COLORS[0],
-        start: D.toISO(D.parseISO(data.start) || D.today()),
+        start: Store.clampStart(data.start),
         log: []
       };
       Store.events.push(e);
@@ -167,8 +223,7 @@ window.V = window.V || {};
       if (!e) return null;
       if (typeof data.name === 'string' && data.name.trim()) e.name = data.name.trim().slice(0, 48);
       if (/^#[0-9a-f]{6}$/i.test(data.color || '')) e.color = data.color;
-      var sd = D.parseISO(data.start);
-      if (sd) e.start = D.toISO(sd);
+      if (D.parseISO(data.start)) e.start = Store.clampStart(data.start);
       Store.dirty = true;
       return e;
     },
@@ -249,12 +304,28 @@ window.V = window.V || {};
       return out;
     },
 
+    /* taps per day since the event began — the start date, or the first tap
+       if that came earlier, so a start moved later cannot inflate the rate */
     perDay: function (e) {
       if (!e.log.length) return 0;
-      var from = D.parseISO(e.start) || D.fromTs(e.log[0]);
+      var start = D.parseISO(e.start);
+      var first = D.fromTs(e.log[0]);
+      var from = start && start < first ? start : first;
       var days = D.diffDays(from, D.today()) + 1;
       if (days < 1) days = 1;
       return e.log.length / days;
+    },
+
+    /* one event's taps on each of the last n days, oldest first */
+    recentFor: function (e, n) {
+      var totals = Store.dayTotalsFor(e);
+      var out = [];
+      for (var i = n - 1; i >= 0; i--) {
+        var d = D.addDays(D.today(), -i);
+        var iso = D.toISO(d);
+        out.push({ iso: iso, n: totals[iso] || 0 });
+      }
+      return out;
     },
 
     stats: function () {
@@ -291,9 +362,10 @@ window.V = window.V || {};
       }).sort(function (a, b) { return b.count - a.count || a.event.name.localeCompare(b.event.name, 'en'); });
     },
 
-    /* longest run of consecutive days with at least one tap, plus current run */
-    streaks: function () {
-      var totals = Store.dayTotals();
+    /* longest run of consecutive days with at least one tap, plus current
+       run — for every event, or for the per-day totals passed in */
+    streaks: function (dayTotals) {
+      var totals = dayTotals || Store.dayTotals();
       var keys = Object.keys(totals).sort();
       if (!keys.length) return { longest: 0, longestEnd: null, current: 0, activeDays: 0 };
 
@@ -409,7 +481,14 @@ window.V = window.V || {};
       rows.sort(function (a, b) {
         if (s === 'name') return a.name.localeCompare(b.name, 'en');
         if (s === 'count') return b.log.length - a.log.length || a.name.localeCompare(b.name, 'en');
-        if (s === 'oldest') return (Store.first(a) || Infinity) - (Store.first(b) || Infinity);
+        if (s === 'oldest') {
+          /* never-tapped events last; Infinity - Infinity would be NaN */
+          var fa = Store.first(a), fb = Store.first(b);
+          if (fa === null && fb === null) return a.name.localeCompare(b.name, 'en');
+          if (fa === null) return 1;
+          if (fb === null) return -1;
+          return fa - fb;
+        }
         var la = Store.last(a), lb = Store.last(b);
         if (la === null && lb === null) return 0;
         if (la === null) return 1;
@@ -475,10 +554,15 @@ window.V = window.V || {};
     },
 
     /* ── URL persistence ────────────────────────────────── */
+
+    /* The address bar is the save file, so it keeps up with every change up
+       to MAX_BAR. (It used to stop at MAX_URL — the share-friendly length —
+       which silently dropped every tap after the ~280th on reload.) A link
+       past MAX_URL is only discouraged for *sharing*; see the data sheet. */
     syncUrl: function () {
       var url;
       try { url = Codec.urlFor(Store.snapshot()); } catch (e) { return false; }
-      if (url.length > Codec.MAX_URL) { Store.urlOk = false; return false; }
+      if (url.length > Codec.MAX_BAR) { Store.urlOk = false; return false; }
       Store.urlOk = true;
       var ok = false;
       try {

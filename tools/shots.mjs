@@ -8,11 +8,12 @@ import { mkdtempSync, readFileSync, existsSync, mkdirSync, writeFileSync } from 
 import { tmpdir } from 'node:os';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { findChrome } from './chrome.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');   // project root
 const OUT = join(ROOT, 'verify', 'shots');
 mkdirSync(OUT, { recursive: true });
-const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+const CHROME = findChrome();
 const profile = mkdtempSync(join(tmpdir(), 'vr-shot-'));
 
 const chrome = spawn(CHROME, [
@@ -62,6 +63,8 @@ async function shot(name) {
 await send('Network.enable');
 await send('Network.setCacheDisabled', { cacheDisabled: true });
 await send('Page.enable'); await send('Runtime.enable');
+const scheme = (value) => send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value }] });
+await scheme('light');
 
 const URL = 'file://' + join(ROOT, 'app', 'index.html');
 
@@ -127,9 +130,9 @@ for (const s of sizes) {
   await ev(`V.ui.closeSheet(V.app.formOverlay)`); await wait(250);
 
   /* statistics */
-  await ev(`V.views.toggleTab('stats')`); await wait(600);
+  await ev(`V.views.toggleTab('stats')`); await wait(900);
   await shot(`${s.tag}-stats`);
-  await ev(`window.scrollTo(0, document.querySelector('#statMonthPanel') ? 0 : 700)`); await wait(300);
+  await ev(`window.scrollTo(0, 700)`); await wait(400);
   await shot(`${s.tag}-stats-2`);
 
   /* calendar jump picker */
@@ -149,5 +152,21 @@ for (const s of sizes) {
   await ev(`V.app.openDataSheet()`); await wait(500);
   await shot(`${s.tag}-settings`);
 }
+
+/* dark theme — the system setting, followed live */
+for (const s of sizes) {
+  await scheme('dark');
+  await send('Emulation.setDeviceMetricsOverride', { width: s.w, height: s.h, deviceScaleFactor: s.dpr, mobile: s.w < 600 });
+  await send('Page.navigate', { url: URL }); await ready(); await wait(350);
+  await ev(SEED); await wait(600);
+  await shot(`${s.tag}-dark-events`);
+  await ev(`V.views.toggleTab('calendar')`); await wait(550);
+  await shot(`${s.tag}-dark-calendar`);
+  await ev(`V.views.toggleTab('stats')`); await wait(900);
+  await shot(`${s.tag}-dark-stats`);
+  await ev(`V.app.openDataSheet()`); await wait(600);
+  await shot(`${s.tag}-dark-settings`);
+}
+await scheme('light');
 
 ws.close(); chrome.kill(); process.exit(0);

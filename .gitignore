@@ -16,5 +16,14 @@ apk/local.properties
 # signed, installable release with no setup. Replace both before publishing.
 apk/keystore.local.properties
 
-# scratch
-verify/shots/checks/
+# test screenshots (node tools/verify.mjs, node tools/shots.mjs) and local APK
+# builds: regenerated on demand; CI keeps its builds as run artifacts
+verify/shots/
+dist/*.apk
+
+# native app (Kotlin Multiplatform) build output
+native/.gradle/
+native/.kotlin/
+native/build/
+native/composeApp/build/
+native/local.properties

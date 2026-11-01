@@ -1,282 +1,309 @@
-/* ============================================================
-   Virulenter · core.js — helpers and date arithmetic.
-   No dependencies. Everything is local-timezone based.
-   ============================================================ */
-window.V = window.V || {};
-(function (V) {
-  'use strict';
-
-  V.APP_NAME = 'Virulenter';
-  V.FORMAT = 2;   // bumped when the appearance settings joined the payload
-
-  var U = V.util = {
-    MS_DAY: 86400000,
-
-    qs: function (sel, root) { return (root || document).querySelector(sel); },
-    qsa: function (sel, root) {
-      return Array.prototype.slice.call((root || document).querySelectorAll(sel));
-    },
-
-    el: function (tag, cls, html) {
-      var n = document.createElement(tag);
-      if (cls) n.className = cls;
-      if (html != null) n.innerHTML = html;
-      return n;
-    },
-
-    uid: function () {
-      return 'e' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-    },
-
-    clamp: function (v, a, b) { return v < a ? a : (v > b ? b : v); },
-    pad2: function (n) { return n < 10 ? '0' + n : '' + n; },
-
-    esc: function (s) {
-      return String(s == null ? '' : s)
-        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-    },
-
-    /* English pluralisation for the handful of words the UI counts */
-    plural: function (n, one, many) { return n === 1 ? one : (many || one + 's'); },
-
-    throttle: function (fn, wait) {
-      var last = 0, timer = null, args = null;
-      return function () {
-        var now = Date.now(), ctx = this;
-        args = arguments;
-        if (now - last >= wait) { last = now; fn.apply(ctx, args); }
-        else if (!timer) {
-          timer = setTimeout(function () {
-            timer = null; last = Date.now(); fn.apply(ctx, args);
-          }, wait - (now - last));
-        }
-      };
-    },
-
-    toast: function (msg) {
-      var wrap = U.qs('#toastWrap');
-      if (!wrap) return;
-      var t = U.el('div', 'toast', U.esc(msg));
-      wrap.appendChild(t);
-      setTimeout(function () {
-        t.classList.add('out');
-        setTimeout(function () { t.remove(); }, 220);
-      }, 1700);
-    },
-
-    copy: function (text) {
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        return navigator.clipboard.writeText(text).then(function () { return true; },
-                                                        function () { return fallback(); });
-      }
-      return Promise.resolve(fallback());
-      function fallback() {
-        try {
-          var ta = document.createElement('textarea');
-          ta.value = text;
-          ta.setAttribute('readonly', '');
-          ta.style.position = 'fixed';
-          ta.style.opacity = '0';
-          document.body.appendChild(ta);
-          ta.select();
-          var ok = document.execCommand('copy');
-          ta.remove();
-          return ok;
-        } catch (e) { return false; }
-      }
-    },
-
-    /* Hand a generated file to the platform.
-       In a browser that means a Blob object URL and an <a download>. Inside the
-       Android wrapper there is no download manager listening, so an injected
-       bridge object receives the bytes and writes them to the Downloads folder
-       or a share sheet.
-
-       The bridge has to be looked up per call: Android injects it asynchronously,
-       so it may not exist yet while this module is evaluating.
-       Detect it by capability rather than by user agent. */
-    nativeSave: function () {
-      var b = (typeof window !== 'undefined') ? window.VirulenterNative : null;
-      return (b && typeof b.saveBase64 === 'function') ? b : null;
-    },
-
-    canShareFiles: function () {
-      var b = U.nativeSave();
-      return !!(b && typeof b.canShare === 'function' && b.canShare());
-    },
-
-    download: function (filename, text, mime) {
-      var type = (mime || 'application/json') + ';charset=utf-8';
-      var bridge = U.nativeSave();
-
-      if (bridge) {
-        try {
-          bridge.saveBase64(filename, type, U.base64Utf8(text), false);
-          return;
-        } catch (e) { /* fall through to the browser path */ }
-      }
-
-      var blob = new Blob([text], { type: type });
-      var url = URL.createObjectURL(blob);
-      var a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
-    },
-
-    /* same file, but offered to other apps instead of saved */
-    share: function (filename, text, mime) {
-      var type = (mime || 'application/json') + ';charset=utf-8';
-      var bridge = U.nativeSave();
-      if (!bridge) return false;
-      try {
-        bridge.saveBase64(filename, type, U.base64Utf8(text), true);
-        return true;
-      } catch (e) { return false; }
-    },
-
-    /* UTF-8 safe base64, so non-ASCII event names survive the bridge */
-    base64Utf8: function (text) {
-      var bytes = new TextEncoder().encode(String(text));
-      var bin = '';
-      for (var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
-      return btoa(bin);
-    }
-  };
-
-  /* ── dates ────────────────────────────────────────────── */
-  var D = V.date = {
-    stripTime: function (d) {
-      return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
-    },
-
-    diffDays: function (a, b) {
-      return Math.round((D.stripTime(b) - D.stripTime(a)) / U.MS_DAY);
-    },
-
-    addDays: function (d, n) {
-      var x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-      x.setDate(x.getDate() + n);
-      return x;
-    },
-
-    addMonths: function (d, n) {
-      var day = d.getDate();
-      var x = new Date(d.getFullYear(), d.getMonth() + n, 1);
-      var last = new Date(x.getFullYear(), x.getMonth() + 1, 0).getDate();
-      x.setDate(Math.min(day, last));
-      return x;
-    },
-
-    daysInMonth: function (y, m) { return new Date(y, m + 1, 0).getDate(); },
-
-    /* Absolute day number for a local calendar date. Deliberately NOT
-       Date.UTC(...)/86400000: that mixes a UTC epoch with a local midnight,
-       so the division does not land on a whole day and every date drifts by
-       one outside UTC. Counting ordinal days keeps local dates exact. */
-    toEpochDay: function (d) {
-      var y = d.getFullYear(), m = d.getMonth(), day = d.getDate();
-      var a = Math.floor((14 - (m + 1)) / 12);
-      var yy = y + 4800 - a;
-      var mm = (m + 1) + 12 * a - 3;
-      return day + Math.floor((153 * mm + 2) / 5) + 365 * yy +
-             Math.floor(yy / 4) - Math.floor(yy / 100) + Math.floor(yy / 400) - 32045;
-    },
-
-    fromEpochDay: function (n) {
-      var a = n + 32044;
-      var b = Math.floor((4 * a + 3) / 146097);
-      var c = a - Math.floor(146097 * b / 4);
-      var dd = Math.floor((4 * c + 3) / 1461);
-      var e = c - Math.floor(1461 * dd / 4);
-      var mm = Math.floor((5 * e + 2) / 153);
-      var day = e - Math.floor((153 * mm + 2) / 5) + 1;
-      var month = mm + 3 - 12 * Math.floor(mm / 10);
-      var year = 100 * b + dd - 4800 + Math.floor(mm / 10);
-      return new Date(year, month - 1, day);
-    },
-
-    today: function () {
-      var n = new Date();
-      return new Date(n.getFullYear(), n.getMonth(), n.getDate());
-    },
-
-    /* local YYYY-MM-DD — never toISOString, which would shift the day across timezones */
-    toISO: function (d) {
-      return d.getFullYear() + '-' + U.pad2(d.getMonth() + 1) + '-' + U.pad2(d.getDate());
-    },
-
-    /* strict parse: JS would silently roll 2026-02-30 into 03-02, so read it back */
-    parseISO: function (iso) {
-      if (!iso) return null;
-      var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso).trim());
-      if (!m) return null;
-      var y = +m[1], mo = +m[2], d = +m[3];
-      if (mo < 1 || mo > 12 || d < 1 || d > 31) return null;
-      var date = new Date(y, mo - 1, d);
-      if (isNaN(date.getTime())) return null;
-      if (date.getFullYear() !== y || date.getMonth() !== mo - 1 || date.getDate() !== d) return null;
-      return date;
-    },
-
-    dayKey: function (ts) { return D.toISO(dFromTs(ts)); },
-
-    /* 2026-03-04 → Wed 4 Mar */
-    fmtDay: function (iso) {
-      var d = D.parseISO(iso);
-      if (!d) return '—';
-      return D.WEEKDAYS[d.getDay()] + ' ' + d.getDate() + ' ' + D.MONTHS[d.getMonth()];
-    },
-
-    fmtDayLong: function (iso) {
-      var d = D.parseISO(iso);
-      if (!d) return '—';
-      return D.WEEKDAYS_LONG[d.getDay()] + ', ' + d.getDate() + ' ' + D.MONTHS_LONG[d.getMonth()] + ' ' + d.getFullYear();
-    },
-
-    fmtMonth: function (y, m) { return D.MONTHS_LONG[m] + ' ' + y; },
-
-    /* 14:05 */
-    fmtTime: function (ts) {
-      var d = new Date(ts);
-      return U.pad2(d.getHours()) + ':' + U.pad2(d.getMinutes());
-    },
-
-    /* relative, human: "3 min ago" / "Yesterday 14:05" */
-    fmtRelative: function (ts) {
-      if (!ts) return '';
-      var now = Date.now(), diff = now - ts;
-      if (diff < 0) return D.fmtTime(ts);
-      var min = Math.floor(diff / 60000);
-      if (min < 1) return 'just now';
-      if (min < 60) return min + (min === 1 ? ' min ago' : ' mins ago');
-      var hrs = Math.floor(min / 60);
-      if (hrs < 24) return hrs + (hrs === 1 ? ' hour ago' : ' hours ago');
-      var days = Math.floor(hrs / 24);
-      if (days === 1) return 'yesterday ' + D.fmtTime(ts);
-      if (days < 7) return days + ' days ago';
-      return D.fmtDay(D.dayKey(ts));
-    },
-
-    WEEKDAYS: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
-    WEEKDAYS_LONG: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
-    MONTHS: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
-    MONTHS_LONG: ['January', 'February', 'March', 'April', 'May', 'June',
-                  'July', 'August', 'September', 'October', 'November', 'December']
-  };
-
-  function dFromTs(ts) {
-    var d = new Date(ts);
-    return new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  }
-  V.date.fromTs = dFromTs;
-
-  /* ── colours for new events ───────────────────────────── */
-  V.COLORS = ['#2f6bff', '#0ea5a0', '#f0872b', '#d92d4b',
-              '#7c4dff', '#0f9d58', '#c2185b', '#5b6472'];
-
+window.V=window.V||{};
+(function(V){
+'use strict';
+V.APP_NAME='Virulenter';
+V.FORMAT=2;
+var U=V.util={
+MS_DAY:86400000,
+qs:function(sel,root){return(root||document).querySelector(sel);},
+qsa:function(sel,root){
+return Array.prototype.slice.call((root||document).querySelectorAll(sel));
+},
+el:function(tag,cls,html){
+var n=document.createElement(tag);
+if(cls)n.className=cls;
+if(html!=null)n.innerHTML=html;
+return n;
+},
+uid:function(){
+return'e'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+},
+clamp:function(v,a,b){return v<a?a:(v>b?b:v);},
+pad2:function(n){return n<10?'0'+n:''+n;},
+esc:function(s){
+return String(s==null?'':s)
+.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+.replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+},
+plural:function(n,one,many){return n===1?one:(many||one+'s');},
+throttle:function(fn,wait){
+var last=0,timer=null,args=null;
+return function(){
+var now=Date.now(),ctx=this;
+args=arguments;
+if(now-last>=wait){last=now;fn.apply(ctx,args);}
+else if(!timer){
+timer=setTimeout(function(){
+timer=null;last=Date.now();fn.apply(ctx,args);
+},wait-(now-last));
+}
+};
+},
+toast:function(msg,opts){
+opts=opts||{};
+var wrap=U.qs('#toastWrap');
+if(!wrap)return null;
+var live=U.qsa('.toast:not(.out)',wrap);
+if(live.length>=3)dismiss(live[0]);
+var t=U.el('div','toast');
+t.setAttribute('role','status');
+t.appendChild(U.el('span','toast-msg',U.esc(msg)));
+if(opts.action&&typeof opts.onAction==='function'){
+var b=U.el('button','toast-act',U.esc(opts.action));
+b.type='button';
+b.addEventListener('click',function(){opts.onAction();dismiss(t);});
+t.appendChild(b);
+}
+wrap.appendChild(t);
+var timer=setTimeout(function(){dismiss(t);},opts.duration||(opts.action?4500:2000));
+function dismiss(node){
+if(!node||node.classList.contains('out'))return;
+if(node===t)clearTimeout(timer);
+node.classList.add('out');
+setTimeout(function(){node.remove();},240);
+}
+return t;
+},
+copy:function(text){
+if(navigator.clipboard&&navigator.clipboard.writeText){
+return navigator.clipboard.writeText(text).then(function(){return true;},
+function(){return fallback();});
+}
+return Promise.resolve(fallback());
+function fallback(){
+try{
+var ta=document.createElement('textarea');
+ta.value=text;
+ta.setAttribute('readonly','');
+ta.style.position='fixed';
+ta.style.opacity='0';
+document.body.appendChild(ta);
+ta.select();
+var ok=document.execCommand('copy');
+ta.remove();
+return ok;
+}catch(e){return false;}
+}
+},
+nativeSave:function(){
+var b=(typeof window!=='undefined')?window.VirulenterNative:null;
+return(b&&typeof b.saveBase64==='function')?b:null;
+},
+canShareFiles:function(){
+var b=U.nativeSave();
+return!!(b&&typeof b.canShare==='function'&&b.canShare());
+},
+download:function(filename,text,mime){
+var type=(mime||'application/json')+';charset=utf-8';
+var bridge=U.nativeSave();
+if(bridge){
+try{
+bridge.saveBase64(filename,type,U.base64Utf8(text),false);
+return;
+}catch(e){}
+}
+var blob=new Blob([text],{type:type});
+var url=URL.createObjectURL(blob);
+var a=document.createElement('a');
+a.href=url;
+a.download=filename;
+document.body.appendChild(a);
+a.click();
+a.remove();
+setTimeout(function(){URL.revokeObjectURL(url);},4000);
+},
+share:function(filename,text,mime){
+var type=(mime||'application/json')+';charset=utf-8';
+var bridge=U.nativeSave();
+if(!bridge)return false;
+try{
+bridge.saveBase64(filename,type,U.base64Utf8(text),true);
+return true;
+}catch(e){return false;}
+},
+base64Utf8:function(text){
+var bytes=new TextEncoder().encode(String(text));
+var bin='';
+for(var i=0;i<bytes.length;i++)bin+=String.fromCharCode(bytes[i]);
+return btoa(bin);
+}
+};
+var D=V.date={
+stripTime:function(d){
+return new Date(d.getFullYear(),d.getMonth(),d.getDate()).getTime();
+},
+diffDays:function(a,b){
+return Math.round((D.stripTime(b)-D.stripTime(a))/U.MS_DAY);
+},
+addDays:function(d,n){
+var x=new Date(d.getFullYear(),d.getMonth(),d.getDate());
+x.setDate(x.getDate()+n);
+return x;
+},
+addMonths:function(d,n){
+var day=d.getDate();
+var x=new Date(d.getFullYear(),d.getMonth()+n,1);
+var last=new Date(x.getFullYear(),x.getMonth()+1,0).getDate();
+x.setDate(Math.min(day,last));
+return x;
+},
+daysInMonth:function(y,m){return new Date(y,m+1,0).getDate();},
+toEpochDay:function(d){
+var y=d.getFullYear(),m=d.getMonth(),day=d.getDate();
+var a=Math.floor((14-(m+1))/12);
+var yy=y+4800-a;
+var mm=(m+1)+12*a-3;
+return day+Math.floor((153*mm+2)/5)+365*yy+
+Math.floor(yy/4)-Math.floor(yy/100)+Math.floor(yy/400)-32045;
+},
+fromEpochDay:function(n){
+var a=n+32044;
+var b=Math.floor((4*a+3)/146097);
+var c=a-Math.floor(146097*b/4);
+var dd=Math.floor((4*c+3)/1461);
+var e=c-Math.floor(1461*dd/4);
+var mm=Math.floor((5*e+2)/153);
+var day=e-Math.floor((153*mm+2)/5)+1;
+var month=mm+3-12*Math.floor(mm/10);
+var year=100*b+dd-4800+Math.floor(mm/10);
+return new Date(year,month-1,day);
+},
+today:function(){
+var n=new Date();
+return new Date(n.getFullYear(),n.getMonth(),n.getDate());
+},
+toISO:function(d){
+return d.getFullYear()+'-'+U.pad2(d.getMonth()+1)+'-'+U.pad2(d.getDate());
+},
+parseISO:function(iso){
+if(!iso)return null;
+var m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso).trim());
+if(!m)return null;
+var y=+m[1],mo=+m[2],d=+m[3];
+if(mo<1||mo>12||d<1||d>31)return null;
+var date=new Date(y,mo-1,d);
+if(isNaN(date.getTime()))return null;
+if(date.getFullYear()!==y||date.getMonth()!==mo-1||date.getDate()!==d)return null;
+return date;
+},
+dayKey:function(ts){
+var d=new Date(ts);
+return d.getFullYear()+'-'+U.pad2(d.getMonth()+1)+'-'+U.pad2(d.getDate());
+},
+fmtDay:function(iso){
+var d=D.parseISO(iso);
+if(!d)return'—';
+return D.WEEKDAYS[d.getDay()]+' '+d.getDate()+' '+D.MONTHS[d.getMonth()];
+},
+fmtDayLong:function(iso){
+var d=D.parseISO(iso);
+if(!d)return'—';
+return D.WEEKDAYS_LONG[d.getDay()]+', '+d.getDate()+' '+D.MONTHS_LONG[d.getMonth()]+' '+d.getFullYear();
+},
+fmtMonth:function(y,m){return D.MONTHS_LONG[m]+' '+y;},
+fmtTime:function(ts){
+var d=new Date(ts);
+return U.pad2(d.getHours())+':'+U.pad2(d.getMinutes());
+},
+fmtRelative:function(ts){
+if(!ts)return'';
+var now=Date.now(),diff=now-ts;
+if(diff<0)return D.fmtTime(ts);
+var min=Math.floor(diff/60000);
+if(min<1)return'just now';
+if(min<60)return min+(min===1?' min ago':' mins ago');
+var hrs=Math.floor(min/60);
+var days=D.diffDays(dFromTs(ts),dFromTs(now));
+if(days===0||hrs<6)return hrs+(hrs===1?' hour ago':' hours ago');
+if(days===1)return'yesterday '+D.fmtTime(ts);
+if(days<7)return days+' days ago';
+return D.fmtDay(D.dayKey(ts));
+},
+WEEKDAYS:['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],
+WEEKDAYS_LONG:['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'],
+MONTHS:['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],
+MONTHS_LONG:['January','February','March','April','May','June',
+'July','August','September','October','November','December']
+};
+function dFromTs(ts){
+var d=new Date(ts);
+return new Date(d.getFullYear(),d.getMonth(),d.getDate());
+}
+V.date.fromTs=dFromTs;
+V.COLORS=['#2f6bff','#0ea5a0','#f0872b','#d92d4b',
+'#7c4dff','#0f9d58','#c2185b','#5b6472'];
+V.SURFACE={light:'#ffffff',dark:'#16191f'};
+var C=V.color={
+rgb:function(hex){
+var m=/^#?([0-9a-f]{6})$/i.exec(String(hex||''));
+if(!m)return null;
+var n=parseInt(m[1],16);
+return[(n>>16)&255,(n>>8)&255,n&255];
+},
+hex:function(rgb){
+return'#'+rgb.map(function(v){
+var s=Math.max(0,Math.min(255,Math.round(v))).toString(16);
+return s.length===1?'0'+s:s;
+}).join('');
+},
+mix:function(a,b,t){
+var x=C.rgb(a),y=C.rgb(b);
+if(!x||!y)return a;
+return C.hex(x.map(function(v,i){return v+(y[i]-v)*t;}));
+},
+rgba:function(hex,alpha){
+var c=C.rgb(hex)||[0,0,0];
+return'rgba('+c[0]+', '+c[1]+', '+c[2]+', '+alpha+')';
+},
+luminance:function(hex){
+var c=C.rgb(hex);
+if(!c)return 0;
+var f=function(v){
+v/=255;
+return v<=0.03928?v/12.92:Math.pow((v+0.055)/1.055,2.4);
+};
+return 0.2126*f(c[0])+0.7152*f(c[1])+0.0722*f(c[2]);
+},
+contrast:function(a,b){
+var la=C.luminance(a),lb=C.luminance(b);
+return(Math.max(la,lb)+0.05)/(Math.min(la,lb)+0.05);
+},
+readable:function(fg,bg,min){
+var target=min||4.5;
+var toward=C.luminance(bg)>0.18?'#000000':'#ffffff';
+var out=fg;
+for(var i=1;i<=20&&C.contrast(out,bg)<target;i++)out=C.mix(fg,toward,i*0.05);
+return out;
+},
+onColor:function(bg){
+return C.contrast('#ffffff',bg)>=3?'#ffffff':'#0e1525';
+},
+hsl:function(hex){
+var c=C.rgb(hex);
+if(!c)return[0,0,0];
+var r=c[0]/255,g=c[1]/255,b=c[2]/255;
+var max=Math.max(r,g,b),min=Math.min(r,g,b),d=max-min;
+var h=0,s=0,l=(max+min)/2;
+if(d){
+s=d/(1-Math.abs(2*l-1));
+h=max===r?((g-b)/d)%6:max===g?(b-r)/d+2:(r-g)/d+4;
+h*=60;
+if(h<0)h+=360;
+}
+return[h,s,l];
+},
+fromHsl:function(h,s,l){
+h=((h%360)+360)%360;
+var c=(1-Math.abs(2*l-1))*s;
+var x=c*(1-Math.abs((h/60)%2-1));
+var m=l-c/2;
+var rgb=h<60?[c,x,0]:h<120?[x,c,0]:h<180?[0,c,x]
+:h<240?[0,x,c]:h<300?[x,0,c]:[c,0,x];
+return C.hex(rgb.map(function(v){return(v+m)*255;}));
+},
+spin:function(hex,deg,lightness){
+var t=C.hsl(hex);
+return C.fromHsl(t[0]+deg,t[1],lightness==null?t[2]:lightness);
+}
+};
 })(window.V);

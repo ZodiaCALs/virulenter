@@ -1,742 +1,1032 @@
-/* ============================================================
-   Virulenter · app.js — bootstrap, routing, interaction wiring.
-   ============================================================ */
-window.V = window.V || {};
-(function (V) {
-  'use strict';
-
-  var U = V.util, D = V.date, S = V.store, UI = V.ui, Views = V.views,
-      Stats = V.stats, Codec = V.codec;
-
-  var App = {
-    view: 'home',
-    editingId: null,
-    sortOrder: ['recent', 'name', 'count', 'oldest'],
-    selectedColor: null,
-    installEvent: null,
-
-    /* ══════════ start ══════════ */
-    start: function () {
-      App.formOverlay = U.qs('#formOverlay');
-      App.dataOverlay = U.qs('#dataOverlay');
-      App.lookOverlay = U.qs('#lookOverlay');
-      App.jumpOverlay = U.qs('#jumpOverlay');
-
-      S.load();
-      Views.init();
-      Stats.init();
-      App.bindAll();
-
-      Views.renderSort();
-      /* the manifest shortcuts deep-link with #view=… */
-      var deep = /(?:^|[#&?])view=([a-z]+)/.exec(location.hash || '');
-      var startView = deep && ['home', 'calendar', 'stats'].indexOf(deep[1]) >= 0 ? deep[1] : 'home';
-      App.view = startView;
-      Views.toggleTab(startView);
-      Views.renderHome();
-      UI.setActiveSwatch(S.events.length ? S.events[0].color : V.COLORS[0]);
-      App.applyLook(S.look);
-
-      /* Normalise the address bar once, so the link in the bar is always the
-         canonical shareable one. Store.syncUrl() does not run again until the
-         user actually changes something. */
-      if (S.events.length) S.syncUrl();
-
-      App.initInstall();
-      App.initServiceWorker();
-
-      App.ready = true;
-      document.documentElement.classList.add('ready');
-    },
-
-    /* ══════════ routing ══════════ */
-    bindAll: function () {
-      U.qsa('.tab').forEach(function (t) {
-        t.addEventListener('click', function () {
-          App.view = t.dataset.view;
-          Views.toggleTab(App.view);
-        });
-      });
-      U.qs('#fab').addEventListener('click', function () { App.openForm(null); });
-      U.qs('#btnAddTop').addEventListener('click', function () { App.openForm(null); });
-      U.qs('#btnAddEmpty').addEventListener('click', function () { App.openForm(null); });
-      U.qs('#notice').addEventListener('click', function (ev) {
-        if (ev.target.dataset && ev.target.dataset.noticeClose) U.qs('#notice').hidden = true;
-      });
-
-      /* events list */
-      var list = U.qs('#eventList');
-      list.addEventListener('click', function (ev) {
-        var tap = ev.target.closest('[data-tap]');
-        if (tap) { App.handleTap(tap); return; }
-        var edit = ev.target.closest('[data-edit]');
-        if (edit) { App.openForm(edit.dataset.edit); return; }
-      });
-
-      var search = U.qs('#searchInput');
-      search.addEventListener('input', U.throttle(function () {
-        S.query = search.value;
-        U.qs('#searchClear').hidden = !search.value;
-        Views.renderHome();
-      }, 120));
-      U.qs('#searchClear').addEventListener('click', function () {
-        search.value = ''; S.query = ''; this.hidden = true;
-        Views.renderHome(); search.focus();
-      });
-      U.qs('#btnSort').addEventListener('click', function () {
-        var i = App.sortOrder.indexOf(S.sort);
-        S.sort = App.sortOrder[(i + 1) % App.sortOrder.length];
-        Views.renderSort();
-        Views.renderHome();
-      });
-
-      App.bindCalendar();
-      App.bindJump();
-
-      /* sheets */
-      [App.formOverlay, App.dataOverlay, App.lookOverlay, App.jumpOverlay].forEach(UI.bindSheetClose);
-      document.addEventListener('keydown', function (ev) {
-        if (ev.key !== 'Escape') return;
-        [App.jumpOverlay, App.lookOverlay, App.formOverlay, App.dataOverlay].some(function (ov) {
-          if (!ov.hidden) { UI.closeSheet(ov); return true; }
-          return false;
-        });
-      });
-
-      App.bindForm();
-      App.bindLook();
-      App.bindDataSheet();
-    },
-
-    /* ══════════ calendar ══════════ */
-    bindCalendar: function () {
-      U.qs('#calPrev').addEventListener('click', function () { Views.shiftMonth(-1); });
-      U.qs('#calNext').addEventListener('click', function () { Views.shiftMonth(1); });
-      U.qs('#calPrevYear').addEventListener('click', function () { Views.shiftYear(-1); });
-      U.qs('#calNextYear').addEventListener('click', function () { Views.shiftYear(1); });
-      U.qs('#calToday').addEventListener('click', function () { Views.goToday(); });
-      U.qs('#calTitle').addEventListener('click', function () { App.openJump(); });
-      U.qs('#calGrid').addEventListener('click', function (ev) {
-        var cell = ev.target.closest('.cal-cell');
-        if (cell) Views.setSelectedDay(cell.dataset.date);
-      });
-
-      /* both heat grids jump the calendar to the clicked day */
-      U.qs('#view-calendar').addEventListener('click', function (ev) {
-        var hc = ev.target.closest('.heat-grid .hc[data-date]');
-        if (!hc) return;
-        var d = D.parseISO(hc.dataset.date);
-        if (d) Views.goTo(d.getFullYear(), d.getMonth(), hc.dataset.date);
-      });
-
-      U.qs('#dayPanel').addEventListener('click', function (ev) {
-        var del = ev.target.closest('[data-untap]');
-        if (del) {
-          S.removeEntry(del.dataset.untap, Number(del.dataset.ts));
-          App.persist();
-          Views.renderCalendar();
-          Views.refreshLastLines();
-          Views.renderStats(S.stats());
-          U.toast('Tap removed');
-          return;
-        }
-        var add = ev.target.closest('[data-addon]');
-        if (add) App.addOnDay(add.dataset.addon);
-      });
-    },
-
-    /* ══════════ month / year jump picker ══════════ */
-    bindJump: function () {
-      U.qs('#jumpPrevYear').addEventListener('click', function () { App.jumpYear -= 1; App.renderJump(); });
-      U.qs('#jumpNextYear').addEventListener('click', function () { App.jumpYear += 1; App.renderJump(); });
-      U.qs('#jumpToday').addEventListener('click', function () {
-        UI.closeSheet(App.jumpOverlay);
-        Views.goToday();
-      });
-      U.qs('#jumpMonths').addEventListener('click', function (ev) {
-        var b = ev.target.closest('[data-month]');
-        if (!b) return;
-        UI.closeSheet(App.jumpOverlay);
-        Views.goTo(App.jumpYear, Number(b.dataset.month));
-      });
-      U.qs('#jumpYearList').addEventListener('click', function (ev) {
-        var b = ev.target.closest('[data-year]');
-        if (!b) return;
-        App.jumpYear = Number(b.dataset.year);
-        App.renderJump();
-      });
-    },
-
-    openJump: function () {
-      App.jumpYear = Views.cal.y;
-      App.renderJump();
-      UI.openSheet(App.jumpOverlay);
-    },
-
-    renderJump: function () {
-      var y = App.jumpYear;
-      U.qs('#jumpYearLabel').textContent = y;
-      var months = S.byMonth(y);
-      U.qs('#jumpMonths').innerHTML = D.MONTHS_LONG.map(function (name, i) {
-        var n = months[i];
-        var on = (y === Views.cal.y && i === Views.cal.m);
-        return '<button class="jump-month' + (on ? ' is-on' : '') + '" type="button" data-month="' + i + '">' +
-          name + (n ? '<span class="mbadge">' + n + '</span>' : '') + '</button>';
-      }).join('');
-
-      /* years that actually contain taps, newest first; falling back to a
-         window around the current year when there is no data yet */
-      var withData = S.years().filter(function (yy) {
-        return S.byMonth(yy).some(function (n) { return n > 0; });
-      });
-      if (!withData.length) {
-        withData = [new Date().getFullYear()];
-      }
-      U.qs('#jumpYearList').innerHTML = withData.map(function (yy) {
-        var total = S.byMonth(yy).reduce(function (a, b) { return a + b; }, 0);
-        return '<button type="button" data-year="' + yy + '"' + (yy === y ? ' class="is-on"' : '') + '>' +
-          yy + (total ? ' · ' + total : '') + '</button>';
-      }).join('');
-    },
-
-    /* ══════════ the core action ══════════ */
-    buzz: function () {
-      if (App._noVibrate) return;
-      var nav = navigator;
-      if (typeof nav.vibrate !== 'function') return;
-      if (nav.userActivation && nav.userActivation.isActive === false) return;
-      try {
-        var r = nav.vibrate(12);
-        if (r === false) App._noVibrate = true;
-      } catch (e) { App._noVibrate = true; }
-    },
-
-    handleTap: function (btn) {
-      var id = btn.dataset.tap;
-      var e = S.get(id);
-      if (!e) return;
-      var ts = S.logTap(id);
-      if (!ts) return;
-
-      App.buzz();
-      App.persist();
-
-      /* update in place — no full re-render, so the button keeps focus and
-         the list order does not jump under the finger */
-      var countNode = U.qs('[data-count="' + id + '"]');
-      if (countNode) {
-        countNode.textContent = S.count(e);
-        var wrap = countNode.parentElement;
-        if (wrap) {
-          var unit = wrap.querySelector('span');
-          if (unit) unit.textContent = UI.plural(S.count(e), 'tap', 'taps');
-        }
-      }
-      var lastNode = U.qs('[data-last="' + id + '"]');
-      if (lastNode) lastNode.innerHTML = UI.lastLine(ts);
-
-      btn.classList.remove('pop');
-      void btn.offsetWidth;
-      btn.classList.add('pop');
-
-      Views.renderStats(S.stats());
-      Views.renderBrandSub();
-
-      if (App.view === 'calendar') Views.renderCalendar();
-      if (App.view === 'stats') Stats.render();
-    },
-
-    addOnDay: function (iso) {
-      if (!S.events.length) { U.toast('Create an event first'); return; }
-      var e = S.list()[0] || S.events[0];
-      S.logTap(e.id, App.timestampForDay(iso));
-      App.persist();
-      Views.renderCalendar();
-      Views.renderHome();
-      U.toast('Logged on ' + D.fmtDay(iso) + ' for “' + e.name + '”');
-    },
-
-    timestampForDay: function (iso) {
-      var now = new Date();
-      if (iso === D.toISO(now)) return now.getTime();
-      var d = D.parseISO(iso);
-      if (!d) return now.getTime();
-      d.setHours(12, 0, 0, 0);
-      return d.getTime() > now.getTime() ? now.getTime() : d.getTime();
-    },
-
-    persist: function () {
-      var ok = S.syncUrl();
-      if (!ok && S.events.length) Views.renderNotice();
-      return ok;
-    },
-
-    /* ══════════ appearance ══════════ */
-    applyLook: function (look) {
-      look = look || S.look || V.DEFAULTS;
-      var tints = Codec.accentTints(Codec.accentValue(look));
-      var root = document.documentElement.style;
-      root.setProperty('--accent', tints.value);
-      root.setProperty('--accent-soft', tints.soft);
-      root.setProperty('--accent-ink', tints.ink);
-      root.setProperty('--accent-hover', shade(tints.value, -0.16));
-      root.setProperty('--font', Codec.fontStack(look.font));
-
-      /* re-tint the activity ramp from the accent so a custom colour carries
-         through the calendar and heat grids, not just the buttons */
-      var rgb = Codec.hexToRgb(tints.value);
-      var wash = function (t) { return Codec.rgbToHex(rgb.map(function (v) { return 255 - (255 - v) * t; })); };
-      root.setProperty('--lv1', wash(0.28));
-      root.setProperty('--lv2', wash(0.56));
-      root.setProperty('--lv3', wash(0.80));
-      root.setProperty('--lv4', tints.value);
-
-      if (look.custom) root.setProperty('--custom-accent', look.custom);
-      else root.removeProperty('--custom-accent');
-    },
-
-    bindLook: function () {
-      var wrap = U.qs('#lookAccent');
-      wrap.innerHTML = V.ACCENTS.map(function (a) {
-        return '<button class="swatch" type="button" data-accent="' + a.id + '" style="--c:' + a.value +
-          '" aria-label="' + U.esc(a.label) + '" title="' + U.esc(a.label) + '"></button>';
-      }).join('');
-      wrap.addEventListener('click', function (ev) {
-        var b = ev.target.closest('[data-accent]');
-        if (!b) return;
-        S.setAccent(b.dataset.accent);
-        App.applyLook(S.look);
-        App.renderLook();
-        App.persist();
-      });
-
-      var custom = U.qs('#lookCustom');
-      var hex = U.qs('#lookCustomHex');
-      custom.addEventListener('input', function () {
-        hex.value = custom.value;
-        S.setCustomAccent(custom.value);
-        App.applyLook(S.look);
-        App.renderLook();
-        App.persist();
-      });
-      U.qs('#lookCustomApply').addEventListener('click', function () {
-        var v = hex.value.trim();
-        if (!/^#?[0-9a-f]{6}$/i.test(v)) { U.toast('Enter six hex digits, e.g. #2f6bff'); return; }
-        v = v[0] === '#' ? v : '#' + v;
-        custom.value = v;
-        S.setCustomAccent(v);
-        App.applyLook(S.look);
-        App.renderLook();
-        App.persist();
-        U.toast('Accent applied');
-      });
-      hex.addEventListener('keydown', function (ev) {
-        if (ev.key === 'Enter') { ev.preventDefault(); U.qs('#lookCustomApply').click(); }
-      });
-
-      var fonts = U.qs('#lookFont');
-      fonts.innerHTML = V.FONTS.map(function (f) {
-        return '<button class="font-opt" type="button" data-font="' + f.id + '">' +
-          '<span><span class="fo-name" style="font-family:' + f.stack.replace(/"/g, '&quot;') + '">' +
-            U.esc(f.label) + '</span><br><span class="fo-meta">' + U.esc(firstFamily(f.stack)) + '</span></span>' +
-          '<span class="fo-check">✓</span>' +
-        '</button>';
-      }).join('');
-      fonts.addEventListener('click', function (ev) {
-        var b = ev.target.closest('[data-font]');
-        if (!b) return;
-        S.setFont(b.dataset.font);
-        App.applyLook(S.look);
-        App.renderLook();
-        App.persist();
-      });
-
-      U.qs('#lookReset').addEventListener('click', function () {
-        Store_resetLook();
-        App.applyLook(S.look);
-        App.renderLook();
-        App.persist();
-        U.toast('Appearance reset');
-      });
-    },
-
-    renderLook: function () {
-      var look = S.look;
-      var active = Codec.accentValue(look);
-      U.qsa('#lookAccent .swatch').forEach(function (b) {
-        b.classList.toggle('is-on', !look.custom && b.dataset.accent === look.accent);
-      });
-      U.qs('#lookCustom').value = look.custom || active;
-      U.qs('#lookCustomHex').value = look.custom || '';
-      U.qsa('#lookFont .font-opt').forEach(function (b) {
-        b.classList.toggle('is-on', b.dataset.font === look.font);
-      });
-      /* the preview reads the live custom properties, so nothing extra to do */
-      U.qs('#lookReset').disabled = (look.accent === V.DEFAULTS.accent && look.font === V.DEFAULTS.font && !look.custom);
-    },
-
-    openLook: function () {
-      App.renderLook();
-      UI.openSheet(App.lookOverlay);
-    },
-
-    /* ══════════ new / edit event ══════════ */
-    bindForm: function () {
-      var wrap = U.qs('#fColor');
-      wrap.innerHTML = V.COLORS.map(function (c) {
-        return '<button class="swatch" type="button" data-color="' + c + '" style="--c:' + c + '" aria-label="' + c + '"></button>';
-      }).join('');
-      wrap.addEventListener('click', function (ev) {
-        var b = ev.target.closest('.swatch');
-        if (b) UI.setActiveSwatch(b.dataset.color);
-      });
-
-      U.qs('#eventForm').addEventListener('submit', function (ev) {
-        ev.preventDefault();
-        App.submitForm();
-      });
-      U.qs('#btnLogNow').addEventListener('click', function () {
-        if (!App.editingId) return;
-        S.logTap(App.editingId);
-        App.persist();
-        App.refreshFormLog();
-        Views.renderHome();
-      });
-      U.qs('#btnClearLog').addEventListener('click', function () {
-        if (!App.editingId) return;
-        var e = S.get(App.editingId);
-        if (!e || !e.log.length) { U.toast('Nothing to clear'); return; }
-        S.clearLog(App.editingId);
-        App.persist();
-        App.refreshFormLog();
-        Views.renderHome();
-        U.toast('All taps cleared');
-      });
-      U.qs('#btnDeleteEvent').addEventListener('click', function () {
-        if (!App.editingId) return;
-        var e = S.get(App.editingId);
-        if (e) App.confirmDelete(e);
-      });
-    },
-
-    refreshFormLog: function () {
-      var e = App.editingId ? S.get(App.editingId) : null;
-      U.qs('#logCount').textContent = e ? e.log.length : 0;
-    },
-
-    openForm: function (id) {
-      var e = id ? S.get(id) : null;
-      App.editingId = e ? e.id : null;
-      U.qs('#formTitle').textContent = e ? 'Edit event' : 'New event';
-      U.qs('#fName').value = e ? e.name : '';
-      U.qs('#fStart').value = e ? e.start : D.toISO(D.today());
-      UI.setActiveSwatch(e ? e.color : V.COLORS[S.events.length % V.COLORS.length]);
-      U.qs('#rowLog').hidden = !e;
-      U.qs('#rowDelete').hidden = !e;
-      App.refreshFormLog();
-      UI.openSheet(App.formOverlay);
-      if (!e) setTimeout(function () { U.qs('#fName').focus({ preventScroll: true }); }, 220);
-    },
-
-    submitForm: function () {
-      var name = U.qs('#fName').value.trim();
-      var start = U.qs('#fStart').value;
-      if (!name) { U.toast('Give the event a name'); U.qs('#fName').focus(); return; }
-      if (!D.parseISO(start)) { U.toast('Pick a valid start date'); return; }
-
-      var data = { name: name, color: App.selectedColor || V.COLORS[0], start: start };
-      var e = App.editingId ? S.update(App.editingId, data) : S.create(data);
-      if (!e) { U.toast('Could not save'); return; }
-
-      App.persist();
-      UI.closeSheet(App.formOverlay);
-      Views.renderHome();
-      if (App.view === 'calendar') Views.renderCalendar();
-      if (App.view === 'stats') Stats.render();
-      U.toast(App.editingId ? 'Saved' : '“' + e.name + '” created — tap its button to log');
-      App.editingId = null;
-    },
-
-    confirmDelete: function (e) {
-      var n = e.log.length;
-      if (window.confirm('Delete “' + e.name + '” and its ' + n + ' recorded ' +
-                         UI.plural(n, 'tap') + '? This cannot be undone.')) {
-        S.remove(e.id);
-        App.persist();
-        UI.closeSheet(App.formOverlay);
-        Views.renderHome();
-        if (App.view === 'calendar') Views.renderCalendar();
-        if (App.view === 'stats') Stats.render();
-        U.toast('Deleted');
-        App.editingId = null;
-      }
-    },
-
-    /* ══════════ install (PWA) ══════════ */
-    isInstalled: function () {
-      return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
-             window.navigator.standalone === true;
-    },
-
-    initInstall: function () {
-      var row = U.qs('#installRow');
-      var hint = U.qs('#installHint');
-      var btnRow = U.qs('#btnInstallRow');
-
-      if (App.isInstalled()) { row.hidden = true; return; }
-
-      window.addEventListener('beforeinstallprompt', function (ev) {
-        ev.preventDefault();
-        App.installEvent = ev;
-        U.qs('#btnInstall').hidden = false;
-        btnRow.textContent = 'Install as an app';
-        hint.textContent = 'Adds Virulenter to your home screen and runs it offline.';
-      });
-
-      window.addEventListener('appinstalled', function () {
-        App.installEvent = null;
-        U.qs('#btnInstall').hidden = true;
-        U.toast('Installed');
-      });
-
-      /* Phrase the hint for the context we are really in.
-
-         Adding to the home screen and getting an offline app are two different
-         things: a browser will only register a service worker (offline) on a
-         secure origin, but iOS will still create a home-screen icon from a
-         plain-http or LAN address. Claiming "install is unavailable" there
-         would be wrong, so the copy separates the two. */
-      var secure = window.isSecureContext === true;
-      var isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) ||
-                  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-      var offlineNote = secure
-        ? 'Works offline once added.'
-        : 'Offline support needs https or http://localhost, so this copy will need the network.';
-
-      if (location.protocol === 'file:') {
-        btnRow.textContent = 'Not available from a local file';
-        btnRow.disabled = true;
-        hint.textContent = 'This copy was opened straight from a file, which browsers will not ' +
-          'install — everything else still works. To put it on your home screen, serve the app ' +
-          'folder over http (see “Installing as an app” in the README) and open that address.';
-      } else if (isIOS) {
-        hint.textContent = 'On iPhone or iPad: open this page in Safari, tap Share, then ' +
-          '“Add to Home Screen”. ' + offlineNote;
-      } else {
-        hint.textContent = 'Use your browser’s Install action — the icon in the address bar, or ' +
-          'the menu → “Install app”. ' + offlineNote;
-      }
-
-      var go = function () { App.promptInstall(); };
-      U.qs('#btnInstall').addEventListener('click', go);
-      btnRow.addEventListener('click', go);
-    },
-
-    promptInstall: function () {
-      if (!App.installEvent) {
-        if (location.protocol === 'file:') {
-          U.toast('Opened from a file, so it cannot be installed — serve the folder over http first');
-          return;
-        }
-        var isIOS = /iP(hone|ad|od)/.test(navigator.userAgent);
-        U.toast(isIOS ? 'Safari: Share → Add to Home Screen' : 'Use the browser’s Install action');
-        return;
-      }
-      App.installEvent.prompt();
-      App.installEvent.userChoice.then(function (choice) {
-        if (choice && choice.outcome === 'accepted') U.toast('Installing…');
-        App.installEvent = null;
-      });
-    },
-
-    initServiceWorker: function () {
-      /* only over http(s): a file:// page cannot host a service worker, and the
-         single-file build is meant to run straight off disk */
-      if (!('serviceWorker' in navigator)) return;
-      if (location.protocol !== 'http:' && location.protocol !== 'https:') return;
-      window.addEventListener('load', function () {
-        navigator.serviceWorker.register('sw.js').catch(function () { /* offline extras are optional */ });
-      });
-    },
-
-    /* ══════════ settings, export and import ══════════ */
-    bindDataSheet: function () {
-      U.qs('#btnAppearance').addEventListener('click', function () { App.openLook(); });
-
-      U.qs('#btnCopyLink').addEventListener('click', function () {
-        var text = U.qs('#dataLink').value;
-        if (!text) { U.toast('Nothing to copy yet'); return; }
-        U.copy(text).then(function (ok) { U.toast(ok ? 'Link copied' : 'Copy failed — select the text manually'); });
-      });
-      U.qs('#btnOpenLink').addEventListener('click', function () {
-        var text = U.qs('#dataLink').value;
-        if (text) window.open(text, '_blank', 'noopener');
-      });
-
-      U.qs('#btnExportCsv').addEventListener('click', function () {
-        if (!S.stats().total) { U.toast('Nothing to export yet'); return; }
-        U.download('virulenter-taps-' + D.toISO(D.today()) + '.csv', S.toCSV(), 'text/csv');
-        U.toast('Exported every tap as CSV');
-      });
-      U.qs('#btnExportSummary').addEventListener('click', function () {
-        if (!S.events.length) { U.toast('Nothing to export yet'); return; }
-        U.download('virulenter-summary-' + D.toISO(D.today()) + '.csv', S.toSummaryCSV(), 'text/csv');
-        U.toast('Exported the summary as CSV');
-      });
-      /* Sharing needs either the Android bridge or the Web Share API with file
-         support; hide the buttons rather than offering a dead action. */
-      var canShare = U.canShareFiles() ||
-        (navigator.canShare && typeof File !== 'undefined' &&
-         navigator.canShare({ files: [new File(['x'], 'x.csv', { type: 'text/csv' })] }));
-      U.qs('#btnShareCsv').hidden = !canShare;
-      U.qs('#btnShareJson').hidden = !canShare;
-
-      U.qs('#btnShareCsv').addEventListener('click', function () {
-        if (!S.stats().total) { U.toast('Nothing to share yet'); return; }
-        App.shareFile('virulenter-taps-' + D.toISO(D.today()) + '.csv', S.toCSV(), 'text/csv');
-      });
-      U.qs('#btnShareJson').addEventListener('click', function () {
-        if (!S.events.length) { U.toast('Nothing to share yet'); return; }
-        App.shareFile('virulenter-' + D.toISO(D.today()) + '.json', S.serialize(), 'application/json');
-      });
-
-      U.qs('#btnDownload').addEventListener('click', function () {
-        var name = 'virulenter-' + D.toISO(D.today()) + '.json';
-        U.download(name, S.serialize());
-        U.toast('Downloaded ' + name);
-      });
-      U.qs('#btnPickFile').addEventListener('click', function () { U.qs('#fileInput').click(); });
-      U.qs('#fileInput').addEventListener('change', function () {
-        var file = this.files && this.files[0];
-        if (!file) return;
-        var reader = new FileReader();
-        var input = this;
-        reader.onload = function () { App.loadPayload(String(reader.result), 'file'); input.value = ''; };
-        reader.onerror = function () { U.toast('Could not read that file'); input.value = ''; };
-        reader.readAsText(file, 'utf-8');
-      });
-      U.qs('#btnLoadPaste').addEventListener('click', function () {
-        var text = U.qs('#dataPaste').value.trim();
-        if (!text) { U.toast('Paste a link or JSON first'); return; }
-        App.loadPayload(text, 'paste');
-      });
-      U.qs('#btnWipe').addEventListener('click', function () {
-        if (!S.events.length) { U.toast('Nothing to erase'); return; }
-        if (window.confirm('Erase all ' + S.events.length + ' events and every recorded tap? This cannot be undone.')) {
-          S.events = [];
-          S.dirty = true;
-          S.clearUrl();
-          Views.renderHome();
-          if (App.view === 'calendar') Views.renderCalendar();
-          if (App.view === 'stats') Stats.render();
-          UI.closeSheet(App.dataOverlay);
-          U.toast('Everything erased');
-        }
-      });
-    },
-
-    /* Hand a generated file to another app: the Android bridge where present,
-       otherwise the Web Share API, otherwise fall back to a download. */
-    shareFile: function (name, text, mime) {
-      if (U.share(name, text, mime)) return;
-      if (navigator.canShare) {
-        try {
-          var file = new File([text], name, { type: mime });
-          if (navigator.canShare({ files: [file] })) {
-            navigator.share({ files: [file], title: name }).catch(function () {});
-            return;
-          }
-        } catch (e) { /* fall through */ }
-      }
-      U.download(name, text, mime);
-      U.toast('Sharing is unavailable here — downloaded instead');
-    },
-
-    loadPayload: function (text, source) {
-      var state = Codec.decode(text);
-      if (!state) {
-        U.toast(source === 'file' ? 'That file has no Virulenter data' : 'Could not read that data');
-        return;
-      }
-      if (!state.events.length) { U.toast('That data contains no events'); return; }
-      var incoming = state.events.length;
-      var taps = state.events.reduce(function (n, e) { return n + e.log.length; }, 0);
-
-      var mode = 'replace';
-      if (S.events.length) {
-        mode = window.confirm(
-          'Found ' + incoming + ' ' + UI.plural(incoming, 'event') + ' with ' + taps + ' ' +
-          UI.plural(taps, 'tap') + '.\n\nOK = merge with what you already have\nCancel = replace everything'
-        ) ? 'merge' : 'replace';
-      }
-
-      if (mode === 'replace') {
-        S.events = state.events;
-        S.look = state.look;
-      } else {
-        var target = { events: S.events, look: S.look };
-        S.mergeInto(target, [state]);
-        S.events = target.events;
-      }
-      S.dirty = true;
-      S.decodeFailed = false;
-      App.applyLook(S.look);
-      App.persist();
-      Views.renderHome();
-      if (App.view === 'calendar') Views.renderCalendar();
-      if (App.view === 'stats') Stats.render();
-      U.toast(mode === 'merge' ? 'Merged ' + incoming + ' ' + UI.plural(incoming, 'event') : 'Data loaded');
-    },
-
-    openDataSheet: function () {
-      var url = '';
-      try { url = Codec.urlFor(S.snapshot()); } catch (e) { url = ''; }
-      var total = S.stats().total;
-      var tooLong = url.length > Codec.MAX_URL;
-
-      U.qs('#dataLink').value = url;
-      U.qs('#dataProse').innerHTML =
-        'Virulenter never writes to this browser — no cookies, no localStorage. ' +
-        'Your log lives in the link below, so opening that link on another device or browser shows exactly the same data.<br><br>' +
-        '<b>' + S.events.length + '</b> ' + UI.plural(S.events.length, 'event') + ' · <b>' + total + '</b> ' +
-        UI.plural(total, 'tap') + ' · link length <b>' + url.length + '</b> characters.' +
-        (tooLong
-          ? '<br><br><b>This link is longer than ' + Codec.MAX_URL + ' characters</b> and may not survive chat apps or email. ' +
-            'Export a CSV or the JSON backup instead, or split the log by exporting, erasing, and exporting again — then paste both links with ' +
-            '<span class="mono">?d=</span> to merge them.'
-          : '');
-
-      U.qs('#dataPaste').value = '';
-      UI.openSheet(App.dataOverlay);
-    }
-  };
-
-  /* ── helpers ─────────────────────────────────────────── */
-
-  function shade(hex, amount) {
-    var rgb = Codec.hexToRgb(hex);
-    if (!rgb) return hex;
-    return Codec.rgbToHex(rgb.map(function (v) {
-      return amount < 0 ? v * (1 + amount) : v + (255 - v) * amount;
-    }));
-  }
-
-  function firstFamily(stack) {
-    var first = String(stack).split(',')[0].trim().replace(/^["']|["']$/g, '');
-    return first || 'system';
-  }
-
-  function Store_resetLook() {
-    S.look = { accent: V.DEFAULTS.accent, font: V.DEFAULTS.font, custom: null };
-    S.dirty = true;
-  }
-
-  V.app = App;
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', function () { App.start(); });
-  } else {
-    App.start();
-  }
-
+window.V=window.V||{};
+(function(V){
+'use strict';
+var U=V.util,D=V.date,S=V.store,UI=V.ui,Views=V.views,
+Charts=V.charts,Stats=V.stats,Codec=V.codec,C=V.color;
+var COLOR_NAMES=['Blue','Teal','Orange','Red','Violet','Green','Magenta','Slate'];
+var THEME_LABELS={system:'Auto theme',light:'Light theme',dark:'Dark theme'};
+var Backdrop=V.backdrop={
+url:null,
+has:false,
+MAX_SIDE:2400,
+db:function(){
+return new Promise(function(resolve,reject){
+if(!window.indexedDB){reject(new Error('IndexedDB unavailable'));return;}
+var req=indexedDB.open('virulenter',1);
+req.onupgradeneeded=function(){req.result.createObjectStore('files');};
+req.onsuccess=function(){resolve(req.result);};
+req.onerror=function(){reject(req.error);};
+});
+},
+tx:function(mode,run){
+return Backdrop.db().then(function(db){
+return new Promise(function(resolve,reject){
+var t=db.transaction('files',mode);
+var req=run(t.objectStore('files'));
+t.oncomplete=function(){db.close();resolve(req?req.result:undefined);};
+t.onerror=t.onabort=function(){db.close();reject(t.error);};
+});
+});
+},
+load:function(){
+return Backdrop.tx('readonly',function(st){return st.get('background');})
+.then(function(b){return b||null;},function(){return null;});
+},
+save:function(blob){return Backdrop.tx('readwrite',function(st){return st.put(blob,'background');});},
+remove:function(){return Backdrop.tx('readwrite',function(st){return st.delete('background');});},
+use:function(blob){
+if(Backdrop.url)URL.revokeObjectURL(Backdrop.url);
+Backdrop.url=blob?URL.createObjectURL(blob):null;
+Backdrop.has=!!blob;
+var st=document.documentElement.style;
+if(Backdrop.url)st.setProperty('--bg-image','url("'+Backdrop.url+'")');
+else st.removeProperty('--bg-image');
+},
+fit:function(w,h){
+var r=Math.min(window.devicePixelRatio||1,3);
+var a=(screen.width||1280)*r,b=(screen.height||800)*r;
+var long=Math.max(a,b),short=Math.min(a,b);
+var cover=Math.max(Math.max(long/w,short/h),Math.max(short/w,long/h));
+return Math.min(1,cover,Backdrop.MAX_SIDE/Math.max(w,h));
+},
+shrink:function(file){
+return new Promise(function(resolve,reject){
+var src=URL.createObjectURL(file);
+var img=new Image();
+img.onload=function(){
+var k=Backdrop.fit(img.naturalWidth,img.naturalHeight);
+var c=document.createElement('canvas');
+c.width=Math.max(1,Math.round(img.naturalWidth*k));
+c.height=Math.max(1,Math.round(img.naturalHeight*k));
+c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+URL.revokeObjectURL(src);
+c.toBlob(function(b){if(b)resolve(b);else reject(new Error('could not encode'));},'image/jpeg',0.86);
+};
+img.onerror=function(){URL.revokeObjectURL(src);reject(new Error('could not decode'));};
+img.src=src;
+});
+}
+};
+var App={
+view:'home',
+editingId:null,
+sortOrder:['recent','name','count','oldest'],
+selectedColor:null,
+installEvent:null,
+resolvedTheme:null,
+start:function(){
+App.formOverlay=U.qs('#formOverlay');
+App.dataOverlay=U.qs('#dataOverlay');
+App.lookOverlay=U.qs('#lookOverlay');
+App.jumpOverlay=U.qs('#jumpOverlay');
+App.confirmOverlay=U.qs('#confirmOverlay');
+S.load();
+Views.init();
+Charts.init();
+Stats.init();
+App.applyLook(S.look);
+App.bindAll();
+Backdrop.load().then(function(blob){
+if(blob)Backdrop.use(blob);
+App.renderLook();
+});
+Views.renderSort();
+var deep=/(?:^|[#&?])view=([a-z]+)/.exec(location.hash||'');
+var startView=deep&&['home','calendar','stats'].indexOf(deep[1])>=0?deep[1]:'home';
+App.view=startView;
+Views.toggleTab(startView);
+Views.renderHome({animate:true});
+UI.setActiveSwatch(S.events.length?S.events[0].color:V.COLORS[0]);
+if(S.events.length)S.syncUrl();
+App.watchTheme();
+App.watchScroll();
+App.startClock();
+App.initInstall();
+App.initServiceWorker();
+App.ready=true;
+document.documentElement.classList.add('ready');
+},
+bindAll:function(){
+U.qsa('.tab').forEach(function(t){
+t.addEventListener('click',function(){
+var v=t.dataset.view;
+if(v==='settings'){App.openDataSheet();return;}
+if(v===App.view){window.scrollTo({top:0,behavior:'smooth'});return;}
+Views.toggleTab(v);
+});
+});
+U.qs('#btnAddTop').addEventListener('click',function(){App.openForm(null);});
+U.qs('#btnAddEmpty').addEventListener('click',function(){App.openForm(null);});
+U.qs('#notice').addEventListener('click',function(ev){
+if(ev.target.closest('[data-notice-close]'))Views.dismissNotice();
+});
+var list=U.qs('#eventList');
+list.addEventListener('pointerdown',function(ev){
+var tap=ev.target.closest('[data-tap]');
+if(tap)App.ripple(tap,ev);
+});
+list.addEventListener('click',function(ev){
+var tap=ev.target.closest('[data-tap]');
+if(tap){App.handleTap(tap,ev);return;}
+var edit=ev.target.closest('[data-edit]');
+if(edit){App.openForm(edit.dataset.edit);return;}
+});
+var search=U.qs('#searchInput');
+search.addEventListener('input',U.throttle(function(){
+S.query=search.value;
+U.qs('#searchClear').hidden=!search.value;
+Views.renderHome();
+},120));
+U.qs('#searchClear').addEventListener('click',function(){
+search.value='';S.query='';this.hidden=true;
+Views.renderHome();search.focus();
+});
+U.qs('#btnSort').addEventListener('click',function(){
+var i=App.sortOrder.indexOf(S.sort);
+S.sort=App.sortOrder[(i+1)%App.sortOrder.length];
+Views.renderSort(true);
+Views.renderHome({animate:true});
+});
+App.bindCalendar();
+App.bindJump();
+[App.formOverlay,App.dataOverlay,App.lookOverlay,App.jumpOverlay].forEach(UI.bindSheetClose);
+App.dataOverlay.onclosed=function(){Views.markTab(App.view);};
+document.addEventListener('keydown',App.onKey);
+App.bindForm();
+App.bindLook();
+App.bindDataSheet();
+},
+onKey:function(ev){
+var top=UI.topOverlay();
+if(!top)return;
+if(ev.key==='Escape'){
+ev.preventDefault();
+UI.closeSheet(top);
+return;
+}
+if(ev.key!=='Tab')return;
+var panel=top.querySelector('.sheet, .dialog');
+var items=U.qsa('button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled])',panel)
+.filter(function(el){return el.offsetParent!==null;});
+if(!items.length)return;
+var first=items[0],last=items[items.length-1];
+var at=document.activeElement;
+if(ev.shiftKey&&(at===first||at===panel||!panel.contains(at))){ev.preventDefault();last.focus();}
+else if(!ev.shiftKey&&(at===last||!panel.contains(at))){ev.preventDefault();first.focus();}
+},
+bindCalendar:function(){
+U.qs('#calPrev').addEventListener('click',function(){Views.shiftMonth(-1);});
+U.qs('#calNext').addEventListener('click',function(){Views.shiftMonth(1);});
+U.qs('#calPrevYear').addEventListener('click',function(){Views.shiftYear(-1);});
+U.qs('#calNextYear').addEventListener('click',function(){Views.shiftYear(1);});
+U.qs('#calToday').addEventListener('click',function(){Views.goToday();});
+U.qs('#calTitle').addEventListener('click',function(){App.openJump();});
+var grid=U.qs('#calGrid');
+var swipe=null,swiped=false;
+grid.addEventListener('pointerdown',function(ev){
+swiped=false;
+swipe=ev.pointerType==='mouse'?null:{x:ev.clientX,y:ev.clientY,t:Date.now()};
+});
+grid.addEventListener('pointerup',function(ev){
+if(!swipe)return;
+var dx=ev.clientX-swipe.x,dy=ev.clientY-swipe.y;
+if(Math.abs(dx)>48&&Math.abs(dx)>Math.abs(dy)*1.5&&Date.now()-swipe.t<700){
+swiped=true;
+Views.shiftMonth(dx<0?1:-1);
+}
+swipe=null;
+});
+grid.addEventListener('pointercancel',function(){swipe=null;});
+grid.addEventListener('click',function(ev){
+if(swiped){swiped=false;return;}
+var cell=ev.target.closest('.cal-cell');
+if(cell)Views.setSelectedDay(cell.dataset.date);
+});
+Stats.bindCells(U.qs('#calYearGrid'),function(iso){
+var per={};
+S.entriesOnDay(iso).forEach(function(r){per[r.event.id]=(per[r.event.id]||0)+1;});
+return S.events.map(function(e){return{name:e.name,color:UI.tone(e.color).c,n:per[e.id]||0};})
+.sort(function(a,b){return b.n-a.n;});
+});
+U.qs('#calYearGrid').addEventListener('click',function(ev){
+var hc=ev.target.closest('.hc[data-date]');
+if(!hc)return;
+var d=D.parseISO(hc.dataset.date);
+if(!d)return;
+Views.goTo(d.getFullYear(),d.getMonth(),hc.dataset.date);
+var card=U.qs('.cal-card');
+if(card&&card.getBoundingClientRect().top<0)card.scrollIntoView({behavior:'smooth',block:'start'});
+});
+U.qs('#statHeat').addEventListener('click',function(ev){
+var hc=ev.target.closest('.hc[data-date]');
+if(!hc)return;
+var d=D.parseISO(hc.dataset.date);
+if(!d)return;
+Views.cal.y=d.getFullYear();
+Views.cal.m=d.getMonth();
+Views.cal.sel=hc.dataset.date;
+Views.scrollMem.calendar=0;
+Views.toggleTab('calendar');
+});
+var panel=U.qs('#dayPanel');
+panel.addEventListener('click',function(ev){
+var del=ev.target.closest('[data-untap]');
+if(del){App.removeTap(del.dataset.untap,Number(del.dataset.ts));return;}
+var add=ev.target.closest('[data-addon]');
+if(add){App.addOnDay(add.dataset.addon,add.dataset.event);return;}
+if(ev.target.closest('[data-more]'))Views.expandDay();
+});
+panel.addEventListener('input',function(ev){
+if(ev.target.id==='dayTime')Views.dayTime=ev.target.value;
+});
+},
+bindJump:function(){
+U.qs('#jumpPrevYear').addEventListener('click',function(){App.jumpYear-=1;App.renderJump();});
+U.qs('#jumpNextYear').addEventListener('click',function(){App.jumpYear+=1;App.renderJump();});
+U.qs('#jumpToday').addEventListener('click',function(){
+UI.closeSheet(App.jumpOverlay);
+Views.goToday();
+});
+U.qs('#jumpMonths').addEventListener('click',function(ev){
+var b=ev.target.closest('[data-month]');
+if(!b)return;
+UI.closeSheet(App.jumpOverlay);
+Views.goTo(App.jumpYear,Number(b.dataset.month));
+});
+U.qs('#jumpYearList').addEventListener('click',function(ev){
+var b=ev.target.closest('[data-year]');
+if(!b)return;
+App.jumpYear=Number(b.dataset.year);
+App.renderJump();
+});
+},
+openJump:function(){
+App.jumpYear=Views.cal.y;
+App.renderJump();
+UI.openSheet(App.jumpOverlay);
+},
+renderJump:function(){
+var y=App.jumpYear;
+U.qs('#jumpYearLabel').textContent=y;
+var months=S.byMonth(y);
+var max=Math.max.apply(null,months.concat([1]));
+U.qs('#jumpMonths').innerHTML=D.MONTHS_LONG.map(function(name,i){
+var n=months[i];
+var on=(y===Views.cal.y&&i===Views.cal.m);
+return'<button class="jump-month'+(on?' is-on':'')+'" type="button" data-month="'+i+'"'+
+' aria-label="'+name+' '+y+(n?', '+n+' '+U.plural(n,'tap'):'')+'">'+
+'<span>'+name+'</span>'+(n?'<span class="mbadge">'+n+'</span>':'')+
+'<span class="mbar"><i style="--w:'+Math.round(n/max*100)+'%"></i></span></button>';
+}).join('');
+var withData=S.years().filter(function(yy){
+return S.byMonth(yy).some(function(n){return n>0;});
+});
+if(!withData.length)withData=[new Date().getFullYear()];
+U.qs('#jumpYearList').innerHTML=withData.map(function(yy){
+var total=S.byMonth(yy).reduce(function(a,b){return a+b;},0);
+return'<button type="button" data-year="'+yy+'"'+(yy===y?' class="is-on"':'')+'>'+
+yy+(total?' · '+total:'')+'</button>';
+}).join('');
+},
+buzz:function(){
+if(App._noVibrate)return;
+var nav=navigator;
+if(typeof nav.vibrate!=='function')return;
+if(nav.userActivation&&nav.userActivation.isActive===false)return;
+try{
+var r=nav.vibrate(12);
+if(r===false)App._noVibrate=true;
+}catch(e){App._noVibrate=true;}
+},
+ripple:function(btn,ev){
+var r=btn.getBoundingClientRect();
+var size=Math.hypot(r.width,r.height)*2;
+var x=(ev&&ev.clientX?ev.clientX-r.left:r.width/2)-size/2;
+var y=(ev&&ev.clientY?ev.clientY-r.top:r.height/2)-size/2;
+var s=U.el('span','ripple');
+s.style.width=s.style.height=size+'px';
+s.style.left=x+'px';
+s.style.top=y+'px';
+btn.appendChild(s);
+var gone=function(){s.remove();};
+s.addEventListener('animationend',gone);
+setTimeout(gone,900);
+},
+plusOne:function(btn,ev){
+var foot=btn.parentElement;
+var fr=foot.getBoundingClientRect();
+var x=ev&&ev.clientX?ev.clientX-fr.left:btn.offsetWidth/2;
+var s=U.el('span','plus-one','+1');
+s.setAttribute('aria-hidden','true');
+s.style.left=Math.round(Math.max(16,Math.min(fr.width-16,x)))+'px';
+foot.appendChild(s);
+var gone=function(){s.remove();};
+s.addEventListener('animationend',gone);
+setTimeout(gone,1200);
+},
+handleTap:function(btn,ev){
+var id=btn.dataset.tap;
+var e=S.get(id);
+if(!e)return;
+var ts=S.logTap(id);
+if(!ts)return;
+App.buzz();
+App.persist();
+Views.updateCard(e);
+btn.classList.remove('pop');
+void btn.offsetWidth;
+btn.classList.add('pop');
+App.plusOne(btn,ev);
+Views.renderStats(S.stats(),true);
+Views.renderBrandSub();
+if(App.view==='calendar')Views.renderCalendar();
+if(App.view==='stats')Stats.render();
+},
+refreshLog:function(){
+Views.invalidate();
+Views.renderHome();
+if(App.view==='calendar')Views.renderCalendar();
+if(App.view==='stats')Stats.render();
+},
+removeTap:function(id,ts){
+var e=S.get(id);
+if(!e||!S.removeEntry(id,ts))return;
+App.persist();
+App.refreshLog();
+U.toast('Tap removed',{
+action:'Undo',
+onAction:function(){
+if(!S.get(id))return;
+S.logTap(id,ts);
+App.persist();
+App.refreshLog();
+}
+});
+},
+addOnDay:function(iso,eventId){
+var e=S.get(eventId)||S.events[0];
+if(!e){U.toast('Create an event first');return;}
+var ts=App.timestampForDay(iso,Views.dayTime);
+if(ts===null){U.toast('That day has not happened yet');return;}
+S.logTap(e.id,ts);
+App.persist();
+App.refreshLog();
+var today=iso===D.toISO(D.today());
+U.toast(today?'Logged “'+e.name+'”':'Logged “'+e.name+'” on '+D.fmtDay(iso)+' at '+D.fmtTime(ts),{
+action:'Undo',
+onAction:function(){
+if(!S.removeEntry(e.id,ts))return;
+App.persist();
+App.refreshLog();
+}
+});
+},
+timestampForDay:function(iso,hhmm){
+var now=new Date();
+var todayISO=D.toISO(now);
+if(iso===todayISO)return now.getTime();
+if(iso>todayISO)return null;
+var d=D.parseISO(iso);
+if(!d)return now.getTime();
+var m=/^(\d{1,2}):(\d{2})$/.exec(hhmm||'');
+d.setHours(m?Math.min(23,+m[1]):now.getHours(),m?Math.min(59,+m[2]):now.getMinutes(),0,0);
+return d.getTime();
+},
+persist:function(){
+Views.invalidate();
+var ok=S.syncUrl();
+if(!ok&&S.events.length)Views.renderNotice();
+return ok;
+},
+systemDark:function(){
+return!!(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches);
+},
+applyLook:function(look){
+look=look||S.look||V.DEFAULTS;
+var mode=look.theme||'system';
+var dark=mode==='dark'||(mode==='system'&&App.systemDark());
+var resolved=dark?'dark':'light';
+var themeChanged=App.resolvedTheme!==null&&App.resolvedTheme!==resolved;
+App.resolvedTheme=resolved;
+var root=document.documentElement;
+root.setAttribute('data-theme',resolved);
+root.style.colorScheme=resolved;
+root.setAttribute('data-bg',look.bg||'none');
+var t=Codec.accentTints(Codec.accentValue(look),dark);
+var st=root.style;
+st.setProperty('--accent',t.value);
+st.setProperty('--accent-ink',t.ink);
+st.setProperty('--accent-soft',t.soft);
+st.setProperty('--accent-hover',t.hover);
+st.setProperty('--accent-text',t.text);
+st.setProperty('--accent-light',t.light);
+st.setProperty('--accent-shadow',C.rgba(t.value,dark?0.55:0.42));
+st.setProperty('--glow',C.rgba(t.value,dark?0.16:0.1));
+st.setProperty('--accent-wash',C.rgba(t.value,dark?0.2:0.12));
+st.setProperty('--font',Codec.fontStack(look.font));
+var sat=C.hsl(t.value)[1];
+var auraL=dark?0.46:0.62;
+var auraA=dark?[0.36,0.28,0.24]:[0.36,0.28,0.24];
+[[0,auraA[0]],[48,auraA[1]],[-64,auraA[2]]].forEach(function(a,i){
+var hue=C.spin(t.value,a[0],auraL);
+if(sat<0.15)hue=C.mix(hue,dark?'#3a4150':'#c9d0dc',0.6);
+st.setProperty('--aura-'+(i+1),C.rgba(hue,a[1]));
+});
+var from=dark?'#20242c':'#ffffff';
+[0.28,0.52,0.76,1].forEach(function(k,i){
+var c=k===1?t.value:C.mix(from,t.value,k);
+st.setProperty('--lv'+(i+1),c);
+st.setProperty('--lv'+(i+1)+'-ink',C.onColor(c));
+});
+if(look.custom)st.setProperty('--custom-accent',look.custom);
+else st.removeProperty('--custom-accent');
+var meta=U.qs('#metaTheme');
+if(meta)meta.setAttribute('content',dark?'#0b0d12':'#f4f5f8');
+UI._tones={};
+Views.invalidate();
+if(themeChanged&&App.ready)Views.renderAll(App.view);
+},
+watchTheme:function(){
+if(!window.matchMedia)return;
+var mq=window.matchMedia('(prefers-color-scheme: dark)');
+var onChange=function(){
+if((S.look.theme||'system')==='system')App.applyLook(S.look);
+};
+if(mq.addEventListener)mq.addEventListener('change',onChange);
+else if(mq.addListener)mq.addListener(onChange);
+},
+lookSummary:function(){
+var look=S.look;
+var accent=look.custom?'Custom '+look.custom
+:((V.ACCENTS.filter(function(a){return a.id===look.accent;})[0]||V.ACCENTS[0]).label);
+var font=(V.FONTS.filter(function(f){return f.id===look.font;})[0]||V.FONTS[0]).label;
+var bg=look.bg&&look.bg!=='none'
+?' · '+((V.BACKGROUNDS.filter(function(b){return b.id===look.bg;})[0]||{}).label||'')+' background'
+:'';
+return accent+' · '+font+' font · '+THEME_LABELS[look.theme||'system']+bg;
+},
+bindLook:function(){
+U.qs('#lookTheme').addEventListener('click',function(ev){
+var b=ev.target.closest('[data-mode]');
+if(!b)return;
+S.setTheme(b.dataset.mode);
+App.lookChanged();
+});
+var wrap=U.qs('#lookAccent');
+wrap.innerHTML=V.ACCENTS.map(function(a){
+var light=C.onColor(a.value)!=='#ffffff';
+return'<button class="swatch'+(light?' light':'')+'" type="button" role="radio" aria-checked="false" data-accent="'+a.id+
+'" style="--c:'+a.value+'" aria-label="'+U.esc(a.label)+'" title="'+U.esc(a.label)+'"></button>';
+}).join('');
+wrap.addEventListener('click',function(ev){
+var b=ev.target.closest('[data-accent]');
+if(!b)return;
+S.setAccent(b.dataset.accent);
+App.lookChanged();
+});
+var custom=U.qs('#lookCustom');
+var hex=U.qs('#lookCustomHex');
+custom.addEventListener('input',function(){
+hex.value=custom.value;
+S.setCustomAccent(custom.value);
+App.lookChanged();
+});
+U.qs('#lookCustomApply').addEventListener('click',function(){
+var v=hex.value.trim();
+if(!/^#?[0-9a-f]{6}$/i.test(v)){U.toast('Enter six hex digits, e.g. #2f6bff');return;}
+v=v[0]==='#'?v:'#'+v;
+custom.value=v;
+S.setCustomAccent(v);
+App.lookChanged();
+U.toast('Accent applied');
+});
+hex.addEventListener('keydown',function(ev){
+if(ev.key==='Enter'){ev.preventDefault();U.qs('#lookCustomApply').click();}
+});
+var fonts=U.qs('#lookFont');
+fonts.innerHTML=V.FONTS.map(function(f){
+return'<button class="font-opt" type="button" role="radio" aria-checked="false" data-font="'+f.id+'">'+
+'<span><span class="fo-name" style="font-family:'+f.stack.replace(/"/g,'&quot;')+'">'+
+U.esc(f.label)+'</span><br><span class="fo-meta">'+U.esc(firstFamily(f.stack))+'</span></span>'+
+'<span class="fo-check" aria-hidden="true"><svg class="ico"><use href="#i-check"/></svg></span>'+
+'</button>';
+}).join('');
+fonts.addEventListener('click',function(ev){
+var b=ev.target.closest('[data-font]');
+if(!b)return;
+S.setFont(b.dataset.font);
+App.lookChanged();
+});
+U.qs('#lookReset').addEventListener('click',function(){
+S.resetLook();
+App.lookChanged();
+U.toast('Appearance reset');
+});
+var bgs=U.qs('#lookBg');
+bgs.innerHTML=V.BACKGROUNDS.map(function(b){
+return'<button class="bg-opt" type="button" role="radio" aria-checked="false" data-bg="'+b.id+'">'+
+'<span class="bg-thumb" aria-hidden="true">'+
+(b.id==='image'?'<svg class="ico"><use href="#i-upload"/></svg>':'')+
+'</span><span class="bg-name">'+U.esc(b.label)+'</span></button>';
+}).join('')+
+'<button class="bg-remove" type="button" id="bgRemove" hidden>'+
+'<svg class="ico" aria-hidden="true"><use href="#i-trash"/></svg>Remove image</button>';
+var fileIn=U.qs('#bgFile');
+bgs.addEventListener('click',function(ev){
+if(ev.target.closest('#bgRemove')){App.removeBackground();return;}
+var b=ev.target.closest('[data-bg]');
+if(!b)return;
+if(b.dataset.bg==='image'&&(!Backdrop.has||S.look.bg==='image')){fileIn.click();return;}
+S.setBackground(b.dataset.bg);
+App.lookChanged();
+});
+fileIn.addEventListener('change',function(){
+var file=fileIn.files&&fileIn.files[0];
+fileIn.value='';
+if(file)App.uploadBackground(file);
+});
+},
+uploadBackground:function(file){
+if(file.type&&!/^image\//.test(file.type)){U.toast('Choose an image file');return Promise.resolve(false);}
+return Backdrop.shrink(file).then(function(blob){
+Backdrop.use(blob);
+S.setBackground('image');
+App.lookChanged();
+return Backdrop.save(blob).then(function(){
+U.toast('Background set');
+return true;
+},function(){
+U.toast('Background set — this browser cannot keep it after a reload');
+return true;
+});
+},function(){
+U.toast('That image could not be read');
+return false;
+});
+},
+removeBackground:function(){
+return Backdrop.remove().catch(function(){}).then(function(){
+Backdrop.use(null);
+if(S.look.bg==='image')S.setBackground('none');
+App.lookChanged();
+U.toast('Background image removed');
+});
+},
+lookChanged:function(){
+App.applyLook(S.look);
+App.renderLook();
+App.persist();
+},
+renderLook:function(){
+var look=S.look;
+var mode=look.theme||'system';
+U.qsa('#lookTheme [data-mode]').forEach(function(b){
+var on=b.dataset.mode===mode;
+b.classList.toggle('is-on',on);
+b.setAttribute('aria-checked',on?'true':'false');
+});
+U.qsa('#lookAccent .swatch').forEach(function(b){
+var on=!look.custom&&b.dataset.accent===look.accent;
+b.classList.toggle('is-on',on);
+b.setAttribute('aria-checked',on?'true':'false');
+});
+U.qs('#lookCustom').value=look.custom||Codec.accentValue(look);
+U.qs('#lookCustomHex').value=look.custom||'';
+U.qsa('#lookFont .font-opt').forEach(function(b){
+var on=b.dataset.font===look.font;
+b.classList.toggle('is-on',on);
+b.setAttribute('aria-checked',on?'true':'false');
+});
+var bg=look.bg||'none';
+U.qsa('#lookBg .bg-opt').forEach(function(b){
+var on=b.dataset.bg===bg;
+b.classList.toggle('is-on',on);
+b.setAttribute('aria-checked',on?'true':'false');
+});
+var mine=U.qs('#lookBg [data-bg="image"]');
+if(mine){
+mine.classList.toggle('has-image',Backdrop.has);
+mine.querySelector('.bg-name').textContent=Backdrop.has?'Your image':'Upload';
+mine.title=Backdrop.has?'Your image — tap again to replace it':'Upload an image';
+}
+var rm=U.qs('#bgRemove');
+if(rm)rm.hidden=!Backdrop.has;
+var hint=U.qs('#lookBgHint');
+if(hint)hint.textContent=bg==='image'&&!Backdrop.has
+?'Your link uses an uploaded image, but it is on another device. Upload one here, or pick another background.'
+:'An uploaded image stays on this device; your link only records that you use one.';
+U.qs('#lookReset').disabled=S.isDefaultLook(look);
+U.qs('#lookSummary').textContent=App.lookSummary();
+},
+openLook:function(){
+App.renderLook();
+UI.openSheet(App.lookOverlay);
+},
+bindForm:function(){
+var wrap=U.qs('#fColor');
+wrap.innerHTML=V.COLORS.map(function(c,i){
+return'<button class="swatch" type="button" role="radio" aria-checked="false" data-color="'+c+
+'" style="--c:'+c+'" aria-label="'+(COLOR_NAMES[i]||c)+'" title="'+(COLOR_NAMES[i]||c)+'"></button>';
+}).join('');
+wrap.addEventListener('click',function(ev){
+var b=ev.target.closest('.swatch');
+if(!b)return;
+UI.setActiveSwatch(b.dataset.color);
+App.renderFormPreview();
+});
+U.qs('#fName').addEventListener('input',App.renderFormPreview);
+U.qs('#eventForm').addEventListener('submit',function(ev){
+ev.preventDefault();
+App.submitForm();
+});
+U.qs('#btnLogNow').addEventListener('click',function(){
+var e=App.editingId&&S.get(App.editingId);
+if(!e)return;
+S.logTap(e.id);
+App.persist();
+App.refreshFormLog();
+App.refreshLog();
+U.toast('Logged “'+e.name+'”');
+});
+U.qs('#btnClearLog').addEventListener('click',function(){
+var e=App.editingId&&S.get(App.editingId);
+if(!e||!e.log.length){U.toast('Nothing to clear');return;}
+var saved=e.log.slice();
+UI.confirm({
+title:'Clear all taps?',
+messageHTML:'All <b>'+saved.length+'</b> '+U.plural(saved.length,'tap')+' recorded for “'+
+U.esc(e.name)+'” will be removed. The event itself stays.',
+danger:true,
+icon:'trash',
+actions:[{label:'Clear '+saved.length+' '+U.plural(saved.length,'tap'),value:'clear',kind:'danger'}]
+}).then(function(choice){
+if(choice!=='clear'||!S.get(e.id))return;
+S.clearLog(e.id);
+App.persist();
+App.refreshFormLog();
+App.refreshLog();
+U.toast('All taps cleared',{
+action:'Undo',
+onAction:function(){
+var cur=S.get(e.id);
+if(!cur)return;
+var seen={};
+cur.log=saved.concat(cur.log).filter(function(t){return seen[t]?false:(seen[t]=true);})
+.sort(function(a,b){return a-b;});
+S.dirty=true;
+App.persist();
+App.refreshFormLog();
+App.refreshLog();
+}
+});
+});
+});
+U.qs('#btnDeleteEvent').addEventListener('click',function(){
+var e=App.editingId&&S.get(App.editingId);
+if(e)App.confirmDelete(e);
+});
+},
+renderFormPreview:function(){
+var name=U.qs('#fName').value.trim()||(App.editingId?'Untitled':'New event');
+U.qs('#formPreview').setAttribute('style',UI.toneStyle(App.selectedColor||V.COLORS[0]));
+U.qs('#formChip').textContent=UI.initial(name);
+U.qs('#formPreviewName').textContent=name;
+},
+refreshFormLog:function(){
+var e=App.editingId?S.get(App.editingId):null;
+U.qs('#logCount').textContent=e?e.log.length:0;
+},
+openForm:function(id){
+var e=id?S.get(id):null;
+App.editingId=e?e.id:null;
+U.qs('#formTitle').textContent=e?'Edit event':'New event';
+U.qs('#fName').value=e?e.name:'';
+U.qs('#fStart').value=e?e.start:D.toISO(D.today());
+UI.setActiveSwatch(e?e.color:V.COLORS[S.events.length%V.COLORS.length]);
+U.qs('#rowLog').hidden=!e;
+U.qs('#rowDelete').hidden=!e;
+App.refreshFormLog();
+App.renderFormPreview();
+UI.openSheet(App.formOverlay);
+if(!e)setTimeout(function(){U.qs('#fName').focus({preventScroll:true});},260);
+},
+submitForm:function(){
+var name=U.qs('#fName').value.trim();
+var start=U.qs('#fStart').value;
+if(!name){U.toast('Give the event a name');U.qs('#fName').focus();return;}
+if(!D.parseISO(start)){U.toast('Pick a valid start date');return;}
+if(start<V.MIN_START){U.toast('Pick a start date in 2020 or later');return;}
+var wasEditing=!!App.editingId;
+var data={name:name,color:App.selectedColor||V.COLORS[0],start:start};
+var e=wasEditing?S.update(App.editingId,data):S.create(data);
+if(!e){U.toast('Could not save');return;}
+App.persist();
+App.editingId=null;
+UI.closeSheet(App.formOverlay);
+if(!wasEditing&&App.view!=='home')Views.toggleTab('home');
+Views.renderHome(wasEditing?{}:{fresh:e.id});
+if(App.view==='calendar')Views.renderCalendar();
+if(App.view==='stats')Stats.render();
+if(!wasEditing){
+var card=U.qs('.ev'+Views.sel('data-id',e.id));
+if(card)setTimeout(function(){card.scrollIntoView({behavior:'smooth',block:'nearest'});},60);
+}
+U.toast(wasEditing?'Saved':'“'+e.name+'” created — tap its button to log');
+},
+confirmDelete:function(e){
+var n=e.log.length;
+UI.confirm({
+title:'Delete “'+e.name+'”?',
+messageHTML:n
+?'The event and its <b>'+n+'</b> recorded '+U.plural(n,'tap')+' will be deleted.'
+:'The event will be deleted. It has no taps yet.',
+danger:true,
+icon:'trash',
+actions:[{label:'Delete event',value:'delete',kind:'danger'}]
+}).then(function(choice){
+if(choice!=='delete')return;
+var index=S.events.indexOf(e);
+if(index<0||!S.remove(e.id))return;
+App.persist();
+UI.closeSheet(App.formOverlay);
+App.editingId=null;
+App.refreshLog();
+U.toast('Deleted “'+e.name+'”',{
+action:'Undo',
+onAction:function(){
+if(S.get(e.id))return;
+S.events.splice(Math.min(index,S.events.length),0,e);
+S.dirty=true;
+App.persist();
+App.refreshLog();
+}
+});
+});
+},
+isInstalled:function(){
+return(window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches)||
+window.navigator.standalone===true;
+},
+initInstall:function(){
+var row=U.qs('#installRow');
+var hint=U.qs('#installHint');
+var label=U.qs('#installLabel');
+var btnRow=U.qs('#btnInstallRow');
+if(App.isInstalled()){row.hidden=true;return;}
+window.addEventListener('beforeinstallprompt',function(ev){
+ev.preventDefault();
+App.installEvent=ev;
+U.qs('#btnInstall').hidden=false;
+label.textContent='Install as an app';
+hint.textContent='Adds Virulenter to your home screen and runs it offline.';
+});
+window.addEventListener('appinstalled',function(){
+App.installEvent=null;
+U.qs('#btnInstall').hidden=true;
+row.hidden=true;
+U.toast('Installed');
+});
+var secure=window.isSecureContext===true;
+var isIOS=/iP(hone|ad|od)/.test(navigator.userAgent)||
+(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+var offlineNote=secure
+?'Works offline once added.'
+:'Offline support needs https or http://localhost, so this copy will need the network.';
+if(location.protocol==='file:'){
+label.textContent='Not available from a local file';
+btnRow.disabled=true;
+hint.textContent='Browsers will not install a page opened straight from a file — everything else still '+
+'works. Serve the app folder over http (see “Installing on a phone” in the README) to add it to a home screen.';
+}else if(isIOS){
+hint.textContent='In Safari, tap Share, then “Add to Home Screen”. '+offlineNote;
+}else{
+hint.textContent='Use your browser’s Install action — the icon in the address bar, or '+
+'the menu → “Install app”. '+offlineNote;
+}
+var go=function(){App.promptInstall();};
+U.qs('#btnInstall').addEventListener('click',go);
+btnRow.addEventListener('click',go);
+},
+promptInstall:function(){
+if(!App.installEvent){
+if(location.protocol==='file:'){
+U.toast('Opened from a file, so it cannot be installed — serve the folder over http first');
+return;
+}
+var isIOS=/iP(hone|ad|od)/.test(navigator.userAgent);
+U.toast(isIOS?'Safari: Share → Add to Home Screen':'Use the browser’s Install action');
+return;
+}
+App.installEvent.prompt();
+App.installEvent.userChoice.then(function(choice){
+if(choice&&choice.outcome==='accepted')U.toast('Installing…');
+App.installEvent=null;
+});
+},
+initServiceWorker:function(){
+if(!('serviceWorker'in navigator))return;
+if(location.protocol!=='http:'&&location.protocol!=='https:')return;
+var register=function(){
+navigator.serviceWorker.register('sw.js').catch(function(){});
+};
+if(document.readyState==='complete')register();
+else window.addEventListener('load',register);
+},
+startClock:function(){
+App._day=D.toISO(D.today());
+var tick=function(){
+if(document.hidden)return;
+var day=D.toISO(D.today());
+if(day!==App._day){
+if(Views.cal.sel===App._day){
+var t=D.today();
+Views.cal.sel=day;
+Views.cal.y=t.getFullYear();
+Views.cal.m=t.getMonth();
+}
+App._day=day;
+Views.renderAll(App.view);
+}else{
+Views.refreshLastLines();
+Views.stale.stats=true;
+}
+};
+setInterval(tick,30000);
+document.addEventListener('visibilitychange',tick);
+},
+watchScroll:function(){
+var bar=U.qs('#topbar');
+var on=false,raf=0;
+var update=function(){
+raf=0;
+var scrolled=window.scrollY>4;
+if(scrolled!==on){on=scrolled;bar.classList.toggle('is-scrolled',scrolled);}
+};
+window.addEventListener('scroll',function(){if(!raf)raf=requestAnimationFrame(update);},{passive:true});
+update();
+},
+bindDataSheet:function(){
+U.qs('#btnAppearance').addEventListener('click',function(){App.openLook();});
+U.qs('#btnCopyLink').addEventListener('click',function(){
+var text=U.qs('#dataLink').value;
+if(!text){U.toast('Nothing to copy yet');return;}
+U.copy(text).then(function(ok){U.toast(ok?'Link copied':'Copy failed — select the text manually');});
+});
+U.qs('#btnOpenLink').addEventListener('click',function(){
+var text=U.qs('#dataLink').value;
+if(text)window.open(text,'_blank','noopener');
+});
+U.qs('#btnExportCsv').addEventListener('click',function(){
+if(!S.stats().total){U.toast('Nothing to export yet');return;}
+U.download('virulenter-taps-'+D.toISO(D.today())+'.csv',S.toCSV(),'text/csv');
+U.toast('Exported every tap as CSV');
+});
+U.qs('#btnExportSummary').addEventListener('click',function(){
+if(!S.events.length){U.toast('Nothing to export yet');return;}
+U.download('virulenter-summary-'+D.toISO(D.today())+'.csv',S.toSummaryCSV(),'text/csv');
+U.toast('Exported the summary as CSV');
+});
+var canShare=U.canShareFiles()||
+(navigator.canShare&&typeof File!=='undefined'&&
+navigator.canShare({files:[new File(['x'],'x.csv',{type:'text/csv'})]}));
+U.qs('#btnShareCsv').hidden=!canShare;
+U.qs('#btnShareJson').hidden=!canShare;
+U.qs('#btnShareCsv').addEventListener('click',function(){
+if(!S.stats().total){U.toast('Nothing to share yet');return;}
+App.shareFile('virulenter-taps-'+D.toISO(D.today())+'.csv',S.toCSV(),'text/csv');
+});
+U.qs('#btnShareJson').addEventListener('click',function(){
+if(!S.events.length){U.toast('Nothing to share yet');return;}
+App.shareFile('virulenter-'+D.toISO(D.today())+'.json',S.serialize(),'application/json');
+});
+U.qs('#btnDownload').addEventListener('click',function(){
+var name='virulenter-'+D.toISO(D.today())+'.json';
+U.download(name,S.serialize());
+U.toast('Downloaded '+name);
+});
+U.qs('#btnPickFile').addEventListener('click',function(){U.qs('#fileInput').click();});
+U.qs('#fileInput').addEventListener('change',function(){
+var file=this.files&&this.files[0];
+if(!file)return;
+var reader=new FileReader();
+var input=this;
+reader.onload=function(){App.loadPayload(String(reader.result),'file');input.value='';};
+reader.onerror=function(){U.toast('Could not read that file');input.value='';};
+reader.readAsText(file,'utf-8');
+});
+U.qs('#btnLoadPaste').addEventListener('click',function(){
+var text=U.qs('#dataPaste').value.trim();
+if(!text){U.toast('Paste a link or JSON first');return;}
+App.loadPayload(text,'paste');
+});
+U.qs('#btnWipe').addEventListener('click',function(){
+if(!S.events.length){U.toast('Nothing to erase');return;}
+var n=S.events.length,taps=S.stats().total;
+UI.confirm({
+title:'Erase everything?',
+messageHTML:'All <b>'+n+'</b> '+U.plural(n,'event')+' and <b>'+taps+'</b> '+U.plural(taps,'tap')+
+' will be removed. Save a backup first if you might want them back.',
+danger:true,
+icon:'trash',
+actions:[{label:'Erase everything',value:'erase',kind:'danger'}]
+}).then(function(choice){
+if(choice!=='erase')return;
+S.events=[];
+S.dirty=true;
+S.urlOk=true;
+if(S.isDefaultLook())S.clearUrl();
+else S.syncUrl();
+UI.closeSheet(App.dataOverlay);
+App.refreshLog();
+U.toast('Everything erased');
+});
+});
+},
+shareFile:function(name,text,mime){
+if(U.share(name,text,mime))return;
+if(navigator.canShare){
+try{
+var file=new File([text],name,{type:mime});
+if(navigator.canShare({files:[file]})){
+navigator.share({files:[file],title:name}).catch(function(){});
+return;
+}
+}catch(e){}
+}
+U.download(name,text,mime);
+U.toast('Sharing is unavailable here — downloaded instead');
+},
+loadPayload:function(text,source){
+var state=Codec.decode(text);
+if(!state){
+U.toast(source==='file'?'That file has no Virulenter data':'Could not read that data');
+return Promise.resolve(false);
+}
+if(!state.events.length){U.toast('That data contains no events');return Promise.resolve(false);}
+var incoming=state.events.length;
+var taps=state.events.reduce(function(n,e){return n+e.log.length;},0);
+var ask=S.events.length
+?UI.confirm({
+title:'Load '+incoming+' '+U.plural(incoming,'event')+'?',
+messageHTML:'Found <b>'+incoming+'</b> '+U.plural(incoming,'event')+' with <b>'+taps+'</b> '+
+U.plural(taps,'tap')+'. <b>Merge</b> adds them to your current '+S.events.length+' '+
+U.plural(S.events.length,'event')+'; <b>Replace</b> discards what is here now.',
+icon:'merge',
+actions:[
+{label:'Merge with current data',value:'merge',kind:'primary'},
+{label:'Replace everything',value:'replace',kind:'danger'}
+]
+})
+:Promise.resolve('replace');
+return ask.then(function(mode){
+if(!mode)return false;
+S.apply(state,mode);
+S.decodeFailed=false;
+S.partialFailure=false;
+App.applyLook(S.look);
+App.persist();
+App.refreshLog();
+if(source==='paste')U.qs('#dataPaste').value='';
+U.toast(mode==='merge'?'Merged '+incoming+' '+U.plural(incoming,'event'):'Data loaded');
+return true;
+});
+},
+openDataSheet:function(){
+var url='';
+try{url=Codec.urlFor(S.snapshot());}catch(e){url='';}
+var total=S.stats().total;
+U.qs('#dataLink').value=url;
+U.qs('#dataProse').innerHTML=
+'<div class="privacy-ic"><svg class="ico" aria-hidden="true"><use href="#i-shield"/></svg></div>'+
+'<div><b>Your data stays with you</b>'+
+'<p>No account, no cookies, and your log is never stored in this browser — it lives in the link below. '+
+'Open it on any device to see exactly the same data.'+
+(Backdrop.has?' Only the background image you uploaded is kept here.':'')+'</p>'+
+'<div class="privacy-stats">'+
+'<span><b>'+S.events.length+'</b> '+U.plural(S.events.length,'event')+'</span>'+
+'<span><b>'+total+'</b> '+U.plural(total,'tap')+'</span>'+
+'<span><b>'+url.length.toLocaleString('en')+'</b> link characters</span>'+
+'</div></div>';
+U.qs('#linkHint').textContent=!S.urlOk
+?'Too long for the address bar: new taps are only kept in this tab. Save a backup now.'
+:url.length>Codec.MAX_URL
+?'Longer than '+Codec.MAX_URL.toLocaleString('en')+' characters. It still saves everything, '+
+'but chat apps and email may cut it short — to move your data, use a backup file instead.'
+:'Bookmark it or send it to yourself: the link is the save file.';
+U.qs('#dataPaste').value='';
+U.qs('#lookSummary').textContent=App.lookSummary();
+Views.markTab('settings');
+UI.openSheet(App.dataOverlay);
+}
+};
+function firstFamily(stack){
+var first=String(stack).split(',')[0].trim().replace(/^["']|["']$/g,'');
+return first||'system';
+}
+V.app=App;
+if(document.readyState==='loading'){
+document.addEventListener('DOMContentLoaded',function(){App.start();});
+}else{
+App.start();
+}
 })(window.V);

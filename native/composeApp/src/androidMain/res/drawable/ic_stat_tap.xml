@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- status-bar mark: the heat grid, heat as alpha, the plus cut from the last
+     cell (white; the system tints it). Matches the Glass Heat app icon. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp"
+    android:viewportWidth="24" android:viewportHeight="24">
+    <path android:fillColor="#FFFFFFFF" android:fillAlpha="0.38" android:pathData="M3.50,2.00h2.60a1.5,1.5 0 0 1 1.5,1.5v2.60a1.5,1.5 0 0 1 -1.5,1.5h-2.60a1.5,1.5 0 0 1 -1.5,-1.5v-2.60a1.5,1.5 0 0 1 1.5,-1.5Z" />
+    <path android:fillColor="#FFFFFFFF" android:fillAlpha="0.55" android:pathData="M10.70,2.00h2.60a1.5,1.5 0 0 1 1.5,1.5v2.60a1.5,1.5 0 0 1 -1.5,1.5h-2.60a1.5,1.5 0 0 1 -1.5,-1.5v-2.60a1.5,1.5 0 0 1 1.5,-1.5Z" />
+    <path android:fillColor="#FFFFFFFF" android:fillAlpha="0.7" android:pathData="M17.90,2.00h2.60a1.5,1.5 0 0 1 1.5,1.5v2.60a1.5,1.5 0 0 1 -1.5,1.5h-2.60a1.5,1.5 0 0 1 -1.5,-1.5v-2.60a1.5,1.5 0 0 1 1.5,-1.5Z" />
+    <path android:fillColor="#FFFFFFFF" android:fillAlpha="0.55" android:pathData="M3.50,9.20h2.60a1.5,1.5 0 0 1 1.5,1.5v2.60a1.5,1.5 0 0 1 -1.5,1.5h-2.60a1.5,1.5 0 0 1 -1.5,-1.5v-2.60a1.5,1.5 0 0 1 1.5,-1.5Z" />
+    <path android:fillColor="#FFFFFFFF" android:fillAlpha="0.7" android:pathData="M10.70,9.20h2.60a1.5,1.5 0 0 1 1.5,1.5v2.60a1.5,1.5 0 0 1 -1.5,1.5h-2.60a1.5,1.5 0 0 1 -1.5,-1.5v-2.60a1.5,1.5 0 0 1 1.5,-1.5Z" />
+    <path android:fillColor="#FFFFFFFF" android:fillAlpha="0.85" android:pathData="M17.90,9.20h2.60a1.5,1.5 0 0 1 1.5,1.5v2.60a1.5,1.5 0 0 1 -1.5,1.5h-2.60a1.5,1.5 0 0 1 -1.5,-1.5v-2.60a1.5,1.5 0 0 1 1.5,-1.5Z" />
+    <path android:fillColor="#FFFFFFFF" android:fillAlpha="0.7" android:pathData="M3.50,16.40h2.60a1.5,1.5 0 0 1 1.5,1.5v2.60a1.5,1.5 0 0 1 -1.5,1.5h-2.60a1.5,1.5 0 0 1 -1.5,-1.5v-2.60a1.5,1.5 0 0 1 1.5,-1.5Z" />
+    <path android:fillColor="#FFFFFFFF" android:fillAlpha="1.0" android:pathData="M10.70,16.40h2.60a1.5,1.5 0 0 1 1.5,1.5v2.60a1.5,1.5 0 0 1 -1.5,1.5h-2.60a1.5,1.5 0 0 1 -1.5,-1.5v-2.60a1.5,1.5 0 0 1 1.5,-1.5Z" />
+    <path android:fillColor="#FFFFFFFF" android:fillType="evenOdd" android:pathData="M15.80,19.20a3.4,3.4 0 1,0 6.80,0a3.4,3.4 0 1,0 -6.80,0ZM18.60,17.30H19.80V18.60H21.10V19.80H19.80V21.10H18.60V19.80H17.30V18.60H18.60Z" />
+</vector>

@@ -9,18 +9,21 @@
  *
  *   1. the app's whole persistence model is the URL fragment, and a secure
  *      origin is what lets it keep writing there;
- *   2. localStorage and other browser storage stay unavailable-by-design,
- *      exactly as on the web build.
+ *   2. the app keeps nothing in browser storage, exactly as on the web
+ *      build — except a background picture the user uploads (IndexedDB).
  *
  * The only Android-specific work is giving <a download> a real destination:
  * the web code produces Blob object URLs, which a WebView cannot download on
  * its own, so exports are routed to the system Downloads folder (or handed to
- * a share sheet) through the JavaScript bridge at the bottom of this file.
+ * a share sheet) through the JavaScript bridge at the bottom of this file;
+ * and answering <input type="file"> — importing a backup, choosing a
+ * background picture — with the system file picker.
  */
 package com.virulenter.app;
 
 import android.content.ContentValues;
 import android.content.Intent;
+import android.content.pm.ApplicationInfo;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -30,6 +33,8 @@ import android.util.Base64;
 import android.view.View;
 import android.view.ViewGroup;
 import android.webkit.JavascriptInterface;
+import android.webkit.ValueCallback;
+import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
@@ -39,7 +44,9 @@ import android.widget.FrameLayout;
 import android.widget.Toast;
 
 import androidx.activity.OnBackPressedCallback;
-import androidx.appcompat.app.AppCompatActivity;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.activity.ComponentActivity;
 import androidx.core.content.FileProvider;
 import androidx.webkit.WebViewAssetLoader;
 
@@ -50,7 +57,7 @@ import java.io.FileOutputStream;
 import java.io.OutputStream;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends ComponentActivity {
 
     private static final String ORIGIN = "https://appassets.androidplatform.net";
     private static final String ENTRY = ORIGIN + "/index.html";
@@ -65,6 +72,18 @@ public class MainActivity extends AppCompatActivity {
 
     private WebView web;
     private String pendingUrl;
+
+    /* <input type="file"> in the page opens the system picker; its answer
+       goes back to the page through this callback */
+    private ValueCallback<Uri[]> fileCallback;
+    private final ActivityResultLauncher<Intent> filePicker = registerForActivityResult(
+            new ActivityResultContracts.StartActivityForResult(), result -> {
+                ValueCallback<Uri[]> callback = fileCallback;
+                fileCallback = null;
+                if (callback != null) {
+                    callback.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(result.getResultCode(), result.getData()));
+                }
+            });
     private final AtomicInteger pending = new AtomicInteger(0);
 
     @Override
@@ -90,6 +109,13 @@ public class MainActivity extends AppCompatActivity {
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         root.setFitsSystemWindows(true);
         setContentView(root);
+
+        /* A debug build can be inspected from chrome://inspect on a computer
+           over USB. WebView debugging ignores the manifest's debuggable flag,
+           so it has to be switched on here; release builds never are. */
+        if ((getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0) {
+            WebView.setWebContentsDebuggingEnabled(true);
+        }
 
         web = new WebView(this);
         web.setLayoutParams(new FrameLayout.LayoutParams(
@@ -131,6 +157,22 @@ public class MainActivity extends AppCompatActivity {
                 /* Re-save on every navigation so the durable copy tracks the app
                    even if the process is killed before any lifecycle callback. */
                 if (isRestorable(url)) writeSessionFile(url);
+            }
+        });
+
+        web.setWebChromeClient(new WebChromeClient() {
+            @Override
+            public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> callback, FileChooserParams params) {
+                if (fileCallback != null) fileCallback.onReceiveValue(null);
+                fileCallback = callback;
+                try {
+                    filePicker.launch(params.createIntent());
+                } catch (Exception e) {
+                    fileCallback = null;
+                    callback.onReceiveValue(null);
+                    return false;
+                }
+                return true;
             }
         });
 
@@ -374,6 +416,21 @@ public class MainActivity extends AppCompatActivity {
         /* the reliable moment to snapshot: called before the process can be
            killed in the background */
         persistSession();
+        /* out of sight, the page stops: no animation, layout or JS timers
+           (it is the only WebView, so pausing them all is safe) */
+        if (web != null) {
+            web.onPause();
+            web.pauseTimers();
+        }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (web != null) {
+            web.onResume();
+            web.resumeTimers();
+        }
     }
 
     @Override

@@ -13,11 +13,11 @@ android {
         applicationId 'com.virulenter.app'
         minSdk 24
         targetSdk 35
-        /* Bumped for the session-persistence fix: Android only installs an
-           update whose versionCode is higher than what is already there, so an
-           APK built before the fix must be superseded rather than reissued. */
-        versionCode 2
-        versionName '1.0.1'
+        /* Android only installs an update whose versionCode is higher than
+           the one already there; 200 follows 2 (1.0.1) and matches the
+           native app's numbering for 2.0.0. */
+        versionCode 200
+        versionName '2.0.0'
     }
 
     /* The web assets are synced in from app/ by tools/sync-android.mjs.
@@ -35,7 +35,11 @@ android {
             minifyEnabled false
         }
         release {
-            minifyEnabled false
+            /* R8 drops the unused parts of AndroidX and the Kotlin runtime,
+               and the resources nothing refers to: most of the APK's weight */
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
             /* Signing is configured in apk/keystore.properties when present,
                so a plain `gradle assembleRelease` still works without it. */
             def propsFile = rootProject.file('keystore.properties')
@@ -69,8 +73,9 @@ android {
     }
 }
 
+/* No AppCompat: the activity is a plain ComponentActivity on the platform's
+   Material theme, which is all a full-screen WebView needs. */
 dependencies {
-    implementation 'androidx.appcompat:appcompat:1.7.0'
     implementation 'androidx.webkit:webkit:1.11.0'
     implementation 'androidx.activity:activity:1.9.2'
 }

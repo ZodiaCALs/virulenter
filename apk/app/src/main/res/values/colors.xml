@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Kept in step with the background and accent variables in app/css/base.css.
-         (XML comments cannot contain a double hyphen, hence the wording.) -->
-    <color name="app_background">#F6F7F9</color>
-    <color name="app_accent">#7C3AED</color>
-    <color name="app_icon_background">#7C5CFF</color>
+         (XML comments cannot contain a double hyphen, hence the wording.)
+         values-night/colors.xml holds the dark theme's counterparts. -->
+    <color name="app_background">#F4F5F8</color>
+    <color name="app_accent">#2F6BFF</color>
+    <color name="app_icon_background">#062016</color>
 </resources>

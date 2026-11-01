@@ -17,10 +17,13 @@ node ../tools/build-apk.mjs --provision    # only fetch the toolchain
 
 Output lands in `../dist/`:
 
-| file | size | use |
-|---|---:|---|
-| `virulenter-android-release.apk` | ~3.1 MB | install this |
-| `virulenter-android-debug.apk` | ~3.7 MB | debugging |
+| file | use |
+|---|---|
+| `virulenter-android-release.apk` | install this: shrunk with R8, signed |
+| `virulenter-android-debug.apk` | debugging (inspectable from `chrome://inspect`) |
+
+Local builds stay out of git (`dist/*.apk` is ignored); CI keeps its own on
+every run's page, and releases carry the signed APK.
 
 The script provisions everything into `../.toolchain/` (JDK 17, Gradle 8.9,
 Android SDK 35) on first run — about 700 MB, once. Nothing is installed
@@ -107,7 +110,14 @@ in the build output: the APK has no internet access to lose.
 
 **Why `sw.js` is not bundled.** `tools/sync-android.mjs` drops it. The assets are
 already on the device, so a service worker would only duplicate every file
-inside the WebView cache. Offline behaviour comes from the APK itself.
+inside the WebView cache. Offline behaviour comes from the APK itself. The
+install manifest and the PWA icons go too (the launcher icon is the APK's
+own), and the HTML, CSS and JavaScript are copied minified.
+
+**Why so small.** No AppCompat: the activity is a plain `ComponentActivity`
+on the platform's Material theme, which is all a full-screen WebView needs.
+Release builds run R8 with resource shrinking. The page is paused, timers
+and all, while the app is in the background.
 
 **Exports.** The web code builds exports as `Blob` object URLs, which a WebView
 has no download manager for. `app/js/core.js` detects a `VirulenterNative`
@@ -180,17 +190,45 @@ Checks the package identity, API levels, launcher entry point, absence of the
 internet permission, the resource table, the signature, the bundled web assets
 and that no bundled page references anything off-device.
 
-The web layer inside the APK is the same code, so the full 50-check web suite
-runs against the packaged assets too:
+The web layer inside the APK is the same code, so the web suite (96 checks
+for the packaged assets) runs against them too:
 
 ```bash
 node ../tools/verify.mjs --root="$PWD/app/src/main/assets"
 ```
 
+## Inspecting it on a phone
+
+A **debug** build switches on WebView debugging (`MainActivity` checks the
+build's debuggable flag; release builds never do). Connect the phone by USB with
+USB debugging enabled, open `chrome://inspect` in Chrome on the computer, and
+press *inspect* under Virulenter: the full DevTools — console, elements,
+network, performance — attached to the app running on the phone.
+
+## Icon and theme resources
+
+`tools/icon.mjs` draws every launcher asset from one drawing (the style chosen
+in `tools/icon-styles.mjs`; `node tools/icon.mjs --gallery` draws the options side by side):
+
+| resource | what it is |
+|---|---|
+| `mipmap-*/ic_launcher*.png` | legacy bitmaps, square and round, for launchers without adaptive icons |
+| `drawable-xxxhdpi/ic_launcher_background.png` | adaptive layer: the plate (432 px = 108 dp at xxxhdpi; Android scales it down per density) |
+| `drawable-xxxhdpi/ic_launcher_foreground.png` | adaptive layer: the mark, inside the 66 dp safe zone |
+| `drawable-xxxhdpi/ic_launcher_monochrome.png` | the silhouette Android 13+ tints for themed icons; older versions ignore it |
+
+The layers used to sit in `drawable/` (mdpi), which made Android scale a 432 px
+bitmap *up* four times on decode on a typical phone; in `drawable-xxxhdpi/`
+they are only ever scaled down.
+
+`values-night/` gives the window and system bars the dark theme's colour, so a
+phone in dark mode shows no light bars around the dark app.
+
 ## What is not here
 
-- **No push notifications.** They would need a server, and this app has none.
-- **No widgets or quick-settings tile.** A reasonable next step, not built.
+- **No notifications, widget or Quick Settings tile here.** The native app
+  ([`native/`](../native/README.md)) has all three, plus reminders and a live
+  counter in the notification shade.
 - **No Play Store upload.** That needs your own signing key and a listing.
 - **Targets Android 7.0+.** Below that the AndroidX WebKit backport is
   unavailable and `WebViewAssetLoader` cannot be used.
