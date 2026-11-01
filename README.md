@@ -479,13 +479,12 @@ in spreadsheet software.
 
 ## App icon
 
-**Glass Heat** — the calendar's heat grid as panes of frosted glass on a deep
-instrument grid. The coolest panes are nearly clear; the hotter the day, the
-more light the glass holds, and the hottest panes glow at their edges and
-throw light onto the field. The day being counted is a glass orb lit from
-within, inside a broken HUD ring, and viewfinder brackets frame the grid. Each
-pane carries a blurred copy of the field behind it, so the grid goes soft
-inside the glass and stays crisp between the panes.
+**Glass Heat** — the calendar's heat grid as thin panes of glass on a deep,
+smooth green field. Nothing reflects: each pane is a flat sheet with a hairline
+edge and a fine satin grain, tinted by the day's heat — the coolest nearly
+clear, the hottest holding mint light that glows onto the field behind. The
+plus sits on a disc of deep green glass inside a fine HUD ring, and slim
+viewfinder brackets frame the grid.
 
 It is Material Heat, chosen from the first five directions and rebuilt in
 glass. All six are drawn for every platform — as iOS, Android (and its themed
@@ -496,7 +495,7 @@ form), macOS and Windows show them, on light and dark wallpapers
 
 | style | after | idea |
 |---|---|---|
-| **Glass Heat** *(applied)* | Material 3, in glass | the heat grid as frosted glass panes; heat as held light; a lit glass orb |
+| **Glass Heat** *(applied)* | Material 3, in glass | the heat grid as thin glass panes — hairline edges, a satin grain, heat as held light |
 | **Chrono Neon** | futuristic | a chronograph bezel on obsidian glass; the count sweeps round it in light |
 | **Liquid Ring** | Apple · Liquid Glass | a clear glass ring three-quarters full of light |
 | **Fluent Tally** | Microsoft · Fluent 2 | four strokes and the strike, luminous layered gradients |
