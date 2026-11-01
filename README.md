@@ -479,15 +479,25 @@ in spreadsheet software.
 
 ## App icon
 
-Five directions, none derived from the first mark, each drawn for every
-platform — shown as iOS, Android (and its themed form), macOS and Windows draw
-them, on light and dark wallpapers ([docs/icons/index.html](docs/icons/index.html)):
+**Glass Heat** — the calendar's heat grid as panes of frosted glass on a deep
+instrument grid. The coolest panes are nearly clear; the hotter the day, the
+more light the glass holds, and the hottest panes glow at their edges and
+throw light onto the field. The day being counted is a glass orb lit from
+within, inside a broken HUD ring, and viewfinder brackets frame the grid. Each
+pane carries a blurred copy of the field behind it, so the grid goes soft
+inside the glass and stays crisp between the panes.
 
-![The five icon options](docs/icons/options.png)
+It is Material Heat, chosen from the first five directions and rebuilt in
+glass. All six are drawn for every platform — as iOS, Android (and its themed
+form), macOS and Windows show them, on light and dark wallpapers
+([docs/icons/index.html](docs/icons/index.html)):
+
+![The icon options](docs/icons/options.png)
 
 | style | after | idea |
 |---|---|---|
-| **Chrono Neon** *(applied)* | futuristic | a chronograph bezel on obsidian glass; the count sweeps round it in light |
+| **Glass Heat** *(applied)* | Material 3, in glass | the heat grid as frosted glass panes; heat as held light; a lit glass orb |
+| **Chrono Neon** | futuristic | a chronograph bezel on obsidian glass; the count sweeps round it in light |
 | **Liquid Ring** | Apple · Liquid Glass | a clear glass ring three-quarters full of light |
 | **Fluent Tally** | Microsoft · Fluent 2 | four strokes and the strike, luminous layered gradients |
 | **Material Heat** | Google · Material 3 | the heat grid in one tonal palette, ending in a raised plus |
@@ -503,7 +513,8 @@ node tools/icon.mjs --gallery          # redraw the comparison sheet
 
 Applying a style redraws the web icons and the in-page mark, the iOS touch
 icon, both Android projects' legacy, adaptive and themed layers, and the
-desktop `.ico`, `.icns` and `.png`. Change `DEFAULT_STYLE` in
+desktop `.ico`, `.icns` and `.png`. The native app's notification icon, launcher
+shortcut and widget button are drawn to match Glass Heat. Change `DEFAULT_STYLE` in
 `tools/icon-styles.mjs` to make the choice stick.
 
 ## Project layout
@@ -539,14 +550,14 @@ virulenter/
 │  ├─ virulenter.html               single-file web build
 │  ├─ virulenter-android-release.apk   (v0.0.1, original interface)
 │  └─ virulenter-android-debug.apk
-├─ docs/icons/              the five icon options, side by side
+├─ docs/icons/              the icon options, side by side
 ├─ .github/workflows/       release.yml: builds and publishes every file
 ├─ tools/
 │  ├─ verify.mjs            89 automated checks in real headless Chrome
 │  ├─ chrome.mjs            finds Chrome / Chromium for the headless tools
 │  ├─ shots.mjs             regenerates verify/shots/*.png
 │  ├─ icon.mjs              draws every icon: web, iOS, Android, Windows, macOS, Linux
-│  ├─ icon-styles.mjs       the five icon designs
+│  ├─ icon-styles.mjs       the icon designs
 │  ├─ serve.mjs             HTTP server for installing / phone testing
 │  ├─ build-apk.mjs         provisions the toolchain and builds the APK
 │  ├─ sync-android.mjs      copies app/ into the Android assets

@@ -34,7 +34,8 @@ Futuristic, elegant, and mostly glass:
 
 The icon is generated with the rest (`node tools/icon.mjs`): adaptive and themed
 layers for Android, `.ico` for Windows, `.icns` for macOS, `.png` for Linux and
-for the window and tray. Five styles are drawn; see `docs/icons/`.
+for the window and tray. The applied style is Glass Heat; the notification icon,
+launcher shortcut and widget are drawn to match. All styles: `docs/icons/`.
 
 ## Your data
 
