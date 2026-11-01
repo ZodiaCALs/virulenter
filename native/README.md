@@ -82,7 +82,7 @@ cd native
   `composeApp/build/compose/binaries/main/`.
 - Install the APK with `adb install -r …apk`, or copy it to the phone and open it.
 - jpackage builds installers only for the OS it runs on — which is why the
-  [release workflow](../.github/workflows/release.yml) builds each on its own
+  [build workflow](../.github/workflows/build.yml) builds each on its own
   runner.
 - The release APK is signed with the project's public sideloading key
   (`apk/keystore.properties`), so it installs and upgrades without setup.

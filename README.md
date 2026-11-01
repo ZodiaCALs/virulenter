@@ -65,20 +65,33 @@ and from the web app through backups and links.
 
 ## Downloads
 
-Every file is built by GitHub Actions ([`release.yml`](.github/workflows/release.yml))
-and attached to the release when a version tag is pushed — see
+Every file is built by GitHub Actions and attached to a GitHub Release — see
 [RELEASE_NOTES.md](RELEASE_NOTES.md) for what is in 2.0.0:
 
 | file | for |
 |---|---|
 | `virulenter-android.apk` | Android 8.0+, native app |
 | `Virulenter-2.0.0.msi` | Windows 10/11 |
-| `Virulenter-2.0.0.dmg` | macOS (Apple silicon and Intel builds come from the runner's architecture) |
+| `Virulenter-2.0.0.dmg` | macOS on Apple silicon (the runner builds for its own architecture) |
 | `virulenter_2.0.0-1_amd64.deb` | Debian, Ubuntu and derivatives |
 | `virulenter.html` | any browser — the web app as one file, also kept in [`dist/`](dist/virulenter.html) |
 | `virulenter-web-android.apk` | Android 7.0+, the web app wrapped |
 
-To publish a release from this repository:
+Two workflows do it:
+
+| workflow | runs | does |
+|---|---|---|
+| [`build.yml`](.github/workflows/build.yml) | on every push and pull request | builds and tests everything; the files stay on the run's page as artifacts |
+| [`release.yml`](.github/workflows/release.yml) | when you start it | builds everything, then publishes the release `v<version>` with the files attached |
+
+The version comes from `native/composeApp/src/commonMain/kotlin/com/virulenter/Version.kt`,
+and the release text from `RELEASE_NOTES.md`. To publish:
+
+- **On GitHub:** *Actions › Release › Run workflow*. It tags the commit for you.
+  GitHub only shows that button once the workflow file is on the default
+  branch (`main`).
+- **Or with a tag**, from any branch — in GitHub Desktop, right-click a commit
+  in *History*, choose *Create Tag…*, enter `v2.0.0`, then push; or:
 
 ```bash
 git tag v2.0.0
@@ -88,8 +101,9 @@ git tag v2.0.0
 git push origin v2.0.0
 ```
 
-Each push to a branch also runs the workflow and keeps the files as build
-artifacts on the run's page, without publishing a release.
+A tag that does not match `Version.kt` stops the release before anything is
+built. For the next release, raise `APP_VERSION` and `APP_VERSION_CODE` in
+`Version.kt` and update `RELEASE_NOTES.md` first.
 
 ## Quick start
 
@@ -550,7 +564,7 @@ virulenter/
 │  ├─ virulenter-android-release.apk   (v0.0.1, original interface)
 │  └─ virulenter-android-debug.apk
 ├─ docs/icons/              the icon options, side by side
-├─ .github/workflows/       release.yml: builds and publishes every file
+├─ .github/workflows/       build.yml (every push) and release.yml (publishes a release)
 ├─ tools/
 │  ├─ verify.mjs            89 automated checks in real headless Chrome
 │  ├─ chrome.mjs            finds Chrome / Chromium for the headless tools

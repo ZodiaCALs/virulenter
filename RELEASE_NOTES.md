@@ -84,9 +84,10 @@ layers, `.ico`, `.icns` and `.png`.
 
 ## Under the hood
 
-- Builds and releases run on GitHub Actions (`.github/workflows/release.yml`):
-  pushing a `v*` tag builds every file above, runs the web suite and the native
-  tests, and publishes this release.
+- Builds and releases run on GitHub Actions: `build.yml` builds and tests every
+  file above on each push; `release.yml` (Actions › Release › Run workflow, or
+  a `v*` tag) builds them, runs the web suite and the native tests, and
+  publishes this release.
 - Web: 89 checks over HTTP, 87 on the single file, 88 on the packaged Android
   assets. Native: 31 tests on the shared code (codec, store, statistics,
   reminder schedule).

@@ -1,0 +1,112 @@
+# Builds every Virulenter deliverable on GitHub's runners, which have the
+# Android SDK and the platform tools a sandbox may not:
+#
+#   web             dist/virulenter.html, the single-file web app (+ its tests)
+#   apk-webview     the Android app that wraps the web app (apk/)
+#   apk-native      the native Android app (native/, Kotlin Multiplatform)
+#   desktop         native installers: .msi (Windows), .dmg (macOS), .deb (Linux)
+#
+# Runs on every push and pull request and keeps the files as artifacts on the
+# run's page. release.yml calls it to build a release.
+name: Build
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  web:
+    name: Web app
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Build the single-file app
+        run: node build.mjs
+      - name: Test (served over HTTP, then the single file)
+        run: |
+          node tools/verify.mjs
+          node tools/verify.mjs --url=file://$PWD/dist/virulenter.html
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web
+          path: dist/virulenter.html
+
+  apk-webview:
+    name: Android APK (web wrapper)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - name: Copy the web app into the Android assets
+        run: node tools/sync-android.mjs
+      - name: Build
+        working-directory: apk
+        run: ./gradlew --no-daemon assembleRelease
+      - run: cp apk/app/build/outputs/apk/release/app-release.apk virulenter-web-android.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: apk-webview
+          path: virulenter-web-android.apk
+
+  apk-native:
+    name: Android APK (native)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Test the shared code, build the APK
+        working-directory: native
+        run: ./gradlew --no-daemon :composeApp:desktopTest :composeApp:assembleRelease
+      - run: cp native/composeApp/build/outputs/apk/release/composeApp-release.apk virulenter-android.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: apk-native
+          path: virulenter-android.apk
+
+  desktop:
+    name: Desktop (${{ matrix.name }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: Windows, os: windows-latest, task: packageMsi, format: msi }
+          - { name: macOS, os: macos-latest, task: packageDmg, format: dmg }
+          - { name: Linux, os: ubuntu-latest, task: packageDeb, format: deb }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+      - name: jpackage needs fakeroot for .deb
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y fakeroot
+      - name: Build the installer
+        working-directory: native
+        shell: bash
+        run: ./gradlew --no-daemon :composeApp:${{ matrix.task }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ matrix.format }}
+          path: native/composeApp/build/compose/binaries/main/${{ matrix.format }}/*
