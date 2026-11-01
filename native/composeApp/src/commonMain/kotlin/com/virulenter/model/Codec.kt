@@ -156,8 +156,10 @@ object Codec {
         val accentIdx = max(0, Palette.ACCENTS.indexOfFirst { it.id == look.accent })
         val fontIdx = max(0, Palette.FONTS.indexOfFirst { it.id == look.font })
         val themeIdx = max(0, Palette.THEMES.indexOf(look.theme))
+        val bgIdx = max(0, Palette.BACKGROUNDS.indexOfFirst { it.id == look.bg })
         val nonDefault = accentIdx > 0 || fontIdx > 0
-        val flags = (if (nonDefault) 1 else 0) or (if (custom != null) 2 else 0) or (if (themeIdx != 0) 4 else 0)
+        val flags = (if (nonDefault) 1 else 0) or (if (custom != null) 2 else 0) or
+            (if (themeIdx != 0) 4 else 0) or (if (bgIdx != 0) 8 else 0)
         out.add(flags.toByte())
         if (nonDefault) out.add((((accentIdx and 15) shl 4) or (fontIdx and 15)).toByte())
         if (custom != null) {
@@ -167,6 +169,7 @@ object Codec {
             out.add((rgb and 255).toByte())
         }
         if (themeIdx != 0) out.add(themeIdx.toByte())
+        if (bgIdx != 0) out.add(bgIdx.toByte())
         return out.toByteArray()
     }
 
@@ -226,6 +229,9 @@ object Codec {
             }
             if (flags and 4 != 0 && r.i < bytes.size) {
                 look = look.copy(theme = Palette.THEMES.getOrNull(r.byte()) ?: "system")
+            }
+            if (flags and 8 != 0 && r.i < bytes.size) {
+                look = look.copy(bg = Palette.BACKGROUNDS.getOrNull(r.byte())?.id ?: "none")
             }
         }
         return Decoded(AppState(events = events, look = look), hasLook = true)
@@ -313,6 +319,7 @@ object Codec {
         font = o.str("font")?.takeIf { id -> Palette.FONTS.any { it.id == id } } ?: "system",
         custom = o.str("custom")?.takeIf { Palette.isHex(it) }?.lowercase(),
         theme = o.str("theme")?.takeIf { it in Palette.THEMES } ?: "system",
+        bg = o.str("bg")?.takeIf { id -> Palette.BACKGROUNDS.any { it.id == id } } ?: "none",
     )
 
     /** The JSON backup: the web app's format plus the native-only fields. */

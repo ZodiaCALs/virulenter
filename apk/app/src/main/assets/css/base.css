@@ -2,9 +2,9 @@
    Virulenter · base.css
    Design tokens (light + dark), app shell, controls, sheets, motion.
 
-   Glass: an aurora drawn from the accent sits behind the page
-   (body::before), with a fine light grid and one defined orb over it
-   (body::after) — crisp structure, so frost has something to act on.
+   Glass: behind the page sits whatever background the user chose in
+   Appearance — nothing by default, a preset drawn here (the --bg-* tokens),
+   or an uploaded image (--bg-image, set by js/app.js) — on body::before.
    Every surface over it is a pane of frosted glass (--pane-bg plus
    --blur-pane): a tint, a soft sheen, and a 1px rim lit
    from the top left (the "glass rims" block at the end of stats.css).
@@ -66,7 +66,19 @@
   --rim-1: rgba(255, 255, 255, .98);
   --rim-2: rgba(255, 255, 255, .16);
   --rim-3: rgba(255, 255, 255, .55);
-  --grid-line: rgba(30, 41, 80, .055);
+  /* backgrounds (Appearance › Background); dark values further down */
+  --bg-aurora:
+    radial-gradient(58% 42% at 6% 0%, var(--aura-1), transparent 72%),
+    radial-gradient(50% 40% at 100% 8%, var(--aura-2), transparent 70%),
+    radial-gradient(62% 46% at 88% 100%, var(--aura-3), transparent 72%),
+    radial-gradient(46% 38% at 0% 92%, var(--aura-2), transparent 70%),
+    radial-gradient(40% 30% at 50% 50%, var(--aura-1), transparent 75%);
+  --bg-mist: radial-gradient(90% 60% at 15% 0%, #ffffff, transparent 70%), linear-gradient(165deg, #e3e8f1, #eee7ef 55%, #e4ede9);
+  --bg-dusk: radial-gradient(70% 50% at 100% 0%, rgba(255, 190, 150, .9), transparent 70%), radial-gradient(70% 55% at 0% 100%, rgba(180, 165, 255, .85), transparent 70%), linear-gradient(170deg, #fde1d1, #f2d1e5 50%, #d7d2fb);
+  --bg-ocean: radial-gradient(80% 55% at 0% 0%, rgba(150, 232, 246, .9), transparent 70%), radial-gradient(70% 55% at 100% 100%, rgba(165, 175, 255, .8), transparent 70%), linear-gradient(175deg, #d2f0f7, #d0e0fa 55%, #dad4f8);
+  --bg-forest: radial-gradient(75% 55% at 85% 90%, rgba(110, 215, 155, .55), transparent 70%), linear-gradient(165deg, #e0f3e6, #d0eadd 55%, #e4efe1);
+  --bg-graphite: linear-gradient(165deg, #eceef2, #dbdee4 60%, #d1d5dc);
+  --bg-veil: rgba(244, 245, 248, .3);
   --blur-pane: saturate(1.8) blur(22px);
   --pane-bg: linear-gradient(160deg, var(--pane-sheen), transparent 42%), var(--pane);
   --hairline: rgba(15, 23, 42, .08);
@@ -173,7 +185,12 @@
     --rim-1: rgba(255, 255, 255, .34);
     --rim-2: rgba(255, 255, 255, .035);
     --rim-3: rgba(255, 255, 255, .14);
-    --grid-line: rgba(255, 255, 255, .042);
+    --bg-mist: radial-gradient(90% 60% at 15% 0%, #1d2331, transparent 70%), linear-gradient(165deg, #0c1017, #130f18 55%, #0c1311);
+    --bg-dusk: radial-gradient(70% 50% at 100% 0%, rgba(160, 75, 60, .55), transparent 70%), radial-gradient(70% 55% at 0% 100%, rgba(95, 62, 180, .55), transparent 70%), linear-gradient(170deg, #21121e, #1d1531 50%, #0e1531);
+    --bg-ocean: radial-gradient(80% 55% at 0% 0%, rgba(18, 125, 145, .5), transparent 70%), radial-gradient(70% 55% at 100% 100%, rgba(52, 62, 165, .5), transparent 70%), linear-gradient(175deg, #061d26, #0a1830 55%, #100e28);
+    --bg-forest: radial-gradient(75% 55% at 85% 90%, rgba(31, 184, 110, .3), transparent 70%), linear-gradient(165deg, #0b2a1d, #06170f 55%, #030a06);
+    --bg-graphite: linear-gradient(165deg, #1c1f25, #121418 60%, #0b0c0f);
+    --bg-veil: rgba(6, 8, 13, .42);
     color-scheme: dark;
   }
 }
@@ -221,7 +238,12 @@
   --rim-1: rgba(255, 255, 255, .34);
   --rim-2: rgba(255, 255, 255, .035);
   --rim-3: rgba(255, 255, 255, .14);
-  --grid-line: rgba(255, 255, 255, .042);
+  --bg-mist: radial-gradient(90% 60% at 15% 0%, #1d2331, transparent 70%), linear-gradient(165deg, #0c1017, #130f18 55%, #0c1311);
+  --bg-dusk: radial-gradient(70% 50% at 100% 0%, rgba(160, 75, 60, .55), transparent 70%), radial-gradient(70% 55% at 0% 100%, rgba(95, 62, 180, .55), transparent 70%), linear-gradient(170deg, #21121e, #1d1531 50%, #0e1531);
+  --bg-ocean: radial-gradient(80% 55% at 0% 0%, rgba(18, 125, 145, .5), transparent 70%), radial-gradient(70% 55% at 100% 100%, rgba(52, 62, 165, .5), transparent 70%), linear-gradient(175deg, #061d26, #0a1830 55%, #100e28);
+  --bg-forest: radial-gradient(75% 55% at 85% 90%, rgba(31, 184, 110, .3), transparent 70%), linear-gradient(165deg, #0b2a1d, #06170f 55%, #030a06);
+  --bg-graphite: linear-gradient(165deg, #1c1f25, #121418 60%, #0b0c0f);
+  --bg-veil: rgba(6, 8, 13, .42);
   color-scheme: dark;
 }
 
@@ -244,38 +266,23 @@ body {
   transition: background-color .3s var(--ease), color .3s var(--ease);
 }
 
-/* the aurora: soft light in the accent and two neighbouring hues, fixed
-   behind the page so the glass panes have colour to carry */
+/* the background, behind everything: none, a preset, or the user's image */
 body::before {
   content: "";
   position: fixed;
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  background:
-    radial-gradient(58% 42% at 6% 0%, var(--aura-1), transparent 72%),
-    radial-gradient(50% 40% at 100% 8%, var(--aura-2), transparent 70%),
-    radial-gradient(62% 46% at 88% 100%, var(--aura-3), transparent 72%),
-    radial-gradient(46% 38% at 0% 92%, var(--aura-2), transparent 70%),
-    radial-gradient(40% 30% at 50% 50%, var(--aura-1), transparent 75%);
-  opacity: .9;
+  background: var(--backdrop, none);
 }
-/* over the aurora, a fine light grid that fades down the page, and one
-   defined light orb: crisp structure behind the glass, so the frost on
-   every pane is visible rather than notional */
-body::after {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  background:
-    radial-gradient(circle at calc(50% + min(36vw, 330px)) 128px, var(--aura-2) 0, var(--aura-2) min(4.3vmax, 48px), transparent min(4.6vmax, 51px)),
-    linear-gradient(var(--grid-line) 1px, transparent 1px) 0 0 / 28px 28px,
-    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px) 0 0 / 28px 28px;
-  -webkit-mask-image: linear-gradient(180deg, #000, rgba(0, 0, 0, .55) 60%, rgba(0, 0, 0, .25));
-  mask-image: linear-gradient(180deg, #000, rgba(0, 0, 0, .55) 60%, rgba(0, 0, 0, .25));
-}
+html[data-bg="aurora"] { --backdrop: var(--bg-aurora); }
+html[data-bg="mist"] { --backdrop: var(--bg-mist); }
+html[data-bg="dusk"] { --backdrop: var(--bg-dusk); }
+html[data-bg="ocean"] { --backdrop: var(--bg-ocean); }
+html[data-bg="forest"] { --backdrop: var(--bg-forest); }
+html[data-bg="graphite"] { --backdrop: var(--bg-graphite); }
+/* a photo gets a light veil in the theme's colour, so text over it reads */
+html[data-bg="image"] { --backdrop: linear-gradient(var(--bg-veil), var(--bg-veil)), var(--bg-image, none) center / cover no-repeat; }
 
 h1, h2, h3, p, ul { margin: 0; }
 ul { padding: 0; list-style: none; }
@@ -310,13 +317,14 @@ a { color: var(--accent-text); }
   inset: 0 0 auto 0;
   z-index: 40;
   padding-top: env(safe-area-inset-top, 0px);
-  background: var(--glass);
-  -webkit-backdrop-filter: saturate(1.8) blur(20px);
-  backdrop-filter: saturate(1.8) blur(20px);
-  box-shadow: 0 1px 0 transparent;
-  transition: box-shadow .25s var(--ease), background-color .3s var(--ease);
+  /* the same glass as the cards: tint, sheen, frost, and a lit edge */
+  background: var(--pane-bg);
+  -webkit-backdrop-filter: var(--blur-pane);
+  backdrop-filter: var(--blur-pane);
+  box-shadow: inset 0 -1px 0 var(--rim-3);
+  transition: box-shadow .25s var(--ease);
 }
-.topbar.is-scrolled { box-shadow: 0 1px 0 var(--glass-line), 0 10px 24px -20px rgba(15, 23, 42, .4); }
+.topbar.is-scrolled { box-shadow: inset 0 -1px 0 var(--rim-3), 0 10px 24px -20px rgba(15, 23, 42, .4); }
 .topbar-in {
   height: var(--topbar-h);
   max-width: var(--maxw);
@@ -357,13 +365,13 @@ a { color: var(--accent-text); }
   inset: auto 0 0 0;
   z-index: 40;
   padding-bottom: env(safe-area-inset-bottom, 0px);
-  background: var(--glass);
-  -webkit-backdrop-filter: saturate(1.8) blur(20px);
-  backdrop-filter: saturate(1.8) blur(20px);
-  box-shadow: 0 -1px 0 var(--glass-line), inset 0 1px 0 var(--pane-edge);
-  transition: background-color .3s var(--ease);
+  background: var(--pane-bg);
+  -webkit-backdrop-filter: var(--blur-pane);
+  backdrop-filter: var(--blur-pane);
+  box-shadow: inset 0 1px 0 var(--rim-1), 0 -1px 0 var(--hairline);
 }
 .tabbar-in {
+  position: relative;
   height: var(--tabbar-h);
   max-width: var(--maxw);
   margin: 0 auto;
@@ -396,8 +404,23 @@ a { color: var(--accent-text); }
 .tab .ico { position: relative; width: 22px; height: 22px; transition: transform .3s var(--ease-spring); }
 .tab:hover { color: var(--text-2); }
 .tab.is-on { color: var(--accent-text); }
-.tab.is-on .tab-ic::before { opacity: 1; transform: none; }
 .tab:active .ico { transform: scale(.88); }
+.tab { position: relative; z-index: 1; }
+.tab-ic::before { display: none; }
+.tab-glide {
+  position: absolute;
+  left: 0; top: 0;
+  width: 58px; height: 30px;
+  border-radius: 8px;
+  background: var(--accent-wash);
+  box-shadow: inset 0 1px 0 var(--btn-edge), inset 0 0 0 1px var(--accent-wash);
+  transform: translate(var(--glide-x, 0px), var(--glide-y, 0px));
+  opacity: 0;
+  transition: transform .44s var(--ease-spring), opacity .2s var(--ease);
+  pointer-events: none;
+}
+.tab-glide.is-placed { opacity: 1; }
+.tab-glide.no-anim { transition: none; }
 
 @media (min-width: 720px) {
   .tabbar {
@@ -413,11 +436,11 @@ a { color: var(--accent-text); }
     pointer-events: auto;
     max-width: 440px;
     height: 62px;
-    border-radius: 6px;
-    background: var(--glass);
-    -webkit-backdrop-filter: saturate(1.8) blur(20px);
-    backdrop-filter: saturate(1.8) blur(20px);
-    box-shadow: inset 0 0 0 1px var(--glass-line), inset 0 1px 0 var(--pane-edge), var(--shadow-3);
+    border-radius: var(--r-lg);
+    background: var(--pane-bg);
+    -webkit-backdrop-filter: var(--blur-pane);
+    backdrop-filter: var(--blur-pane);
+    box-shadow: var(--pane-shadow);
   }
   .app { padding-bottom: calc(118px + env(safe-area-inset-bottom, 0px)); }
 }
@@ -429,6 +452,10 @@ a { color: var(--accent-text); }
 
 /* ── views ─────────────────────────────────────────────── */
 .view.enter { animation: viewIn .42s var(--ease) both; }
+.view.enter-next { animation: viewNext .42s var(--ease) both; }
+.view.enter-prev { animation: viewPrev .42s var(--ease) both; }
+/* a view sliding in never widens the page */
+.app { overflow-x: clip; }
 
 /* ── notice bar ────────────────────────────────────────── */
 .notice {
@@ -792,6 +819,8 @@ textarea.input.mono { font-size: 12.5px; }
 @keyframes fadeOut { to { opacity: 0; } }
 @keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } }
 @keyframes viewIn { from { opacity: 0; transform: translateY(10px); } }
+@keyframes viewNext { from { opacity: 0; transform: translateX(40px); } }
+@keyframes viewPrev { from { opacity: 0; transform: translateX(-40px); } }
 @keyframes sheetUp { from { transform: translateY(100%); } }
 @keyframes sheetDown { to { transform: translateY(100%); } }
 @keyframes dialogIn { from { opacity: 0; transform: translateY(14px) scale(.97); } }
@@ -821,7 +850,6 @@ textarea.input.mono { font-size: 12.5px; }
     --field: var(--surface);
     --blur-pane: none;      /* every pane reads its frost from this token */
   }
-  body::before, body::after { display: none; }
   .sheet, .sheet-head, .dialog, .topbar, .tabbar, .tabbar-in {
     -webkit-backdrop-filter: none;
     backdrop-filter: none;

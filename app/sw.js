@@ -11,7 +11,7 @@
 
    Bump CACHE when the shell changes; the old cache is dropped on activate.
    ============================================================ */
-const CACHE = 'virulenter-v6';
+const CACHE = 'virulenter-v7';
 
 const SHELL = [
   './',

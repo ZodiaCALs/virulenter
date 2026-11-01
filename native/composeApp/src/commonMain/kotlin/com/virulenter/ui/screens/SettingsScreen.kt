@@ -1,6 +1,15 @@
 package com.virulenter.ui.screens
 
 import androidx.compose.foundation.background
+import kotlinx.coroutines.launch
+import com.virulenter.ui.glass.drawPreset
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.foundation.border
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -140,6 +149,30 @@ private fun Appearance(c: AppController, state: AppState) {
                 c.store.setLook(look.copy(custom = v.lowercase()))
             }, enabled = valid)
         }
+        Label("Background")
+        val platform = LocalPlatform.current
+        val scope = rememberCoroutineScope()
+        val image = c.backgroundImage
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Palette.BACKGROUNDS.forEach { b ->
+                BackgroundTile(b, look.bg == b.id, image) {
+                    /* your picture's tile uploads one; tapped again while in use, it replaces it */
+                    if (b.id == "image" && (image == null || look.bg == "image")) {
+                        platform.pickImage { bytes -> scope.launch { c.useBackground(platform, bytes) } }
+                    } else {
+                        c.store.setLook(look.copy(bg = b.id))
+                    }
+                }
+            }
+        }
+        if (image != null) {
+            VButton("Remove image", { c.removeBackground(platform) }, icon = VIcons.Trash, kind = ButtonKind.Ghost, color = g.danger, height = 36.dp)
+        }
+        Text(
+            if (look.bg == "image" && image == null) "This background uses a picture from another device. Upload one here, or pick another."
+            else "A picture you upload stays on this device; backups only record that you use one.",
+            color = g.text3, fontSize = 12.5.sp, lineHeight = 17.sp,
+        )
         Label("Typeface")
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Palette.FONTS.forEach { f ->
@@ -158,6 +191,37 @@ private fun Appearance(c: AppController, state: AppState) {
         if (look != com.virulenter.model.Look()) {
             VButton("Reset appearance", { c.store.setLook(com.virulenter.model.Look()) }, kind = ButtonKind.Ghost, icon = VIcons.Undo)
         }
+    }
+}
+
+@Composable
+private fun BackgroundTile(b: Palette.Background, selected: Boolean, image: ImageBitmap?, onClick: () -> Unit) {
+    val g = LocalGlass.current
+    val shape = RoundedCornerShape(8.dp)
+    Column(
+        Modifier.width(76.dp).clickable(role = Role.RadioButton, onClickLabel = b.label, onClick = onClick),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Box(
+            Modifier
+                .size(76.dp, 54.dp)
+                .then(if (selected) Modifier.border(2.dp, g.accent, RoundedCornerShape(10.dp)).padding(3.dp) else Modifier)
+                .clip(shape)
+                .border(1.dp, g.line, shape),
+            contentAlignment = Alignment.Center,
+        ) {
+            when {
+                b.id == "image" && image != null -> Image(image, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                b.id == "image" -> VIcon(VIcons.Upload, g.text3, 20.dp)
+                b.id == "none" -> Box(Modifier.fillMaxSize().background(g.bg))
+                else -> Canvas(Modifier.fillMaxSize()) { drawPreset(b.id, g) }
+            }
+        }
+        Spacer(Modifier.height(5.dp))
+        Text(
+            if (b.id == "image" && image == null) "Upload" else b.label,
+            color = if (selected) g.accentText else g.text2, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1,
+        )
     }
 }
 

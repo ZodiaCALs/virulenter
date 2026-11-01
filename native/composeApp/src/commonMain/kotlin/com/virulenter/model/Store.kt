@@ -219,6 +219,7 @@ class Store(private val storage: Storage) {
                 custom = t.custom ?: if (t.accent == "blue") o.custom else null,
                 font = if (t.font == "system") o.font else t.font,
                 theme = if (t.theme == "system") o.theme else t.theme,
+                bg = if (t.bg == "none") o.bg else t.bg,
             )
             return target.copy(events = events, look = look)
         }

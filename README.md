@@ -375,9 +375,14 @@ and paste **Copy data code** into the web app.
 
 This is the part that shapes everything else.
 
-There is **no `localStorage`, no `sessionStorage`, no IndexedDB, no cookies, and
-no server.** Every change rewrites the address bar via `history.replaceState`,
-so the link you can see is always the current session.
+Your log is **never** in `localStorage`, `sessionStorage`, IndexedDB or a cookie,
+and there is no server. Every change rewrites the address bar via
+`history.replaceState`, so the link you can see is always the current session.
+
+One thing is kept in the browser, and only if you ask for it: a **background
+picture you upload**. An image is far too big for a link, so it goes into
+IndexedDB on that device (scaled to 2400 px on its long side); the link records
+only that you use one. Remove it from *Appearance › Background* at any time.
 
 ```
 https://example.com/virulenter/#d=AgEEQ29mZmVlApARAagIsuwB
@@ -466,10 +471,16 @@ is the difference between holding a year and holding six weeks.
   and a **53-week activity heatmap** with the same tooltips.
 
 ### Appearance
-- **Frosted glass**: smooth panes with backdrop blur and a 1px rim
-  lit from the top left, over an aurora drawn from your accent, a fine light
-  grid and one defined orb. Corners are tight (4–16px). Turn on *Reduce
-  transparency* in the system settings and every surface goes solid.
+- **Frosted glass**: smooth panes with backdrop blur and a 1px rim lit from the
+  top left. The top and bottom bars are the same glass as the cards. Corners are
+  tight (4–16px). Turn on *Reduce transparency* in the system settings and every
+  surface goes solid.
+- **Background**: none by default — the plain page — or one of six presets
+  (Aurora, drawn from your accent; Mist; Dusk; Ocean; Forest; Graphite), or a
+  picture you upload. The choice travels with the link; the picture stays on
+  the device it was added on.
+- **Page transitions** follow the tabs: a page further along slides in from the
+  right, an earlier one from the left, and the tab highlight glides across.
 - **Light, dark, or follow the system** — the system setting is tracked live.
 - 10 accent presets plus an arbitrary custom colour (picker or hex).
 - Choosing a colour re-tints the whole app, including the calendar and heat-grid
@@ -566,7 +577,7 @@ virulenter/
 ├─ docs/icons/              the icon options, side by side
 ├─ .github/workflows/       build.yml (every push) and release.yml (publishes a release)
 ├─ tools/
-│  ├─ verify.mjs            89 automated checks in real headless Chrome
+│  ├─ verify.mjs            95 automated checks in real headless Chrome
 │  ├─ chrome.mjs            finds Chrome / Chromium for the headless tools
 │  ├─ shots.mjs             regenerates verify/shots/*.png
 │  ├─ icon.mjs              draws every icon: web, iOS, Android, Windows, macOS, Linux
@@ -588,7 +599,7 @@ virulenter/
 node tools/serve.mjs                 # serve app/ for install + LAN testing
 node build.mjs                       # rebuild dist/virulenter.html
 node build.mjs --min                 # minified variant
-node tools/verify.mjs                # 89 checks, served over HTTP
+node tools/verify.mjs                # 95 checks, served over HTTP
 node tools/verify.mjs --url=file://$PWD/dist/virulenter.html   # checks the single-file build
 node tools/shots.mjs                 # regenerate screenshots
 node tools/icon.mjs                  # regenerate icons (web, Android, desktop)
@@ -666,11 +677,11 @@ All green:
 
 | suite | scope | result |
 |---|---|---|
-| `tools/verify.mjs` | the web app in headless Chrome | **89 checks** |
-| `tools/verify.mjs --url=file://…/dist/virulenter.html` | the single-file build | **87 checks** |
-| `tools/verify.mjs --root=apk/app/src/main/assets` | the exact bytes packaged into the APK | **88 checks** |
+| `tools/verify.mjs` | the web app in headless Chrome | **95 checks** |
+| `tools/verify.mjs --url=file://…/dist/virulenter.html` | the single-file build | **93 checks** |
+| `tools/verify.mjs --root=apk/app/src/main/assets` | the exact bytes packaged into the APK | **94 checks** |
 | `tools/validate-apk.mjs` | the built APK itself | **14 checks** |
-| `native: ./gradlew :composeApp:desktopTest` | the native app's shared code | **31 tests** |
+| `native: ./gradlew :composeApp:desktopTest` | the native app's shared code | **32 tests** |
 
 The web suite drives the real application over CDP — covering:
 
@@ -697,6 +708,10 @@ The web suite drives the real application over CDP — covering:
   label or figure is clipped, nothing floats over the controls, and sheets
   stack in the order they were opened
 - the theme, in-page confirmations, Undo, and merging a backup into itself
+- backgrounds: plain by default, a preset carried in the link, an uploaded
+  picture kept in IndexedDB (never in the link or `localStorage`) and removed
+  cleanly; the bars in the cards' glass; pages sliding in from their tab's side
+  while the highlight glides there
 - the glass material — frosted panes, lit rims, tight corners — and its
   turning solid under *reduce transparency*, and the iOS touch icon
   being a full-bleed square (iOS rounds it; a pre-rounded one showed dark
@@ -775,7 +790,8 @@ now has a regression check in `tools/verify.mjs`.
 - **The address bar holds about 4 800 taps** (`MAX_BAR`). Past that the app keeps
   working but stops rewriting the link, and asks you to save a backup.
 - **Clearing browser data cannot lose your log** — there was never anything in the
-  browser to lose. Closing the tab without bookmarking the link does lose the session.
+  browser to lose (an uploaded background picture is the one thing that would
+  go). Closing the tab without bookmarking the link does lose the session.
 - **The single-file build is not installable** and has no offline worker; those
   require an HTTP origin.
 - **The web app and the native app do not sync by themselves.** Move data with

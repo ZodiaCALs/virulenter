@@ -14,6 +14,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
@@ -24,6 +25,7 @@ import com.virulenter.platform.Notifications
 import com.virulenter.platform.Platform
 import com.virulenter.ui.App
 import kotlinx.datetime.TimeZone
+import java.io.File
 
 class MainActivity : ComponentActivity() {
     private lateinit var platform: AndroidPlatform
@@ -107,6 +109,19 @@ class AndroidPlatform(private val activity: ComponentActivity) : Platform {
 
     private val permissionLauncher = activity.registerForActivityResult(ActivityResultContracts.RequestPermission()) { refresh() }
 
+    /* the system photo picker: no storage permission needed */
+    private var pendingImage: ((ByteArray) -> Unit)? = null
+    private val imageLauncher = activity.registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        val done = pendingImage
+        pendingImage = null
+        if (uri == null || done == null) return@registerForActivityResult
+        Thread {
+            val bytes = runCatching { activity.contentResolver.openInputStream(uri)?.use { it.readBytes() } }.getOrNull()
+            if (bytes != null) activity.runOnUiThread { done(bytes) }
+        }.start()
+    }
+    private val backgroundFile get() = File(activity.filesDir, "background")
+
     override fun copy(text: String) {
         activity.getSystemService(ClipboardManager::class.java)?.setPrimaryClip(ClipData.newPlainText("Virulenter", text))
     }
@@ -114,6 +129,17 @@ class AndroidPlatform(private val activity: ComponentActivity) : Platform {
     override fun saveFile(name: String, mime: String, text: String) {
         pendingSave = text
         saveLauncher.launch(name)
+    }
+
+    override fun pickImage(onBytes: (ByteArray) -> Unit) {
+        pendingImage = onBytes
+        imageLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+    }
+
+    override fun readBackground(): ByteArray? = backgroundFile.takeIf { it.isFile }?.readBytes()
+
+    override fun writeBackground(bytes: ByteArray?) {
+        if (bytes == null) backgroundFile.delete() else AtomicFileStorage(backgroundFile).writeBytes(bytes)
     }
 
     override fun openFile(onText: (String) -> Unit) {

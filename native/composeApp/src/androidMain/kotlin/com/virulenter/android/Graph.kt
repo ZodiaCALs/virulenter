@@ -27,10 +27,12 @@ class AtomicFileStorage(file: File) : Storage {
 
     override fun read(): String? = if (atomic.baseFile.exists()) atomic.readFully().decodeToString() else null
 
-    override fun write(text: String) {
+    override fun write(text: String) = writeBytes(text.encodeToByteArray())
+
+    fun writeBytes(bytes: ByteArray) {
         val out = atomic.startWrite()
         try {
-            out.write(text.encodeToByteArray())
+            out.write(bytes)
             atomic.finishWrite(out)
         } catch (e: IOException) {
             atomic.failWrite(out)

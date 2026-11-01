@@ -1,5 +1,5 @@
-# Builds every Virulenter deliverable on GitHub's runners, which have the
-# Android SDK and the platform tools a sandbox may not:
+# Builds every Virulenter deliverable on GitHub's runners, which carry the
+# Android SDK and each platform's packaging tools:
 #
 #   web             dist/virulenter.html, the single-file web app (+ its tests)
 #   apk-webview     the Android app that wraps the web app (apk/)

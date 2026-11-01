@@ -20,6 +20,15 @@ interface Platform {
     /** Opens a file chosen by the user and hands back its text. */
     fun openFile(onText: (String) -> Unit)
 
+    /** Lets the user choose a picture and hands back its bytes. */
+    fun pickImage(onBytes: (ByteArray) -> Unit)
+
+    /** The background picture kept on this device, if any. */
+    fun readBackground(): ByteArray?
+
+    /** Keeps [bytes] as the background picture; null removes it. */
+    fun writeBackground(bytes: ByteArray?)
+
     val notifications: Notifications
 
     enum class Kind { Android, Desktop }

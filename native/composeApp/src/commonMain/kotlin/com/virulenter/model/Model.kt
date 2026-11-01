@@ -56,6 +56,8 @@ data class Look(
     val custom: String? = null,
     /** "system", "light" or "dark". */
     val theme: String = "system",
+    /** What sits behind the glass: "none", a preset id, or "image" (one the user added). */
+    val bg: String = "none",
 )
 
 @Serializable

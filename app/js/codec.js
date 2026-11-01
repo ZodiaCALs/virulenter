@@ -20,14 +20,19 @@
                   bit 0  a non-default accent or font is set
                   bit 1  the accent is a custom RGB colour
                   bit 2  a theme other than "system" is set
+                  bit 3  a background other than "none" is chosen
      [1 byte]   accent index (high nibble) and font index (low nibble)
                 (only when bit 0)
      [3 bytes]  custom accent, R G B          (only when bit 1)
      [1 byte]   theme index into V.THEMES     (only when bit 2)
+     [1 byte]   background index into V.BACKGROUNDS (only when bit 3)
 
-   Bit 2 and its byte were added after the format shipped. Older readers
-   ignore unknown flag bits and trailing bytes, so links stay compatible in
-   both directions and the version byte did not need to change.
+   Bits 2 and 3 and their bytes were added after the format shipped. Older
+   readers ignore unknown flag bits and trailing bytes, so links stay
+   compatible in both directions and the version byte did not need to
+   change. An uploaded background image is never in the link — it is far too
+   big — only the choice to use one is; the image itself stays on the device
+   it was added on (see js/app.js, Backdrop).
 
    The start day is unsigned, so the format cannot hold a start before
    2020-01-01; such a start is stored as 2020-01-01. Tap offsets are always
@@ -76,7 +81,21 @@ window.V = window.V || {};
   /* light / dark: "system" follows the device setting */
   V.THEMES = ['system', 'light', 'dark'];
 
-  V.DEFAULTS = { accent: 'blue', font: 'system', custom: null, theme: 'system' };
+  /* what sits behind the glass. "none" is the plain page; the presets are
+     drawn in css/base.css; "image" is a picture the user uploaded. The order
+     is the wire format's: append, never reorder. */
+  V.BACKGROUNDS = [
+    { id: 'none', label: 'None' },
+    { id: 'aurora', label: 'Aurora' },
+    { id: 'mist', label: 'Mist' },
+    { id: 'dusk', label: 'Dusk' },
+    { id: 'ocean', label: 'Ocean' },
+    { id: 'forest', label: 'Forest' },
+    { id: 'graphite', label: 'Graphite' },
+    { id: 'image', label: 'Your image' }
+  ];
+
+  V.DEFAULTS = { accent: 'blue', font: 'system', custom: null, theme: 'system', bg: 'none' };
 
   /* earliest start date the wire format can carry (see the header) */
   V.MIN_START = '2020-01-01';
@@ -204,13 +223,16 @@ window.V = window.V || {};
       for (var f = 0; f < V.FONTS.length; f++) if (V.FONTS[f].id === look.font) fontIdx = f;
 
       var themeIdx = Math.max(0, V.THEMES.indexOf(look.theme));
+      var bgIdx = 0;
+      for (var g = 0; g < V.BACKGROUNDS.length; g++) if (V.BACKGROUNDS[g].id === look.bg) bgIdx = g;
 
       var nonDefault = accentIdx > 0 || fontIdx > 0;
-      var flags = (nonDefault ? 1 : 0) | (custom ? 2 : 0) | (themeIdx ? 4 : 0);
+      var flags = (nonDefault ? 1 : 0) | (custom ? 2 : 0) | (themeIdx ? 4 : 0) | (bgIdx ? 8 : 0);
       out.push(flags);
       if (nonDefault) out.push(((accentIdx & 15) << 4) | (fontIdx & 15));
       if (custom) out.push(custom[0], custom[1], custom[2]);
       if (themeIdx) out.push(themeIdx);
+      if (bgIdx) out.push(bgIdx);
 
       return new Uint8Array(out);
     },
@@ -255,7 +277,7 @@ window.V = window.V || {};
       }
 
       /* appearance is optional: a payload that ends here still loads */
-      var look = { accent: V.DEFAULTS.accent, font: V.DEFAULTS.font, custom: null, theme: V.DEFAULTS.theme };
+      var look = { accent: V.DEFAULTS.accent, font: V.DEFAULTS.font, custom: null, theme: V.DEFAULTS.theme, bg: V.DEFAULTS.bg };
       if (pos.i < bytes.length) {
         var flags = bytes[pos.i++];
         if ((flags & 1) && pos.i < bytes.length) {
@@ -269,6 +291,9 @@ window.V = window.V || {};
         }
         if ((flags & 4) && pos.i < bytes.length) {
           look.theme = V.THEMES[bytes[pos.i++]] || V.DEFAULTS.theme;
+        }
+        if ((flags & 8) && pos.i < bytes.length) {
+          look.bg = (V.BACKGROUNDS[bytes[pos.i++]] || V.BACKGROUNDS[0]).id;
         }
       }
 

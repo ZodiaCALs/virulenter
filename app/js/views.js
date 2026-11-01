@@ -25,6 +25,12 @@ window.V = window.V || {};
     sel: sel,
 
     init: function () {
+      /* the tab highlight follows layout changes without animating */
+      window.addEventListener('resize', function () {
+        var g = U.qs('#tabGlide');
+        if (g) g.classList.add('no-anim');
+        Views.glide();
+      });
       Views._els = {
         stats: U.qs('#statsRow'),
         toolbar: U.qs('#toolbar'),
@@ -339,6 +345,27 @@ window.V = window.V || {};
         if (on && name !== 'settings') t.setAttribute('aria-current', 'page');
         else t.removeAttribute('aria-current');
       });
+      Views.glide();
+    },
+
+    /* the highlight glides from the old tab to the new one */
+    glide: function () {
+      var g = U.qs('#tabGlide');
+      var bar = g && g.parentNode;
+      var ic = U.qs('.tab.is-on .tab-ic');
+      if (!g || !bar || !ic) return;
+      var b = bar.getBoundingClientRect(), r = ic.getBoundingClientRect();
+      if (!b.width || !r.width) return;
+      g.style.setProperty('--glide-x', (r.left - b.left) + 'px');
+      g.style.setProperty('--glide-y', (r.top - b.top) + 'px');
+      g.style.width = r.width + 'px';
+      g.style.height = r.height + 'px';
+      g.classList.add('is-placed');
+      /* the first placement (and any after a resize) jumps; moves glide */
+      if (g.classList.contains('no-anim')) {
+        void g.offsetWidth;
+        g.classList.remove('no-anim');
+      }
     },
 
     /* Settings is a sheet over the current view, never a pane of its own:
@@ -354,14 +381,18 @@ window.V = window.V || {};
       app.view = name;
       Views.markTab(name);
 
-      ['home', 'calendar', 'stats'].forEach(function (v) {
+      /* the new view slides in from the side its tab is on, relative to the
+         one you came from: right for a tab further along, left for one back */
+      var order = ['home', 'calendar', 'stats'];
+      var dir = !prev || prev === name ? '' : (order.indexOf(name) > order.indexOf(prev) ? 'enter-next' : 'enter-prev');
+      order.forEach(function (v) {
         var el = U.qs('#view-' + v);
         var on = v === name;
         el.hidden = !on;
         if (on && changed) {
-          el.classList.remove('enter');
+          el.classList.remove('enter', 'enter-next', 'enter-prev');
           void el.offsetWidth;
-          el.classList.add('enter');
+          el.classList.add(dir || 'enter');
         }
       });
 

@@ -43,16 +43,30 @@ platform:
 - **Your data moves freely.** Import a web link, a data code or a JSON backup;
   copy a data code back into the web app. The link format is a byte-exact port
   of the web app's, tested against payloads the web app itself produced.
-- **Glass material:** real backdrop blur and lit rims, smooth, over an
-  aurora and a light grid; tight corners; rolling numbers and a tap button that
-  throws a "+1".
+- **Your background:** none, a preset, or a picture from your photos — the
+  same choices as the web app, kept in step through backups.
+- **Glass material:** real backdrop blur and lit rims, smooth, over the
+  background you choose; the bars are the same glass and blur what scrolls
+  under them; pages slide the way the tabs lie; tight corners; rolling numbers
+  and a tap button that throws a "+1".
 
 ## The web app
+
+- **Your background.** The app is plain by default. *Appearance › Background*
+  offers six presets — Aurora (from your accent), Mist, Dusk, Ocean, Forest,
+  Graphite — or a picture you upload. The choice travels with your link; the
+  picture is kept in this browser only (scaled down, in IndexedDB), the one
+  thing the app ever stores there.
+- **Bars of the same glass as the cards**, top and bottom.
+- **Directional page transitions:** a page further along slides in from the
+  right, an earlier one from the left, and the tab highlight glides to it.
+- The Android web wrapper now opens the system file picker, so importing a
+  backup file and uploading a background work there too.
 
 - **Higher-end glass, fewer curves.** Every corner steps down a notch (cards
   12 px, sheets 16 px, buttons 8 px). Panes are now true frosted glass — a
   lighter tint, backdrop blur and a 1 px rim lit from the top
-  left — over a backdrop with a fine grid and a defined orb, so the frost reads.
+  left — over the background you choose.
   *Reduce transparency* still turns everything solid.
 - **Interactive dashboard.** A filter row (7D / 30D / 90D / 1Y, and one event)
   scopes stat tiles with period-over-period change, the trend, weekday and hour
@@ -88,6 +102,6 @@ layers, `.ico`, `.icns` and `.png`.
   file above on each push; `release.yml` (Actions › Release › Run workflow, or
   a `v*` tag) builds them, runs the web suite and the native tests, and
   publishes this release.
-- Web: 89 checks over HTTP, 87 on the single file, 88 on the packaged Android
-  assets. Native: 31 tests on the shared code (codec, store, statistics,
+- Web: 95 checks over HTTP, 93 on the single file, 94 on the packaged Android
+  assets. Native: 32 tests on the shared code (codec, store, statistics,
   reminder schedule).

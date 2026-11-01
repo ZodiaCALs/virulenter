@@ -19,9 +19,9 @@
    Virulenter · base.css
    Design tokens (light + dark), app shell, controls, sheets, motion.
 
-   Glass: an aurora drawn from the accent sits behind the page
-   (body::before), with a fine light grid and one defined orb over it
-   (body::after) — crisp structure, so frost has something to act on.
+   Glass: behind the page sits whatever background the user chose in
+   Appearance — nothing by default, a preset drawn here (the --bg-* tokens),
+   or an uploaded image (--bg-image, set by js/app.js) — on body::before.
    Every surface over it is a pane of frosted glass (--pane-bg plus
    --blur-pane): a tint, a soft sheen, and a 1px rim lit
    from the top left (the "glass rims" block at the end of stats.css).
@@ -83,7 +83,19 @@
   --rim-1: rgba(255, 255, 255, .98);
   --rim-2: rgba(255, 255, 255, .16);
   --rim-3: rgba(255, 255, 255, .55);
-  --grid-line: rgba(30, 41, 80, .055);
+  /* backgrounds (Appearance › Background); dark values further down */
+  --bg-aurora:
+    radial-gradient(58% 42% at 6% 0%, var(--aura-1), transparent 72%),
+    radial-gradient(50% 40% at 100% 8%, var(--aura-2), transparent 70%),
+    radial-gradient(62% 46% at 88% 100%, var(--aura-3), transparent 72%),
+    radial-gradient(46% 38% at 0% 92%, var(--aura-2), transparent 70%),
+    radial-gradient(40% 30% at 50% 50%, var(--aura-1), transparent 75%);
+  --bg-mist: radial-gradient(90% 60% at 15% 0%, #ffffff, transparent 70%), linear-gradient(165deg, #e3e8f1, #eee7ef 55%, #e4ede9);
+  --bg-dusk: radial-gradient(70% 50% at 100% 0%, rgba(255, 190, 150, .9), transparent 70%), radial-gradient(70% 55% at 0% 100%, rgba(180, 165, 255, .85), transparent 70%), linear-gradient(170deg, #fde1d1, #f2d1e5 50%, #d7d2fb);
+  --bg-ocean: radial-gradient(80% 55% at 0% 0%, rgba(150, 232, 246, .9), transparent 70%), radial-gradient(70% 55% at 100% 100%, rgba(165, 175, 255, .8), transparent 70%), linear-gradient(175deg, #d2f0f7, #d0e0fa 55%, #dad4f8);
+  --bg-forest: radial-gradient(75% 55% at 85% 90%, rgba(110, 215, 155, .55), transparent 70%), linear-gradient(165deg, #e0f3e6, #d0eadd 55%, #e4efe1);
+  --bg-graphite: linear-gradient(165deg, #eceef2, #dbdee4 60%, #d1d5dc);
+  --bg-veil: rgba(244, 245, 248, .3);
   --blur-pane: saturate(1.8) blur(22px);
   --pane-bg: linear-gradient(160deg, var(--pane-sheen), transparent 42%), var(--pane);
   --hairline: rgba(15, 23, 42, .08);
@@ -190,7 +202,12 @@
     --rim-1: rgba(255, 255, 255, .34);
     --rim-2: rgba(255, 255, 255, .035);
     --rim-3: rgba(255, 255, 255, .14);
-    --grid-line: rgba(255, 255, 255, .042);
+    --bg-mist: radial-gradient(90% 60% at 15% 0%, #1d2331, transparent 70%), linear-gradient(165deg, #0c1017, #130f18 55%, #0c1311);
+    --bg-dusk: radial-gradient(70% 50% at 100% 0%, rgba(160, 75, 60, .55), transparent 70%), radial-gradient(70% 55% at 0% 100%, rgba(95, 62, 180, .55), transparent 70%), linear-gradient(170deg, #21121e, #1d1531 50%, #0e1531);
+    --bg-ocean: radial-gradient(80% 55% at 0% 0%, rgba(18, 125, 145, .5), transparent 70%), radial-gradient(70% 55% at 100% 100%, rgba(52, 62, 165, .5), transparent 70%), linear-gradient(175deg, #061d26, #0a1830 55%, #100e28);
+    --bg-forest: radial-gradient(75% 55% at 85% 90%, rgba(31, 184, 110, .3), transparent 70%), linear-gradient(165deg, #0b2a1d, #06170f 55%, #030a06);
+    --bg-graphite: linear-gradient(165deg, #1c1f25, #121418 60%, #0b0c0f);
+    --bg-veil: rgba(6, 8, 13, .42);
     color-scheme: dark;
   }
 }
@@ -238,7 +255,12 @@
   --rim-1: rgba(255, 255, 255, .34);
   --rim-2: rgba(255, 255, 255, .035);
   --rim-3: rgba(255, 255, 255, .14);
-  --grid-line: rgba(255, 255, 255, .042);
+  --bg-mist: radial-gradient(90% 60% at 15% 0%, #1d2331, transparent 70%), linear-gradient(165deg, #0c1017, #130f18 55%, #0c1311);
+  --bg-dusk: radial-gradient(70% 50% at 100% 0%, rgba(160, 75, 60, .55), transparent 70%), radial-gradient(70% 55% at 0% 100%, rgba(95, 62, 180, .55), transparent 70%), linear-gradient(170deg, #21121e, #1d1531 50%, #0e1531);
+  --bg-ocean: radial-gradient(80% 55% at 0% 0%, rgba(18, 125, 145, .5), transparent 70%), radial-gradient(70% 55% at 100% 100%, rgba(52, 62, 165, .5), transparent 70%), linear-gradient(175deg, #061d26, #0a1830 55%, #100e28);
+  --bg-forest: radial-gradient(75% 55% at 85% 90%, rgba(31, 184, 110, .3), transparent 70%), linear-gradient(165deg, #0b2a1d, #06170f 55%, #030a06);
+  --bg-graphite: linear-gradient(165deg, #1c1f25, #121418 60%, #0b0c0f);
+  --bg-veil: rgba(6, 8, 13, .42);
   color-scheme: dark;
 }
 
@@ -261,38 +283,23 @@ body {
   transition: background-color .3s var(--ease), color .3s var(--ease);
 }
 
-/* the aurora: soft light in the accent and two neighbouring hues, fixed
-   behind the page so the glass panes have colour to carry */
+/* the background, behind everything: none, a preset, or the user's image */
 body::before {
   content: "";
   position: fixed;
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  background:
-    radial-gradient(58% 42% at 6% 0%, var(--aura-1), transparent 72%),
-    radial-gradient(50% 40% at 100% 8%, var(--aura-2), transparent 70%),
-    radial-gradient(62% 46% at 88% 100%, var(--aura-3), transparent 72%),
-    radial-gradient(46% 38% at 0% 92%, var(--aura-2), transparent 70%),
-    radial-gradient(40% 30% at 50% 50%, var(--aura-1), transparent 75%);
-  opacity: .9;
+  background: var(--backdrop, none);
 }
-/* over the aurora, a fine light grid that fades down the page, and one
-   defined light orb: crisp structure behind the glass, so the frost on
-   every pane is visible rather than notional */
-body::after {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  background:
-    radial-gradient(circle at calc(50% + min(36vw, 330px)) 128px, var(--aura-2) 0, var(--aura-2) min(4.3vmax, 48px), transparent min(4.6vmax, 51px)),
-    linear-gradient(var(--grid-line) 1px, transparent 1px) 0 0 / 28px 28px,
-    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px) 0 0 / 28px 28px;
-  -webkit-mask-image: linear-gradient(180deg, #000, rgba(0, 0, 0, .55) 60%, rgba(0, 0, 0, .25));
-  mask-image: linear-gradient(180deg, #000, rgba(0, 0, 0, .55) 60%, rgba(0, 0, 0, .25));
-}
+html[data-bg="aurora"] { --backdrop: var(--bg-aurora); }
+html[data-bg="mist"] { --backdrop: var(--bg-mist); }
+html[data-bg="dusk"] { --backdrop: var(--bg-dusk); }
+html[data-bg="ocean"] { --backdrop: var(--bg-ocean); }
+html[data-bg="forest"] { --backdrop: var(--bg-forest); }
+html[data-bg="graphite"] { --backdrop: var(--bg-graphite); }
+/* a photo gets a light veil in the theme's colour, so text over it reads */
+html[data-bg="image"] { --backdrop: linear-gradient(var(--bg-veil), var(--bg-veil)), var(--bg-image, none) center / cover no-repeat; }
 
 h1, h2, h3, p, ul { margin: 0; }
 ul { padding: 0; list-style: none; }
@@ -327,13 +334,14 @@ a { color: var(--accent-text); }
   inset: 0 0 auto 0;
   z-index: 40;
   padding-top: env(safe-area-inset-top, 0px);
-  background: var(--glass);
-  -webkit-backdrop-filter: saturate(1.8) blur(20px);
-  backdrop-filter: saturate(1.8) blur(20px);
-  box-shadow: 0 1px 0 transparent;
-  transition: box-shadow .25s var(--ease), background-color .3s var(--ease);
+  /* the same glass as the cards: tint, sheen, frost, and a lit edge */
+  background: var(--pane-bg);
+  -webkit-backdrop-filter: var(--blur-pane);
+  backdrop-filter: var(--blur-pane);
+  box-shadow: inset 0 -1px 0 var(--rim-3);
+  transition: box-shadow .25s var(--ease);
 }
-.topbar.is-scrolled { box-shadow: 0 1px 0 var(--glass-line), 0 10px 24px -20px rgba(15, 23, 42, .4); }
+.topbar.is-scrolled { box-shadow: inset 0 -1px 0 var(--rim-3), 0 10px 24px -20px rgba(15, 23, 42, .4); }
 .topbar-in {
   height: var(--topbar-h);
   max-width: var(--maxw);
@@ -374,13 +382,13 @@ a { color: var(--accent-text); }
   inset: auto 0 0 0;
   z-index: 40;
   padding-bottom: env(safe-area-inset-bottom, 0px);
-  background: var(--glass);
-  -webkit-backdrop-filter: saturate(1.8) blur(20px);
-  backdrop-filter: saturate(1.8) blur(20px);
-  box-shadow: 0 -1px 0 var(--glass-line), inset 0 1px 0 var(--pane-edge);
-  transition: background-color .3s var(--ease);
+  background: var(--pane-bg);
+  -webkit-backdrop-filter: var(--blur-pane);
+  backdrop-filter: var(--blur-pane);
+  box-shadow: inset 0 1px 0 var(--rim-1), 0 -1px 0 var(--hairline);
 }
 .tabbar-in {
+  position: relative;
   height: var(--tabbar-h);
   max-width: var(--maxw);
   margin: 0 auto;
@@ -413,8 +421,23 @@ a { color: var(--accent-text); }
 .tab .ico { position: relative; width: 22px; height: 22px; transition: transform .3s var(--ease-spring); }
 .tab:hover { color: var(--text-2); }
 .tab.is-on { color: var(--accent-text); }
-.tab.is-on .tab-ic::before { opacity: 1; transform: none; }
 .tab:active .ico { transform: scale(.88); }
+.tab { position: relative; z-index: 1; }
+.tab-ic::before { display: none; }
+.tab-glide {
+  position: absolute;
+  left: 0; top: 0;
+  width: 58px; height: 30px;
+  border-radius: 8px;
+  background: var(--accent-wash);
+  box-shadow: inset 0 1px 0 var(--btn-edge), inset 0 0 0 1px var(--accent-wash);
+  transform: translate(var(--glide-x, 0px), var(--glide-y, 0px));
+  opacity: 0;
+  transition: transform .44s var(--ease-spring), opacity .2s var(--ease);
+  pointer-events: none;
+}
+.tab-glide.is-placed { opacity: 1; }
+.tab-glide.no-anim { transition: none; }
 
 @media (min-width: 720px) {
   .tabbar {
@@ -430,11 +453,11 @@ a { color: var(--accent-text); }
     pointer-events: auto;
     max-width: 440px;
     height: 62px;
-    border-radius: 6px;
-    background: var(--glass);
-    -webkit-backdrop-filter: saturate(1.8) blur(20px);
-    backdrop-filter: saturate(1.8) blur(20px);
-    box-shadow: inset 0 0 0 1px var(--glass-line), inset 0 1px 0 var(--pane-edge), var(--shadow-3);
+    border-radius: var(--r-lg);
+    background: var(--pane-bg);
+    -webkit-backdrop-filter: var(--blur-pane);
+    backdrop-filter: var(--blur-pane);
+    box-shadow: var(--pane-shadow);
   }
   .app { padding-bottom: calc(118px + env(safe-area-inset-bottom, 0px)); }
 }
@@ -446,6 +469,10 @@ a { color: var(--accent-text); }
 
 /* ── views ─────────────────────────────────────────────── */
 .view.enter { animation: viewIn .42s var(--ease) both; }
+.view.enter-next { animation: viewNext .42s var(--ease) both; }
+.view.enter-prev { animation: viewPrev .42s var(--ease) both; }
+/* a view sliding in never widens the page */
+.app { overflow-x: clip; }
 
 /* ── notice bar ────────────────────────────────────────── */
 .notice {
@@ -809,6 +836,8 @@ textarea.input.mono { font-size: 12.5px; }
 @keyframes fadeOut { to { opacity: 0; } }
 @keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } }
 @keyframes viewIn { from { opacity: 0; transform: translateY(10px); } }
+@keyframes viewNext { from { opacity: 0; transform: translateX(40px); } }
+@keyframes viewPrev { from { opacity: 0; transform: translateX(-40px); } }
 @keyframes sheetUp { from { transform: translateY(100%); } }
 @keyframes sheetDown { to { transform: translateY(100%); } }
 @keyframes dialogIn { from { opacity: 0; transform: translateY(14px) scale(.97); } }
@@ -838,7 +867,6 @@ textarea.input.mono { font-size: 12.5px; }
     --field: var(--surface);
     --blur-pane: none;      /* every pane reads its frost from this token */
   }
-  body::before, body::after { display: none; }
   .sheet, .sheet-head, .dialog, .topbar, .tabbar, .tabbar-in {
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
@@ -1789,6 +1817,44 @@ textarea.input.mono { font-size: 12.5px; }
 .color-input::-moz-color-swatch { border: 0; border-radius: 5px; }
 .custom-row .input { flex: 1; min-width: 0; }
 
+/* background tiles: each preview is drawn from the same token the page uses */
+.bg-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 10px; }
+.bg-opt { display: grid; gap: 6px; justify-items: stretch; text-align: center; min-width: 0; }
+.bg-thumb {
+  display: grid; place-items: center;
+  height: 54px;
+  border-radius: 8px;
+  color: var(--text-3);
+  background: var(--bg);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  transition: box-shadow .2s var(--ease), transform .2s var(--ease);
+}
+.bg-opt:hover .bg-thumb { transform: translateY(-1px); }
+.bg-opt.is-on .bg-thumb { box-shadow: inset 0 0 0 1px var(--hairline), 0 0 0 2px var(--bg), 0 0 0 4px var(--accent); }
+.bg-opt[data-bg="aurora"] .bg-thumb { background: var(--bg-aurora), var(--bg); }
+.bg-opt[data-bg="mist"] .bg-thumb { background: var(--bg-mist); }
+.bg-opt[data-bg="dusk"] .bg-thumb { background: var(--bg-dusk); }
+.bg-opt[data-bg="ocean"] .bg-thumb { background: var(--bg-ocean); }
+.bg-opt[data-bg="forest"] .bg-thumb { background: var(--bg-forest); }
+.bg-opt[data-bg="graphite"] .bg-thumb { background: var(--bg-graphite); }
+.bg-opt[data-bg="image"] .bg-thumb { border: 1.5px dashed var(--hairline-2); box-shadow: none; }
+.bg-opt[data-bg="image"].has-image .bg-thumb { border: 0; background: var(--bg-image, none) center / cover no-repeat, var(--bg); box-shadow: inset 0 0 0 1px var(--hairline); }
+.bg-opt[data-bg="image"].has-image .bg-thumb .ico { display: none; }
+.bg-opt[data-bg="image"].is-on .bg-thumb { box-shadow: inset 0 0 0 1px var(--hairline), 0 0 0 2px var(--bg), 0 0 0 4px var(--accent); }
+.bg-name { font-size: 12px; font-weight: 600; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bg-opt.is-on .bg-name { color: var(--accent-text); }
+.bg-remove {
+  grid-column: 1 / -1;
+  justify-self: start;
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 13px; font-weight: 600;
+  color: var(--danger-text);
+}
+.bg-remove:hover { background: var(--danger-soft); }
+.bg-remove .ico { width: 16px; height: 16px; }
+
 .font-list { display: flex; flex-direction: column; gap: 8px; }
 .font-opt {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
@@ -1820,8 +1886,7 @@ textarea.input.mono { font-size: 12.5px; }
 .look-preview {
   padding: 16px;
   border-radius: 10px;
-  background: radial-gradient(70% 70% at 0% 0%, var(--aura-1), transparent 70%),
-              radial-gradient(70% 70% at 100% 100%, var(--aura-2), transparent 70%), var(--bg);
+  background: var(--backdrop, none), var(--bg);   /* the chosen background */
   box-shadow: inset 0 0 0 1px var(--hairline);
 }
 .lp-card {
@@ -1980,9 +2045,25 @@ textarea.input.mono { font-size: 12.5px; }
   pointer-events: none;
 }
 .search:focus-within::before { opacity: 0; }
+/* the wide tab bar floats like a card, so it gets the same rim */
+@media (min-width: 720px) {
+  .tabbar-in::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(140deg, var(--rim-1), var(--rim-2) 34%, var(--rim-2) 66%, var(--rim-3));
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+}
 @media (prefers-reduced-transparency: reduce) {
   .card::before, .ev::before, .summary::before, .stat-hero .sh::before, .empty::before,
-  .search::before, .sort-btn::before, .stat-filters::before, .dialog::before { display: none; }
+  .search::before, .sort-btn::before, .stat-filters::before, .dialog::before, .tabbar-in::before { display: none; }
   .card, .ev, .summary, .stat-hero .sh, .empty, .search, .sort-btn { border-color: var(--hairline); }
 }
 
@@ -2185,6 +2266,7 @@ textarea.input.mono { font-size: 12.5px; }
 
   <nav class="tabbar" id="tabbar" aria-label="Sections">
     <div class="tabbar-in">
+      <span class="tab-glide no-anim" id="tabGlide" aria-hidden="true"></span>
       <button class="tab is-on" data-view="home" type="button" aria-current="page">
         <span class="tab-ic"><svg class="ico" aria-hidden="true"><use href="#i-home"/></svg></span>
         <span class="tab-lb">Events</span>
@@ -2336,6 +2418,13 @@ textarea.input.mono { font-size: 12.5px; }
           <input class="input mono" id="lookCustomHex" type="text" maxlength="7" spellcheck="false" autocomplete="off" placeholder="#2f6bff" aria-label="Custom accent hex value">
           <button class="btn" id="lookCustomApply" type="button">Apply</button>
         </div>
+      </div>
+
+      <div class="form-row">
+        <span class="form-label" id="lookBgLabel">Background</span>
+        <div class="bg-grid" id="lookBg" role="radiogroup" aria-labelledby="lookBgLabel"></div>
+        <p class="form-hint" id="lookBgHint">An uploaded image stays on this device; your link only records that you use one.</p>
+        <input type="file" id="bgFile" accept="image/*" hidden>
       </div>
 
       <div class="form-row">
@@ -2978,14 +3067,19 @@ window.V = window.V || {};
                   bit 0  a non-default accent or font is set
                   bit 1  the accent is a custom RGB colour
                   bit 2  a theme other than "system" is set
+                  bit 3  a background other than "none" is chosen
      [1 byte]   accent index (high nibble) and font index (low nibble)
                 (only when bit 0)
      [3 bytes]  custom accent, R G B          (only when bit 1)
      [1 byte]   theme index into V.THEMES     (only when bit 2)
+     [1 byte]   background index into V.BACKGROUNDS (only when bit 3)
 
-   Bit 2 and its byte were added after the format shipped. Older readers
-   ignore unknown flag bits and trailing bytes, so links stay compatible in
-   both directions and the version byte did not need to change.
+   Bits 2 and 3 and their bytes were added after the format shipped. Older
+   readers ignore unknown flag bits and trailing bytes, so links stay
+   compatible in both directions and the version byte did not need to
+   change. An uploaded background image is never in the link — it is far too
+   big — only the choice to use one is; the image itself stays on the device
+   it was added on (see js/app.js, Backdrop).
 
    The start day is unsigned, so the format cannot hold a start before
    2020-01-01; such a start is stored as 2020-01-01. Tap offsets are always
@@ -3034,7 +3128,21 @@ window.V = window.V || {};
   /* light / dark: "system" follows the device setting */
   V.THEMES = ['system', 'light', 'dark'];
 
-  V.DEFAULTS = { accent: 'blue', font: 'system', custom: null, theme: 'system' };
+  /* what sits behind the glass. "none" is the plain page; the presets are
+     drawn in css/base.css; "image" is a picture the user uploaded. The order
+     is the wire format's: append, never reorder. */
+  V.BACKGROUNDS = [
+    { id: 'none', label: 'None' },
+    { id: 'aurora', label: 'Aurora' },
+    { id: 'mist', label: 'Mist' },
+    { id: 'dusk', label: 'Dusk' },
+    { id: 'ocean', label: 'Ocean' },
+    { id: 'forest', label: 'Forest' },
+    { id: 'graphite', label: 'Graphite' },
+    { id: 'image', label: 'Your image' }
+  ];
+
+  V.DEFAULTS = { accent: 'blue', font: 'system', custom: null, theme: 'system', bg: 'none' };
 
   /* earliest start date the wire format can carry (see the header) */
   V.MIN_START = '2020-01-01';
@@ -3162,13 +3270,16 @@ window.V = window.V || {};
       for (var f = 0; f < V.FONTS.length; f++) if (V.FONTS[f].id === look.font) fontIdx = f;
 
       var themeIdx = Math.max(0, V.THEMES.indexOf(look.theme));
+      var bgIdx = 0;
+      for (var g = 0; g < V.BACKGROUNDS.length; g++) if (V.BACKGROUNDS[g].id === look.bg) bgIdx = g;
 
       var nonDefault = accentIdx > 0 || fontIdx > 0;
-      var flags = (nonDefault ? 1 : 0) | (custom ? 2 : 0) | (themeIdx ? 4 : 0);
+      var flags = (nonDefault ? 1 : 0) | (custom ? 2 : 0) | (themeIdx ? 4 : 0) | (bgIdx ? 8 : 0);
       out.push(flags);
       if (nonDefault) out.push(((accentIdx & 15) << 4) | (fontIdx & 15));
       if (custom) out.push(custom[0], custom[1], custom[2]);
       if (themeIdx) out.push(themeIdx);
+      if (bgIdx) out.push(bgIdx);
 
       return new Uint8Array(out);
     },
@@ -3213,7 +3324,7 @@ window.V = window.V || {};
       }
 
       /* appearance is optional: a payload that ends here still loads */
-      var look = { accent: V.DEFAULTS.accent, font: V.DEFAULTS.font, custom: null, theme: V.DEFAULTS.theme };
+      var look = { accent: V.DEFAULTS.accent, font: V.DEFAULTS.font, custom: null, theme: V.DEFAULTS.theme, bg: V.DEFAULTS.bg };
       if (pos.i < bytes.length) {
         var flags = bytes[pos.i++];
         if ((flags & 1) && pos.i < bytes.length) {
@@ -3227,6 +3338,9 @@ window.V = window.V || {};
         }
         if ((flags & 4) && pos.i < bytes.length) {
           look.theme = V.THEMES[bytes[pos.i++]] || V.DEFAULTS.theme;
+        }
+        if ((flags & 8) && pos.i < bytes.length) {
+          look.bg = (V.BACKGROUNDS[bytes[pos.i++]] || V.BACKGROUNDS[0]).id;
         }
       }
 
@@ -3387,7 +3501,7 @@ window.V = window.V || {};
   var U = V.util, D = V.date, Codec = V.codec;
 
   function defaultLook() {
-    return { accent: V.DEFAULTS.accent, font: V.DEFAULTS.font, custom: null, theme: V.DEFAULTS.theme };
+    return { accent: V.DEFAULTS.accent, font: V.DEFAULTS.font, custom: null, theme: V.DEFAULTS.theme, bg: V.DEFAULTS.bg };
   }
 
   var Store = V.store = {
@@ -3470,13 +3584,14 @@ window.V = window.V || {};
            caller decides whether to adopt it. */
         if (other.look && target.look) {
           var t = target.look, o = other.look;
-          var look = { accent: t.accent, font: t.font, custom: t.custom || null, theme: t.theme || V.DEFAULTS.theme };
+          var look = { accent: t.accent, font: t.font, custom: t.custom || null, theme: t.theme || V.DEFAULTS.theme, bg: t.bg || V.DEFAULTS.bg };
           if (!t.custom && t.accent === V.DEFAULTS.accent) {
             look.accent = o.accent || look.accent;
             look.custom = o.custom || null;
           }
           if (t.font === V.DEFAULTS.font && o.font) look.font = o.font;
           if (look.theme === V.DEFAULTS.theme && o.theme) look.theme = o.theme;
+          if (look.bg === V.DEFAULTS.bg && o.bg) look.bg = o.bg;
           target.look = look;
         }
       });
@@ -3523,7 +3638,7 @@ window.V = window.V || {};
     /* ── appearance ─────────────────────────────────────── */
     withLook: function (patch) {
       var cur = Store.look || defaultLook();
-      var next = { accent: cur.accent, font: cur.font, custom: cur.custom || null, theme: cur.theme || V.DEFAULTS.theme };
+      var next = { accent: cur.accent, font: cur.font, custom: cur.custom || null, theme: cur.theme || V.DEFAULTS.theme, bg: cur.bg || V.DEFAULTS.bg };
       Object.keys(patch).forEach(function (k) { next[k] = patch[k]; });
       Store.look = next;
       Store.dirty = true;
@@ -3550,6 +3665,11 @@ window.V = window.V || {};
       return Store.withLook({ theme: id });
     },
 
+    setBackground: function (id) {
+      if (!V.BACKGROUNDS.some(function (b) { return b.id === id; })) return null;
+      return Store.withLook({ bg: id });
+    },
+
     resetLook: function () {
       Store.look = defaultLook();
       Store.dirty = true;
@@ -3559,7 +3679,8 @@ window.V = window.V || {};
     isDefaultLook: function (look) {
       look = look || Store.look;
       return look.accent === V.DEFAULTS.accent && look.font === V.DEFAULTS.font &&
-             !look.custom && (look.theme || V.DEFAULTS.theme) === V.DEFAULTS.theme;
+             !look.custom && (look.theme || V.DEFAULTS.theme) === V.DEFAULTS.theme &&
+             (look.bg || V.DEFAULTS.bg) === V.DEFAULTS.bg;
     },
 
     /* ── mutate ─────────────────────────────────────────── */
@@ -4379,6 +4500,12 @@ window.V = window.V || {};
     sel: sel,
 
     init: function () {
+      /* the tab highlight follows layout changes without animating */
+      window.addEventListener('resize', function () {
+        var g = U.qs('#tabGlide');
+        if (g) g.classList.add('no-anim');
+        Views.glide();
+      });
       Views._els = {
         stats: U.qs('#statsRow'),
         toolbar: U.qs('#toolbar'),
@@ -4693,6 +4820,27 @@ window.V = window.V || {};
         if (on && name !== 'settings') t.setAttribute('aria-current', 'page');
         else t.removeAttribute('aria-current');
       });
+      Views.glide();
+    },
+
+    /* the highlight glides from the old tab to the new one */
+    glide: function () {
+      var g = U.qs('#tabGlide');
+      var bar = g && g.parentNode;
+      var ic = U.qs('.tab.is-on .tab-ic');
+      if (!g || !bar || !ic) return;
+      var b = bar.getBoundingClientRect(), r = ic.getBoundingClientRect();
+      if (!b.width || !r.width) return;
+      g.style.setProperty('--glide-x', (r.left - b.left) + 'px');
+      g.style.setProperty('--glide-y', (r.top - b.top) + 'px');
+      g.style.width = r.width + 'px';
+      g.style.height = r.height + 'px';
+      g.classList.add('is-placed');
+      /* the first placement (and any after a resize) jumps; moves glide */
+      if (g.classList.contains('no-anim')) {
+        void g.offsetWidth;
+        g.classList.remove('no-anim');
+      }
     },
 
     /* Settings is a sheet over the current view, never a pane of its own:
@@ -4708,14 +4856,18 @@ window.V = window.V || {};
       app.view = name;
       Views.markTab(name);
 
-      ['home', 'calendar', 'stats'].forEach(function (v) {
+      /* the new view slides in from the side its tab is on, relative to the
+         one you came from: right for a tab further along, left for one back */
+      var order = ['home', 'calendar', 'stats'];
+      var dir = !prev || prev === name ? '' : (order.indexOf(name) > order.indexOf(prev) ? 'enter-next' : 'enter-prev');
+      order.forEach(function (v) {
         var el = U.qs('#view-' + v);
         var on = v === name;
         el.hidden = !on;
         if (on && changed) {
-          el.classList.remove('enter');
+          el.classList.remove('enter', 'enter-next', 'enter-prev');
           void el.offsetWidth;
-          el.classList.add('enter');
+          el.classList.add(dir || 'enter');
         }
       });
 
@@ -5683,6 +5835,74 @@ window.V = window.V || {};
   var COLOR_NAMES = ['Blue', 'Teal', 'Orange', 'Red', 'Violet', 'Green', 'Magenta', 'Slate'];
   var THEME_LABELS = { system: 'Auto theme', light: 'Light theme', dark: 'Dark theme' };
 
+  /* ══════════ background image ══════════
+     A picture the user uploads is far too big for the link, so it is the
+     one thing this app keeps in the browser: IndexedDB, on this device only.
+     The link records just the choice to use one ("image"); a device without
+     the picture shows the plain page. Large photos are scaled to 2400 px on
+     the long side and kept as JPEG, so the store stays small. */
+  var Backdrop = V.backdrop = {
+    url: null,       // object URL of the picture in use
+    has: false,      // a picture is stored on this device
+    MAX_SIDE: 2400,
+
+    db: function () {
+      return new Promise(function (resolve, reject) {
+        if (!window.indexedDB) { reject(new Error('IndexedDB unavailable')); return; }
+        var req = indexedDB.open('virulenter', 1);
+        req.onupgradeneeded = function () { req.result.createObjectStore('files'); };
+        req.onsuccess = function () { resolve(req.result); };
+        req.onerror = function () { reject(req.error); };
+      });
+    },
+
+    tx: function (mode, run) {
+      return Backdrop.db().then(function (db) {
+        return new Promise(function (resolve, reject) {
+          var t = db.transaction('files', mode);
+          var req = run(t.objectStore('files'));
+          t.oncomplete = function () { db.close(); resolve(req ? req.result : undefined); };
+          t.onerror = t.onabort = function () { db.close(); reject(t.error); };
+        });
+      });
+    },
+
+    load: function () {
+      return Backdrop.tx('readonly', function (st) { return st.get('background'); })
+        .then(function (b) { return b || null; }, function () { return null; });
+    },
+    save: function (blob) { return Backdrop.tx('readwrite', function (st) { return st.put(blob, 'background'); }); },
+    remove: function () { return Backdrop.tx('readwrite', function (st) { return st.delete('background'); }); },
+
+    /* show a picture (or none) behind the page */
+    use: function (blob) {
+      if (Backdrop.url) URL.revokeObjectURL(Backdrop.url);
+      Backdrop.url = blob ? URL.createObjectURL(blob) : null;
+      Backdrop.has = !!blob;
+      var st = document.documentElement.style;
+      if (Backdrop.url) st.setProperty('--bg-image', 'url("' + Backdrop.url + '")');
+      else st.removeProperty('--bg-image');
+    },
+
+    shrink: function (file) {
+      return new Promise(function (resolve, reject) {
+        var src = URL.createObjectURL(file);
+        var img = new Image();
+        img.onload = function () {
+          var k = Math.min(1, Backdrop.MAX_SIDE / Math.max(img.naturalWidth, img.naturalHeight));
+          var c = document.createElement('canvas');
+          c.width = Math.max(1, Math.round(img.naturalWidth * k));
+          c.height = Math.max(1, Math.round(img.naturalHeight * k));
+          c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+          URL.revokeObjectURL(src);
+          c.toBlob(function (b) { if (b) resolve(b); else reject(new Error('could not encode')); }, 'image/jpeg', 0.86);
+        };
+        img.onerror = function () { URL.revokeObjectURL(src); reject(new Error('could not decode')); };
+        img.src = src;
+      });
+    }
+  };
+
   var App = {
     view: 'home',
     editingId: null,
@@ -5706,6 +5926,10 @@ window.V = window.V || {};
       /* before the first render: card tints depend on the resolved theme */
       App.applyLook(S.look);
       App.bindAll();
+      Backdrop.load().then(function (blob) {
+        if (blob) Backdrop.use(blob);
+        App.renderLook();
+      });
 
       Views.renderSort();
       /* the manifest shortcuts deep-link with #view=… */
@@ -6090,6 +6314,7 @@ window.V = window.V || {};
       var root = document.documentElement;
       root.setAttribute('data-theme', resolved);
       root.style.colorScheme = resolved;
+      root.setAttribute('data-bg', look.bg || 'none');
 
       var t = Codec.accentTints(Codec.accentValue(look), dark);
       var st = root.style;
@@ -6149,7 +6374,10 @@ window.V = window.V || {};
       var accent = look.custom ? 'Custom ' + look.custom
         : ((V.ACCENTS.filter(function (a) { return a.id === look.accent; })[0] || V.ACCENTS[0]).label);
       var font = (V.FONTS.filter(function (f) { return f.id === look.font; })[0] || V.FONTS[0]).label;
-      return accent + ' · ' + font + ' font · ' + THEME_LABELS[look.theme || 'system'];
+      var bg = look.bg && look.bg !== 'none'
+        ? ' · ' + ((V.BACKGROUNDS.filter(function (b) { return b.id === look.bg; })[0] || {}).label || '') + ' background'
+        : '';
+      return accent + ' · ' + font + ' font · ' + THEME_LABELS[look.theme || 'system'] + bg;
     },
 
     bindLook: function () {
@@ -6213,6 +6441,60 @@ window.V = window.V || {};
         App.lookChanged();
         U.toast('Appearance reset');
       });
+
+      /* background: a tile per preset, then your own picture */
+      var bgs = U.qs('#lookBg');
+      bgs.innerHTML = V.BACKGROUNDS.map(function (b) {
+        return '<button class="bg-opt" type="button" role="radio" aria-checked="false" data-bg="' + b.id + '">' +
+          '<span class="bg-thumb" aria-hidden="true">' +
+            (b.id === 'image' ? '<svg class="ico"><use href="#i-upload"/></svg>' : '') +
+          '</span><span class="bg-name">' + U.esc(b.label) + '</span></button>';
+      }).join('') +
+        '<button class="bg-remove" type="button" id="bgRemove" hidden>' +
+          '<svg class="ico" aria-hidden="true"><use href="#i-trash"/></svg>Remove image</button>';
+      var fileIn = U.qs('#bgFile');
+      bgs.addEventListener('click', function (ev) {
+        if (ev.target.closest('#bgRemove')) { App.removeBackground(); return; }
+        var b = ev.target.closest('[data-bg]');
+        if (!b) return;
+        /* your picture's tile uploads one; tapped again while in use, it replaces it */
+        if (b.dataset.bg === 'image' && (!Backdrop.has || S.look.bg === 'image')) { fileIn.click(); return; }
+        S.setBackground(b.dataset.bg);
+        App.lookChanged();
+      });
+      fileIn.addEventListener('change', function () {
+        var file = fileIn.files && fileIn.files[0];
+        fileIn.value = '';
+        if (file) App.uploadBackground(file);
+      });
+    },
+
+    uploadBackground: function (file) {
+      if (file.type && !/^image\//.test(file.type)) { U.toast('Choose an image file'); return Promise.resolve(false); }
+      return Backdrop.shrink(file).then(function (blob) {
+        Backdrop.use(blob);
+        S.setBackground('image');
+        App.lookChanged();
+        return Backdrop.save(blob).then(function () {
+          U.toast('Background set');
+          return true;
+        }, function () {
+          U.toast('Background set — this browser cannot keep it after a reload');
+          return true;
+        });
+      }, function () {
+        U.toast('That image could not be read');
+        return false;
+      });
+    },
+
+    removeBackground: function () {
+      return Backdrop.remove().catch(function () {}).then(function () {
+        Backdrop.use(null);
+        if (S.look.bg === 'image') S.setBackground('none');
+        App.lookChanged();
+        U.toast('Background image removed');
+      });
     },
 
     lookChanged: function () {
@@ -6241,6 +6523,24 @@ window.V = window.V || {};
         b.classList.toggle('is-on', on);
         b.setAttribute('aria-checked', on ? 'true' : 'false');
       });
+      var bg = look.bg || 'none';
+      U.qsa('#lookBg .bg-opt').forEach(function (b) {
+        var on = b.dataset.bg === bg;
+        b.classList.toggle('is-on', on);
+        b.setAttribute('aria-checked', on ? 'true' : 'false');
+      });
+      var mine = U.qs('#lookBg [data-bg="image"]');
+      if (mine) {
+        mine.classList.toggle('has-image', Backdrop.has);
+        mine.querySelector('.bg-name').textContent = Backdrop.has ? 'Your image' : 'Upload';
+        mine.title = Backdrop.has ? 'Your image — tap again to replace it' : 'Upload an image';
+      }
+      var rm = U.qs('#bgRemove');
+      if (rm) rm.hidden = !Backdrop.has;
+      var hint = U.qs('#lookBgHint');
+      if (hint) hint.textContent = bg === 'image' && !Backdrop.has
+        ? 'Your link uses an uploaded image, but it is on another device. Upload one here, or pick another background.'
+        : 'An uploaded image stays on this device; your link only records that you use one.';
       U.qs('#lookReset').disabled = S.isDefaultLook(look);
       U.qs('#lookSummary').textContent = App.lookSummary();
     },
@@ -6683,8 +6983,9 @@ window.V = window.V || {};
       U.qs('#dataProse').innerHTML =
         '<div class="privacy-ic"><svg class="ico" aria-hidden="true"><use href="#i-shield"/></svg></div>' +
         '<div><b>Your data stays with you</b>' +
-          '<p>No account, no cookies, nothing stored in this browser — your whole log lives in the link below. ' +
-          'Open it on any device to see exactly the same data.</p>' +
+          '<p>No account, no cookies, and your log is never stored in this browser — it lives in the link below. ' +
+          'Open it on any device to see exactly the same data.' +
+          (Backdrop.has ? ' Only the background image you uploaded is kept here.' : '') + '</p>' +
           '<div class="privacy-stats">' +
             '<span><b>' + S.events.length + '</b> ' + U.plural(S.events.length, 'event') + '</span>' +
             '<span><b>' + total + '</b> ' + U.plural(total, 'tap') + '</span>' +

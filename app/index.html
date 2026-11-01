@@ -217,6 +217,7 @@
 
   <nav class="tabbar" id="tabbar" aria-label="Sections">
     <div class="tabbar-in">
+      <span class="tab-glide no-anim" id="tabGlide" aria-hidden="true"></span>
       <button class="tab is-on" data-view="home" type="button" aria-current="page">
         <span class="tab-ic"><svg class="ico" aria-hidden="true"><use href="#i-home"/></svg></span>
         <span class="tab-lb">Events</span>
@@ -368,6 +369,13 @@
           <input class="input mono" id="lookCustomHex" type="text" maxlength="7" spellcheck="false" autocomplete="off" placeholder="#2f6bff" aria-label="Custom accent hex value">
           <button class="btn" id="lookCustomApply" type="button">Apply</button>
         </div>
+      </div>
+
+      <div class="form-row">
+        <span class="form-label" id="lookBgLabel">Background</span>
+        <div class="bg-grid" id="lookBg" role="radiogroup" aria-labelledby="lookBgLabel"></div>
+        <p class="form-hint" id="lookBgHint">An uploaded image stays on this device; your link only records that you use one.</p>
+        <input type="file" id="bgFile" accept="image/*" hidden>
       </div>
 
       <div class="form-row">

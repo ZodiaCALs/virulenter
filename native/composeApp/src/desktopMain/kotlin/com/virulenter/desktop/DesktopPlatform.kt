@@ -84,6 +84,8 @@ class DesktopNotifier(private val tray: TrayState?) : Notifications {
     }
 }
 
+private val IMAGE = Regex("\\.(jpe?g|png|webp|gif|bmp)$", RegexOption.IGNORE_CASE)
+
 class DesktopPlatform(override val notifications: DesktopNotifier) : Platform {
     override val kind = Platform.Kind.Desktop
     override val version = APP_VERSION
@@ -97,6 +99,26 @@ class DesktopPlatform(override val notifications: DesktopNotifier) : Platform {
         dialog.isVisible = true
         val chosen = dialog.file ?: return
         File(dialog.directory, chosen).writeText(text)
+    }
+
+    override fun pickImage(onBytes: (ByteArray) -> Unit) {
+        val dialog = FileDialog(null as Frame?, "Choose a background", FileDialog.LOAD).apply {
+            setFilenameFilter { _, n -> IMAGE.containsMatchIn(n) }
+        }
+        dialog.isVisible = true
+        val chosen = dialog.file ?: return
+        runCatching { File(dialog.directory, chosen).readBytes() }.onSuccess(onBytes)
+    }
+
+    /* next to the data file, in the same per-user folder */
+    private val backgroundFile = File(FileStorage.defaultFile().parentFile, "background")
+
+    override fun readBackground(): ByteArray? = if (backgroundFile.isFile) backgroundFile.readBytes() else null
+
+    override fun writeBackground(bytes: ByteArray?) {
+        if (bytes == null) { backgroundFile.delete(); return }
+        backgroundFile.parentFile?.mkdirs()
+        backgroundFile.writeBytes(bytes)
     }
 
     override fun openFile(onText: (String) -> Unit) {

@@ -40,6 +40,23 @@ class CodecTest {
         assertEquals(WEB_PAYLOAD, Codec.encode(events, look))
     }
 
+    /** The same state with the Ocean background: one more flag bit, one more byte. */
+    private val WEB_PAYLOAD_OCEAN =
+        "AgMGQ29mZmVlAqETBKQDr-oB5QOw6gHlA7DqAZ8LsuoBEVdhc3NlciDwn5KnIGNhZsOpAAACALDqAfIF7_0BCFVudGl0bGVkBb8TAA8kq83vAgQ"
+
+    @Test
+    fun theBackgroundTravelsInTheLinkAsTheWebAppWritesIt() {
+        val (events, look) = webState()
+        assertEquals(WEB_PAYLOAD_OCEAN, Codec.encode(events, look.copy(bg = "ocean")))
+        assertEquals("ocean", assertNotNull(Codec.decode(WEB_PAYLOAD_OCEAN)).state.look.bg)
+        /* a link without the bit reads as no background */
+        assertEquals("none", assertNotNull(Codec.decode(WEB_PAYLOAD)).state.look.bg)
+        /* every background survives the trip */
+        for (b in Palette.BACKGROUNDS) {
+            assertEquals(b.id, assertNotNull(Codec.decode(Codec.encode(emptyList(), Look(bg = b.id)))).state.look.bg)
+        }
+    }
+
     @Test
     fun aDefaultLookCostsOneByte() {
         assertEquals("AgAA", Codec.encode(emptyList(), Look()))
@@ -56,7 +73,7 @@ class CodecTest {
         /* to the minute, sorted, the tap before the start day kept */
         assertEquals(listOf(1790751600000, 1790841900000, 1790841900000, 1791071940000), e[0].log)
         assertEquals(listOf(1577836800000, 1793450040000), e[1].log)
-        assertEquals(Look(accent = "violet", font = "mono", custom = "#abcdef", theme = "dark"), d.state.look)
+        assertEquals(Look(accent = "violet", font = "mono", custom = "#abcdef", theme = "dark", bg = "none"), d.state.look)
         assertEquals(listOf("id0", "id1", "id2"), e.map { it.id })
     }
 

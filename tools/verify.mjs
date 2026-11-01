@@ -1432,23 +1432,99 @@ await send('Emulation.setEmulatedMedia', { features: [
 const MATERIAL = `(() => {
   const pane = document.querySelector('.summary');
   const cs = getComputedStyle(pane), rim = getComputedStyle(pane, '::before');
+  const bar = (sel) => { const b = getComputedStyle(document.querySelector(sel));
+    return { fill: b.backgroundColor, blur: b.backdropFilter || b.webkitBackdropFilter || 'none' }; };
   return { pane: cs.backgroundColor, blur: cs.backdropFilter || cs.webkitBackdropFilter || 'none',
            rim: rim.display === 'none' ? 'none' : rim.content, radius: parseFloat(cs.borderTopLeftRadius),
-           aura: getComputedStyle(document.body, '::before').display,
-           grid: getComputedStyle(document.body, '::after').display };
+           backdrop: getComputedStyle(document.body, '::before').backgroundImage,
+           after: getComputedStyle(document.body, '::after').content,
+           top: bar('.topbar'), tabs: bar('.tabbar') };
 })()`;
 const solid = await evaluate(`(() => { V.views.toggleTab('home'); return ${MATERIAL}; })()`);
 await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'light' }] });
 const glass = await evaluate(MATERIAL);
 check('glass turns solid under "reduce transparency"',
-  /^rgb\(255, 255, 255\)$/.test(solid.pane) && solid.aura === 'none' && solid.grid === 'none' &&
-  solid.blur === 'none' && solid.rim === 'none' && /^rgba\(255, 255, 255, 0\.\d+\)$/.test(glass.pane),
+  /^rgb\(255, 255, 255\)$/.test(solid.pane) && solid.blur === 'none' && solid.rim === 'none' &&
+  solid.top.blur === 'none' && /^rgba\(255, 255, 255, 0\.\d+\)$/.test(glass.pane),
   JSON.stringify({ reduced: solid, normal: glass }));
 /* the material itself: panes are frosted, carry a lit rim, and keep to
    the squarer corner scale (cards 12px at most) */
 check('panes are frosted glass with a lit rim and tight corners',
-  /blur\(/.test(glass.blur) && glass.rim !== 'none' && glass.grid !== 'none' && glass.radius > 0 && glass.radius <= 12,
+  /blur\(/.test(glass.blur) && glass.rim !== 'none' && glass.radius > 0 && glass.radius <= 12,
   JSON.stringify(glass));
+check('the top and bottom bars are the same glass as the cards',
+  glass.top.fill === glass.pane && glass.tabs.fill === glass.pane &&
+  glass.top.blur === glass.blur && glass.tabs.blur === glass.blur,
+  JSON.stringify({ pane: glass.pane, blur: glass.blur, top: glass.top, tabs: glass.tabs }));
+
+/* backgrounds: plain by default; a preset by choice, carried in the link;
+   an uploaded picture kept in IndexedDB on this device only */
+const bgs = await evaluate(`(async () => {
+  const root = document.documentElement, out = {};
+  const before = () => getComputedStyle(document.body, '::before').backgroundImage;
+  V.store.resetLook(); V.app.lookChanged();
+  out.plain = { attr: root.getAttribute('data-bg'), image: before(), after: getComputedStyle(document.body, '::after').content };
+  V.store.setBackground('ocean'); V.app.lookChanged();
+  out.ocean = { attr: root.getAttribute('data-bg'), image: before().slice(0, 40) };
+  out.roundTrip = V.codec.decode(V.codec.encode(V.store.snapshot())).look.bg;
+  out.inLink = V.codec.decode(location.href).look.bg;
+  /* a 4×3 picture through the real upload path */
+  const c = document.createElement('canvas'); c.width = 4; c.height = 3;
+  const g = c.getContext('2d'); g.fillStyle = '#3a8'; g.fillRect(0, 0, 4, 3);
+  const blob = await new Promise((r) => c.toBlob(r, 'image/png'));
+  out.uploaded = await V.app.uploadBackground(new File([blob], 'bg.png', { type: 'image/png' }));
+  const stored = await V.backdrop.load();
+  V.app.openLook();
+  out.image = { attr: root.getAttribute('data-bg'), css: root.style.getPropertyValue('--bg-image').slice(0, 10),
+    layer: /url\\(/.test(before()), storedType: stored && stored.type, has: V.backdrop.has,
+    tile: document.querySelector('#lookBg [data-bg="image"]').classList.contains('has-image'),
+    remove: !document.querySelector('#bgRemove').hidden, link: V.codec.decode(location.href).look.bg,
+    local: localStorage.length + sessionStorage.length };
+  await V.app.removeBackground();
+  out.removed = { attr: root.getAttribute('data-bg'), stored: await V.backdrop.load(), has: V.backdrop.has,
+    remove: !document.querySelector('#bgRemove').hidden };
+  V.ui.closeSheet(V.app.lookOverlay);
+  await new Promise((r) => setTimeout(r, 300));
+  return out;
+})()`, true);
+check('the background is plain until one is chosen',
+  bgs.plain.attr === 'none' && bgs.plain.image === 'none' && bgs.plain.after === 'none', JSON.stringify(bgs.plain));
+check('a preset background applies and travels in the link',
+  bgs.ocean.attr === 'ocean' && /gradient/.test(bgs.ocean.image) && bgs.roundTrip === 'ocean' && bgs.inLink === 'ocean',
+  JSON.stringify({ ocean: bgs.ocean, roundTrip: bgs.roundTrip, inLink: bgs.inLink }));
+check('an uploaded image is kept in IndexedDB, never in the link or localStorage',
+  bgs.uploaded === true && bgs.image.attr === 'image' && bgs.image.css === 'url("blob:' && bgs.image.layer &&
+  bgs.image.storedType === 'image/jpeg' && bgs.image.has && bgs.image.tile && bgs.image.remove &&
+  bgs.image.link === 'image' && bgs.image.local === 0,
+  JSON.stringify(bgs.image));
+check('removing the image clears the store and the page',
+  bgs.removed.attr === 'none' && bgs.removed.stored === null && !bgs.removed.has && !bgs.removed.remove,
+  JSON.stringify(bgs.removed));
+
+/* switching pages: the new view slides in from its tab's side, and the
+   highlight glides to the tab */
+const slide = await evaluate(`(async () => {
+  const cls = (v) => ['enter-next', 'enter-prev', 'enter'].filter((c) => document.querySelector('#view-' + v).classList.contains(c)).join();
+  const glideAt = () => {
+    const g = document.querySelector('#tabGlide'), bar = g.parentNode.getBoundingClientRect();
+    const ic = document.querySelector('.tab.is-on .tab-ic').getBoundingClientRect();
+    const m = new DOMMatrix(getComputedStyle(g).transform);
+    return Math.abs(bar.left + m.m41 - ic.left) < 1.5 && Math.abs(bar.top + m.m42 - ic.top) < 1.5;
+  };
+  const wait = () => new Promise((r) => setTimeout(r, 700));
+  const out = {};
+  V.views.toggleTab('home'); await wait();
+  V.views.toggleTab('stats'); out.toStats = cls('stats'); await wait(); out.glideStats = glideAt();
+  V.views.toggleTab('calendar'); out.toCalendar = cls('calendar'); await wait(); out.glideCalendar = glideAt();
+  V.views.toggleTab('home'); out.toHome = cls('home'); await wait(); out.glideHome = glideAt();
+  out.homeOnly = !document.querySelector('#view-home').hidden && document.querySelector('#view-stats').hidden;
+  out.wide = document.documentElement.scrollWidth <= document.documentElement.clientWidth;
+  return out;
+})()`, true);
+check('pages slide in from the side of their tab, and the highlight glides there',
+  slide.toStats === 'enter-next' && slide.toCalendar === 'enter-prev' && slide.toHome === 'enter-prev' &&
+  slide.glideStats && slide.glideCalendar && slide.glideHome && slide.homeOnly && slide.wide,
+  JSON.stringify(slide));
 
 /* iOS rounds the corners of the touch icon itself: a pre-rounded icon
    showed as a rounded square with dark corners */

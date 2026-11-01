@@ -11,6 +11,74 @@ window.V = window.V || {};
   var COLOR_NAMES = ['Blue', 'Teal', 'Orange', 'Red', 'Violet', 'Green', 'Magenta', 'Slate'];
   var THEME_LABELS = { system: 'Auto theme', light: 'Light theme', dark: 'Dark theme' };
 
+  /* ══════════ background image ══════════
+     A picture the user uploads is far too big for the link, so it is the
+     one thing this app keeps in the browser: IndexedDB, on this device only.
+     The link records just the choice to use one ("image"); a device without
+     the picture shows the plain page. Large photos are scaled to 2400 px on
+     the long side and kept as JPEG, so the store stays small. */
+  var Backdrop = V.backdrop = {
+    url: null,       // object URL of the picture in use
+    has: false,      // a picture is stored on this device
+    MAX_SIDE: 2400,
+
+    db: function () {
+      return new Promise(function (resolve, reject) {
+        if (!window.indexedDB) { reject(new Error('IndexedDB unavailable')); return; }
+        var req = indexedDB.open('virulenter', 1);
+        req.onupgradeneeded = function () { req.result.createObjectStore('files'); };
+        req.onsuccess = function () { resolve(req.result); };
+        req.onerror = function () { reject(req.error); };
+      });
+    },
+
+    tx: function (mode, run) {
+      return Backdrop.db().then(function (db) {
+        return new Promise(function (resolve, reject) {
+          var t = db.transaction('files', mode);
+          var req = run(t.objectStore('files'));
+          t.oncomplete = function () { db.close(); resolve(req ? req.result : undefined); };
+          t.onerror = t.onabort = function () { db.close(); reject(t.error); };
+        });
+      });
+    },
+
+    load: function () {
+      return Backdrop.tx('readonly', function (st) { return st.get('background'); })
+        .then(function (b) { return b || null; }, function () { return null; });
+    },
+    save: function (blob) { return Backdrop.tx('readwrite', function (st) { return st.put(blob, 'background'); }); },
+    remove: function () { return Backdrop.tx('readwrite', function (st) { return st.delete('background'); }); },
+
+    /* show a picture (or none) behind the page */
+    use: function (blob) {
+      if (Backdrop.url) URL.revokeObjectURL(Backdrop.url);
+      Backdrop.url = blob ? URL.createObjectURL(blob) : null;
+      Backdrop.has = !!blob;
+      var st = document.documentElement.style;
+      if (Backdrop.url) st.setProperty('--bg-image', 'url("' + Backdrop.url + '")');
+      else st.removeProperty('--bg-image');
+    },
+
+    shrink: function (file) {
+      return new Promise(function (resolve, reject) {
+        var src = URL.createObjectURL(file);
+        var img = new Image();
+        img.onload = function () {
+          var k = Math.min(1, Backdrop.MAX_SIDE / Math.max(img.naturalWidth, img.naturalHeight));
+          var c = document.createElement('canvas');
+          c.width = Math.max(1, Math.round(img.naturalWidth * k));
+          c.height = Math.max(1, Math.round(img.naturalHeight * k));
+          c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+          URL.revokeObjectURL(src);
+          c.toBlob(function (b) { if (b) resolve(b); else reject(new Error('could not encode')); }, 'image/jpeg', 0.86);
+        };
+        img.onerror = function () { URL.revokeObjectURL(src); reject(new Error('could not decode')); };
+        img.src = src;
+      });
+    }
+  };
+
   var App = {
     view: 'home',
     editingId: null,
@@ -34,6 +102,10 @@ window.V = window.V || {};
       /* before the first render: card tints depend on the resolved theme */
       App.applyLook(S.look);
       App.bindAll();
+      Backdrop.load().then(function (blob) {
+        if (blob) Backdrop.use(blob);
+        App.renderLook();
+      });
 
       Views.renderSort();
       /* the manifest shortcuts deep-link with #view=… */
@@ -418,6 +490,7 @@ window.V = window.V || {};
       var root = document.documentElement;
       root.setAttribute('data-theme', resolved);
       root.style.colorScheme = resolved;
+      root.setAttribute('data-bg', look.bg || 'none');
 
       var t = Codec.accentTints(Codec.accentValue(look), dark);
       var st = root.style;
@@ -477,7 +550,10 @@ window.V = window.V || {};
       var accent = look.custom ? 'Custom ' + look.custom
         : ((V.ACCENTS.filter(function (a) { return a.id === look.accent; })[0] || V.ACCENTS[0]).label);
       var font = (V.FONTS.filter(function (f) { return f.id === look.font; })[0] || V.FONTS[0]).label;
-      return accent + ' · ' + font + ' font · ' + THEME_LABELS[look.theme || 'system'];
+      var bg = look.bg && look.bg !== 'none'
+        ? ' · ' + ((V.BACKGROUNDS.filter(function (b) { return b.id === look.bg; })[0] || {}).label || '') + ' background'
+        : '';
+      return accent + ' · ' + font + ' font · ' + THEME_LABELS[look.theme || 'system'] + bg;
     },
 
     bindLook: function () {
@@ -541,6 +617,60 @@ window.V = window.V || {};
         App.lookChanged();
         U.toast('Appearance reset');
       });
+
+      /* background: a tile per preset, then your own picture */
+      var bgs = U.qs('#lookBg');
+      bgs.innerHTML = V.BACKGROUNDS.map(function (b) {
+        return '<button class="bg-opt" type="button" role="radio" aria-checked="false" data-bg="' + b.id + '">' +
+          '<span class="bg-thumb" aria-hidden="true">' +
+            (b.id === 'image' ? '<svg class="ico"><use href="#i-upload"/></svg>' : '') +
+          '</span><span class="bg-name">' + U.esc(b.label) + '</span></button>';
+      }).join('') +
+        '<button class="bg-remove" type="button" id="bgRemove" hidden>' +
+          '<svg class="ico" aria-hidden="true"><use href="#i-trash"/></svg>Remove image</button>';
+      var fileIn = U.qs('#bgFile');
+      bgs.addEventListener('click', function (ev) {
+        if (ev.target.closest('#bgRemove')) { App.removeBackground(); return; }
+        var b = ev.target.closest('[data-bg]');
+        if (!b) return;
+        /* your picture's tile uploads one; tapped again while in use, it replaces it */
+        if (b.dataset.bg === 'image' && (!Backdrop.has || S.look.bg === 'image')) { fileIn.click(); return; }
+        S.setBackground(b.dataset.bg);
+        App.lookChanged();
+      });
+      fileIn.addEventListener('change', function () {
+        var file = fileIn.files && fileIn.files[0];
+        fileIn.value = '';
+        if (file) App.uploadBackground(file);
+      });
+    },
+
+    uploadBackground: function (file) {
+      if (file.type && !/^image\//.test(file.type)) { U.toast('Choose an image file'); return Promise.resolve(false); }
+      return Backdrop.shrink(file).then(function (blob) {
+        Backdrop.use(blob);
+        S.setBackground('image');
+        App.lookChanged();
+        return Backdrop.save(blob).then(function () {
+          U.toast('Background set');
+          return true;
+        }, function () {
+          U.toast('Background set — this browser cannot keep it after a reload');
+          return true;
+        });
+      }, function () {
+        U.toast('That image could not be read');
+        return false;
+      });
+    },
+
+    removeBackground: function () {
+      return Backdrop.remove().catch(function () {}).then(function () {
+        Backdrop.use(null);
+        if (S.look.bg === 'image') S.setBackground('none');
+        App.lookChanged();
+        U.toast('Background image removed');
+      });
     },
 
     lookChanged: function () {
@@ -569,6 +699,24 @@ window.V = window.V || {};
         b.classList.toggle('is-on', on);
         b.setAttribute('aria-checked', on ? 'true' : 'false');
       });
+      var bg = look.bg || 'none';
+      U.qsa('#lookBg .bg-opt').forEach(function (b) {
+        var on = b.dataset.bg === bg;
+        b.classList.toggle('is-on', on);
+        b.setAttribute('aria-checked', on ? 'true' : 'false');
+      });
+      var mine = U.qs('#lookBg [data-bg="image"]');
+      if (mine) {
+        mine.classList.toggle('has-image', Backdrop.has);
+        mine.querySelector('.bg-name').textContent = Backdrop.has ? 'Your image' : 'Upload';
+        mine.title = Backdrop.has ? 'Your image — tap again to replace it' : 'Upload an image';
+      }
+      var rm = U.qs('#bgRemove');
+      if (rm) rm.hidden = !Backdrop.has;
+      var hint = U.qs('#lookBgHint');
+      if (hint) hint.textContent = bg === 'image' && !Backdrop.has
+        ? 'Your link uses an uploaded image, but it is on another device. Upload one here, or pick another background.'
+        : 'An uploaded image stays on this device; your link only records that you use one.';
       U.qs('#lookReset').disabled = S.isDefaultLook(look);
       U.qs('#lookSummary').textContent = App.lookSummary();
     },
@@ -1011,8 +1159,9 @@ window.V = window.V || {};
       U.qs('#dataProse').innerHTML =
         '<div class="privacy-ic"><svg class="ico" aria-hidden="true"><use href="#i-shield"/></svg></div>' +
         '<div><b>Your data stays with you</b>' +
-          '<p>No account, no cookies, nothing stored in this browser — your whole log lives in the link below. ' +
-          'Open it on any device to see exactly the same data.</p>' +
+          '<p>No account, no cookies, and your log is never stored in this browser — it lives in the link below. ' +
+          'Open it on any device to see exactly the same data.' +
+          (Backdrop.has ? ' Only the background image you uploaded is kept here.' : '') + '</p>' +
           '<div class="privacy-stats">' +
             '<span><b>' + S.events.length + '</b> ' + U.plural(S.events.length, 'event') + '</span>' +
             '<span><b>' + total + '</b> ' + U.plural(total, 'tap') + '</span>' +

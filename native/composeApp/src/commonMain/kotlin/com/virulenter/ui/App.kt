@@ -1,6 +1,16 @@
 package com.virulenter.ui
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateColorAsState
+import com.virulenter.ui.glass.LocalHazeLayer
+import com.virulenter.ui.glass.LAYER_CONTENT
+import com.virulenter.ui.glass.LAYER_BACKGROUND
+import androidx.compose.foundation.layout.offset
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -98,10 +108,12 @@ fun App(controller: AppController, platform: Platform, onDark: (Boolean) -> Unit
         val g = LocalGlass.current
         LaunchedEffect(g.dark) { onDark(g.dark) }
         val haze = rememberHazeState()
+        /* the picture behind the glass, if the user added one, decoded off the main thread */
+        LaunchedEffect(Unit) { controller.loadBackground(platform) }
         CompositionLocalProvider(LocalPlatform provides platform, LocalHaze provides haze) {
             BoxWithConstraints(Modifier.fillMaxSize().background(g.bg)) {
                 val wide = maxWidth >= 860.dp
-                Backdrop(Modifier.fillMaxSize().hazeSource(haze))
+                Backdrop(state.look.bg, controller.backgroundImage, Modifier.fillMaxSize().hazeSource(haze, zIndex = LAYER_BACKGROUND))
 
                 val safe = WindowInsets.safeDrawing.asPaddingValues()
                 val topBar = 64.dp
@@ -114,17 +126,25 @@ fun App(controller: AppController, platform: Platform, onDark: (Boolean) -> Unit
                 val stats = rememberLazyListState()
                 val settings = rememberLazyListState()
 
-                Box(Modifier.fillMaxSize().padding(start = rail)) {
-                    AnimatedContent(
-                        targetState = controller.tab,
-                        transitionSpec = { fadeIn(tween(220, delayMillis = 60)) togetherWith fadeOut(tween(110)) },
-                        label = "tab",
-                    ) { tab ->
-                        when (tab) {
-                            Tab.Events -> EventsScreen(controller, state, insets, grid)
-                            Tab.Calendar -> CalendarScreen(controller, state, insets, calendar)
-                            Tab.Stats -> StatsScreen(controller, state, insets, stats)
-                            Tab.Settings -> SettingsScreen(controller, state, insets, settings)
+                /* the content is a blur layer of its own, so the bars above it frost what scrolls under them */
+                Box(Modifier.fillMaxSize().padding(start = rail).hazeSource(haze, zIndex = LAYER_CONTENT)) {
+                    CompositionLocalProvider(LocalHazeLayer provides LAYER_CONTENT) {
+                        AnimatedContent(
+                            targetState = controller.tab,
+                            transitionSpec = {
+                                /* pages move the way the tabs lie: right to a later tab, left to an earlier one */
+                                val dir = if (targetState.ordinal > initialState.ordinal) 1 else -1
+                                (slideInHorizontally(tween(360, easing = FastOutSlowInEasing)) { w -> dir * w / 5 } + fadeIn(tween(260)))
+                                    .togetherWith(slideOutHorizontally(tween(300, easing = FastOutSlowInEasing)) { w -> -dir * w / 5 } + fadeOut(tween(180)))
+                            },
+                            label = "tab",
+                        ) { tab ->
+                            when (tab) {
+                                Tab.Events -> EventsScreen(controller, state, insets, grid)
+                                Tab.Calendar -> CalendarScreen(controller, state, insets, calendar)
+                                Tab.Stats -> StatsScreen(controller, state, insets, stats)
+                                Tab.Settings -> SettingsScreen(controller, state, insets, settings)
+                            }
                         }
                     }
                 }
@@ -148,7 +168,7 @@ private fun TopBar(c: AppController, taps: Int, events: Int, statusBar: Dp, heig
     Column(
         Modifier
             .fillMaxWidth()
-            .frost(g, LocalHaze.current, strong = true)
+            .frost(g, LocalHaze.current)
             .padding(top = statusBar),
     ) {
         Row(
@@ -171,7 +191,7 @@ private fun TopBar(c: AppController, taps: Int, events: Int, statusBar: Dp, heig
                 else IconAction(VIcons.Plus, "New event", c::newEvent, size = 44.dp, tint = g.accentInk, filled = false, modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(g.accent))
             }
         }
-        Box(Modifier.fillMaxWidth().height(1.dp).background(g.line))
+        Box(Modifier.fillMaxWidth().height(1.dp).background(g.rim3))
     }
 }
 
@@ -180,19 +200,16 @@ private val tabIcons: Map<Tab, ImageVector> get() = mapOf(
 )
 
 @Composable
-private fun TabButton(tab: Tab, on: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+private fun TabButton(tab: Tab, on: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier, highlight: Boolean = false) {
     val g = LocalGlass.current
+    val wash by animateColorAsState(if (highlight && on) g.accentSoft else Color.Transparent, tween(220), label = "tab")
     Column(
         modifier.clickable(MutableInteractionSource(), null, role = Role.Tab, onClick = onClick).padding(vertical = 6.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Box(
-            Modifier
-                .size(58.dp, 30.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .background(if (on) g.accentSoft else Color.Transparent),
-            contentAlignment = Alignment.Center,
-        ) { VIcon(tabIcons.getValue(tab), if (on) g.accentText else g.text3, 21.dp) }
+        Box(Modifier.size(58.dp, 30.dp).clip(RoundedCornerShape(8.dp)).background(wash), contentAlignment = Alignment.Center) {
+            VIcon(tabIcons.getValue(tab), if (on) g.accentText else g.text3, 21.dp)
+        }
         Spacer(Modifier.height(3.dp))
         Text(tab.label, color = if (on) g.accentText else g.text3, fontSize = 11.5.sp, fontWeight = if (on) FontWeight.Bold else FontWeight.Medium)
     }
@@ -201,10 +218,22 @@ private fun TabButton(tab: Tab, on: Boolean, onClick: () -> Unit, modifier: Modi
 @Composable
 private fun BottomNav(c: AppController, navInset: Dp, height: Dp, modifier: Modifier) {
     val g = LocalGlass.current
-    Column(modifier.fillMaxWidth().frost(g, LocalHaze.current, strong = true)) {
-        Box(Modifier.fillMaxWidth().height(1.dp).background(g.line))
-        Row(Modifier.fillMaxWidth().height(height).padding(horizontal = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-            Tab.entries.forEach { t -> TabButton(t, c.tab == t, { c.tab = t }, Modifier.weight(1f)) }
+    Column(modifier.fillMaxWidth().frost(g, LocalHaze.current)) {
+        Box(Modifier.fillMaxWidth().height(1.dp).background(g.rim1))
+        BoxWithConstraints(Modifier.fillMaxWidth().height(height).padding(horizontal = 6.dp)) {
+            /* one highlight that glides to the chosen tab */
+            val slot = maxWidth / Tab.entries.size
+            val x by animateDpAsState(slot * c.tab.ordinal + (slot - 58.dp) / 2, spring(dampingRatio = 0.72f, stiffness = 420f), label = "glide")
+            Box(
+                Modifier
+                    .offset(x = x, y = 6.dp)
+                    .size(58.dp, 30.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(g.accentSoft),
+            )
+            Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
+                Tab.entries.forEach { t -> TabButton(t, c.tab == t, { c.tab = t }, Modifier.weight(1f)) }
+            }
         }
         Spacer(Modifier.height(navInset))
     }
@@ -214,13 +243,13 @@ private fun BottomNav(c: AppController, navInset: Dp, height: Dp, modifier: Modi
 private fun NavRail(c: AppController, modifier: Modifier) {
     val g = LocalGlass.current
     Column(
-        modifier.glass(g, LocalHaze.current, RectangleShape, strong = true, rim = 0.dp).padding(vertical = 14.dp),
+        modifier.glass(g, LocalHaze.current, RectangleShape, rim = 0.dp).padding(vertical = 14.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Image(painterResource(Res.drawable.app_icon), "Virulenter", Modifier.size(44.dp).clip(RoundedCornerShape(11.dp)))
         Spacer(Modifier.height(14.dp))
-        Tab.entries.forEach { t -> TabButton(t, c.tab == t, { c.tab = t }) }
+        Tab.entries.forEach { t -> TabButton(t, c.tab == t, { c.tab = t }, highlight = true) }
     }
 }
 

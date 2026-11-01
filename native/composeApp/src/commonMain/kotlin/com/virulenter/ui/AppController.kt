@@ -3,10 +3,15 @@ package com.virulenter.ui
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.ImageBitmap
 import com.virulenter.model.Dates
 import com.virulenter.model.Event
 import com.virulenter.model.ImportMode
 import com.virulenter.model.Store
+import com.virulenter.platform.Platform
+import com.virulenter.ui.glass.decodeImage
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.datetime.LocalDate
 
 enum class Tab(val label: String) { Events("Events"), Calendar("Calendar"), Stats("Stats"), Settings("Settings") }
@@ -42,6 +47,31 @@ class AppController(val store: Store) {
     var calendarMonth by mutableStateOf(Dates.monthStart(Dates.today()))
     var search by mutableStateOf("")
     var sort by mutableStateOf(Sort.Recent)
+
+    /** The picture behind the glass, when the user added one; kept on this device only. */
+    var backgroundImage by mutableStateOf<ImageBitmap?>(null)
+        private set
+
+    suspend fun loadBackground(platform: Platform) {
+        val bytes = withContext(Dispatchers.Default) { runCatching { platform.readBackground() }.getOrNull() } ?: return
+        backgroundImage = withContext(Dispatchers.Default) { decodeImage(bytes) }
+    }
+
+    suspend fun useBackground(platform: Platform, bytes: ByteArray) {
+        val image = withContext(Dispatchers.Default) { decodeImage(bytes) }
+        if (image == null) { say("That image could not be read"); return }
+        val kept = withContext(Dispatchers.Default) { runCatching { platform.writeBackground(bytes) }.isSuccess }
+        backgroundImage = image
+        store.setLook(store.current.look.copy(bg = "image"))
+        say(if (kept) "Background set" else "Background set — it could not be saved for next time")
+    }
+
+    fun removeBackground(platform: Platform) {
+        runCatching { platform.writeBackground(null) }
+        backgroundImage = null
+        if (store.current.look.bg == "image") store.setLook(store.current.look.copy(bg = "none"))
+        say("Background image removed")
+    }
 
     fun newEvent() { editing = Editing(null) }
     fun edit(id: String) { editing = Editing(id) }

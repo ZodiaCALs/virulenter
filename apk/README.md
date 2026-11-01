@@ -180,7 +180,7 @@ Checks the package identity, API levels, launcher entry point, absence of the
 internet permission, the resource table, the signature, the bundled web assets
 and that no bundled page references anything off-device.
 
-The web layer inside the APK is the same code, so the web suite (87 checks
+The web layer inside the APK is the same code, so the web suite (94 checks
 for the packaged assets) runs against them too:
 
 ```bash

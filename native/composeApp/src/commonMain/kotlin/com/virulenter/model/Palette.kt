@@ -36,6 +36,20 @@ object Palette {
 
     val THEMES = listOf("system", "light", "dark")
 
+    data class Background(val id: String, val label: String)
+
+    /** In the web app's order (the wire format stores the index): append, never reorder. */
+    val BACKGROUNDS = listOf(
+        Background("none", "None"),
+        Background("aurora", "Aurora"),
+        Background("mist", "Mist"),
+        Background("dusk", "Dusk"),
+        Background("ocean", "Ocean"),
+        Background("forest", "Forest"),
+        Background("graphite", "Graphite"),
+        Background("image", "Your image"),
+    )
+
     fun accentValue(look: Look): String =
         look.custom?.takeIf { isHex(it) }
             ?: ACCENTS.firstOrNull { it.id == look.accent }?.value

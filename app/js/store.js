@@ -10,7 +10,7 @@ window.V = window.V || {};
   var U = V.util, D = V.date, Codec = V.codec;
 
   function defaultLook() {
-    return { accent: V.DEFAULTS.accent, font: V.DEFAULTS.font, custom: null, theme: V.DEFAULTS.theme };
+    return { accent: V.DEFAULTS.accent, font: V.DEFAULTS.font, custom: null, theme: V.DEFAULTS.theme, bg: V.DEFAULTS.bg };
   }
 
   var Store = V.store = {
@@ -93,13 +93,14 @@ window.V = window.V || {};
            caller decides whether to adopt it. */
         if (other.look && target.look) {
           var t = target.look, o = other.look;
-          var look = { accent: t.accent, font: t.font, custom: t.custom || null, theme: t.theme || V.DEFAULTS.theme };
+          var look = { accent: t.accent, font: t.font, custom: t.custom || null, theme: t.theme || V.DEFAULTS.theme, bg: t.bg || V.DEFAULTS.bg };
           if (!t.custom && t.accent === V.DEFAULTS.accent) {
             look.accent = o.accent || look.accent;
             look.custom = o.custom || null;
           }
           if (t.font === V.DEFAULTS.font && o.font) look.font = o.font;
           if (look.theme === V.DEFAULTS.theme && o.theme) look.theme = o.theme;
+          if (look.bg === V.DEFAULTS.bg && o.bg) look.bg = o.bg;
           target.look = look;
         }
       });
@@ -146,7 +147,7 @@ window.V = window.V || {};
     /* ── appearance ─────────────────────────────────────── */
     withLook: function (patch) {
       var cur = Store.look || defaultLook();
-      var next = { accent: cur.accent, font: cur.font, custom: cur.custom || null, theme: cur.theme || V.DEFAULTS.theme };
+      var next = { accent: cur.accent, font: cur.font, custom: cur.custom || null, theme: cur.theme || V.DEFAULTS.theme, bg: cur.bg || V.DEFAULTS.bg };
       Object.keys(patch).forEach(function (k) { next[k] = patch[k]; });
       Store.look = next;
       Store.dirty = true;
@@ -173,6 +174,11 @@ window.V = window.V || {};
       return Store.withLook({ theme: id });
     },
 
+    setBackground: function (id) {
+      if (!V.BACKGROUNDS.some(function (b) { return b.id === id; })) return null;
+      return Store.withLook({ bg: id });
+    },
+
     resetLook: function () {
       Store.look = defaultLook();
       Store.dirty = true;
@@ -182,7 +188,8 @@ window.V = window.V || {};
     isDefaultLook: function (look) {
       look = look || Store.look;
       return look.accent === V.DEFAULTS.accent && look.font === V.DEFAULTS.font &&
-             !look.custom && (look.theme || V.DEFAULTS.theme) === V.DEFAULTS.theme;
+             !look.custom && (look.theme || V.DEFAULTS.theme) === V.DEFAULTS.theme &&
+             (look.bg || V.DEFAULTS.bg) === V.DEFAULTS.bg;
     },
 
     /* ── mutate ─────────────────────────────────────────── */
